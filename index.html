@@ -20,6 +20,7 @@
       --red: #f87171;
       --yellow: #facc15;
       --purple: #a78bfa;
+      --team-color: #93c5fd;
       --radius: 16px;
       --radius-sm: 10px;
     }
@@ -1272,20 +1273,126 @@
       transform: translateY(-1px);
     }
 
+    /* Team themed accents */
+    .player-wrapper {
+      transition: box-shadow 0.4s;
+    }
+    .current-stream-btn {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .current-stream-btn:hover {
+      border-color: var(--team-color);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--team-color) 25%, transparent);
+    }
+    .info-btn {
+      transition: all 0.25s;
+    }
+    .info-btn:hover {
+      border-color: var(--team-color);
+      color: var(--team-color);
+      background: color-mix(in srgb, var(--team-color) 8%, var(--panel));
+    }
+    .standings-tab.active {
+      background: color-mix(in srgb, var(--team-color) 15%, transparent);
+      border-color: var(--team-color);
+      color: var(--team-color);
+    }
+    .standings-tab:hover {
+      border-color: var(--team-color);
+      color: var(--team-color);
+    }
+    .sources button {
+      transition: all 0.25s;
+    }
+    .sources button:hover {
+      border-color: var(--team-color);
+      color: var(--team-color);
+    }
+    .sources button.active {
+      background: color-mix(in srgb, var(--team-color) 12%, transparent);
+      border-color: var(--team-color);
+      color: var(--team-color);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--team-color) 15%, transparent);
+    }
+    .action-btn {
+      transition: all 0.25s;
+    }
+    .action-btn:hover {
+      border-color: var(--team-color);
+      background: color-mix(in srgb, var(--team-color) 8%, var(--panel));
+      color: var(--team-color);
+      transform: translateY(-1px);
+    }
+    .panel-close {
+      transition: all 0.2s;
+    }
+    .panel-close:hover {
+      border-color: var(--team-color);
+      color: var(--team-color);
+      background: color-mix(in srgb, var(--team-color) 8%, var(--panel));
+    }
+    .faq-question {
+      transition: all 0.2s;
+    }
+    .faq-question:hover {
+      color: var(--team-color);
+    }
+    .panel-accordion-question {
+      transition: all 0.2s;
+    }
+    .panel-accordion-question:hover {
+      color: var(--team-color);
+    }
+    .tour-tooltip button {
+      transition: all 0.25s;
+    }
+    .tour-tooltip button:hover {
+      background: color-mix(in srgb, var(--team-color) 30%, rgba(139,92,246,0.2));
+      border-color: var(--team-color);
+      color: var(--team-color);
+    }
+    .adblock-modal button {
+      transition: all 0.25s;
+    }
+    .adblock-modal button:hover {
+      background: color-mix(in srgb, var(--team-color) 30%, rgba(139,92,246,0.2));
+      border-color: var(--team-color);
+      color: var(--team-color);
+    }
+    select {
+      transition: all 0.2s;
+    }
+    select:focus {
+      border-color: var(--team-color);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--team-color) 20%, transparent);
+    }
+    .team-card {
+      transition: all 0.25s;
+    }
+    .team-card:hover {
+      border-color: var(--team-color);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px color-mix(in srgb, var(--team-color) 20%, transparent);
+    }
+    .team-card.selected {
+      border-color: var(--team-color);
+      box-shadow: 0 0 20px var(--team-color), 0 0 0 1px rgba(255,255,255,0.1);
+    }
+
     /* Sessions modal */
     .sessions-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: #06080d;
+      background: #06080d !important;
       z-index: 99999;
       align-items: center;
       justify-content: center;
       padding: 24px;
     }
-    .sessions-overlay.active { display: flex; }
+    .sessions-overlay.active { display: flex !important; }
     .sessions-modal {
-      background: #0a0f1a;
+      background: #0a0f1a !important;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 24px;
@@ -1297,6 +1404,15 @@
       position: relative;
       z-index: 100000;
       isolation: isolate;
+    }
+    .sessions-modal::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: #0a0f1a;
+      border-radius: var(--radius);
+      z-index: -1;
+      pointer-events: none;
     }
     .sessions-header {
       display: flex;
@@ -1369,6 +1485,111 @@
       .sessions-selects { flex-direction: column; }
       .session-result-item { flex-wrap: wrap; gap: 6px; }
       .session-result-time { width: 100%; }
+    }
+
+    /* Team Select */
+    .team-select-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #06080d !important;
+      z-index: 999999;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .team-select-overlay.active { display: flex !important; }
+    .team-select-modal {
+      background: #0a0f1a !important;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 600px;
+      width: 100%;
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      position: relative;
+      z-index: 1000000;
+    }
+    .team-select-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .team-select-header h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+    }
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .team-card {
+      background: rgba(255,255,255,0.02);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .team-card:hover {
+      border-color: rgba(255,255,255,0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .team-card.selected {
+      border-color: var(--team-color, #93c5fd);
+      box-shadow: 0 0 20px rgba(96,165,250,0.2);
+    }
+    .team-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .team-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .team-card .check {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--team-color, #93c5fd);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #fff;
+      font-weight: 700;
+    }
+    .team-card.selected .check { display: flex; }
+    @media (max-width: 640px) {
+      .team-grid { grid-template-columns: repeat(2, 1fr); }
+      .team-card { padding: 12px; }
+      .team-logo { width: 40px; height: 40px; font-size: 0.7rem; }
     }
   </style>
 </head>
@@ -1474,6 +1695,7 @@
     <div class="player-actions">
       <button class="action-btn" id="championshipBtn">Championship</button>
       <button class="action-btn" id="sessionsBtn">Sessions</button>
+      <button class="action-btn" id="teamSelectBtn">Team Select</button>
     </div>
 
     <div class="standings-section" id="standingsSection">
@@ -1515,6 +1737,16 @@
           <div class="sessions-results-loading" id="sessionsResultsLoading" style="display:none;">Loading results…</div>
           <div class="sessions-results" id="sessionsResults"></div>
         </div>
+      </div>
+    </div>
+
+    <div class="team-select-overlay" id="teamSelectOverlay">
+      <div class="team-select-modal">
+        <div class="team-select-header">
+          <h2>Choose Your Team</h2>
+          <button class="panel-close" id="teamSelectClose">&times;</button>
+        </div>
+        <div class="team-grid" id="teamGrid"></div>
       </div>
     </div>
 
@@ -2439,6 +2671,7 @@
       { target: "#player", title: "Video Player", text: "This is where the stream loads. Once you make your selections, the race appears right here.", buttonText: "Next" },
       { target: "#championshipBtn", title: "Championship", text: "Check out the current driver championship standings. Switch between Drivers and Constructors tabs.", buttonText: "Next" },
       { target: "#sessionsBtn", title: "Sessions", text: "View results from past sessions. Select any Grand Prix and session to see driver positions and times.", buttonText: "Next" },
+      { target: "#teamSelectBtn", title: "Team Select", text: "Choose your favorite team to personalize the website with their colors.", buttonText: "Next" },
       { target: "#countdown", title: "Next Race Countdown", text: "This shows you exactly how long until the next Grand Prix or session starts. Right now, the Hungarian Grand Prix Race is coming up in about 19 hours and 38 minutes.", buttonText: "Next" },
       { target: ".footer-buttons", title: "Legal Info", text: "Access our Terms of Service, Privacy Policy, and FAQ anytime from these buttons.", buttonText: "Next" },
       { target: null, title: "Enjoy!", text: "You're all set. Enjoy the race!", buttonText: "Finish" }
@@ -2496,13 +2729,16 @@
             let tooltipTop = rect.bottom + 24;
             let tooltipLeft = rect.left + (rect.width / 2) - (tooltipWidth / 2);
 
-            if (step.target === '#countdown') {
-              tooltipTop = rect.bottom + 16;
-              tooltipLeft = rect.left;
-            } else if (step.target === '.footer-buttons') {
-              tooltipTop = rect.top - tooltipHeight - 16;
-              tooltipLeft = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-            }
+             if (step.target === '#countdown') {
+               tooltipTop = rect.bottom + 16;
+               tooltipLeft = rect.left;
+             } else if (step.target === '#teamSelectBtn') {
+               tooltipTop = rect.bottom + 16;
+               tooltipLeft = rect.left;
+             } else if (step.target === '.footer-buttons') {
+               tooltipTop = rect.top - tooltipHeight - 16;
+               tooltipLeft = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+             }
 
             if (tooltipTop + tooltipHeight > window.innerHeight - 10) {
               if (step.target === '.footer-buttons') {
@@ -2847,6 +3083,7 @@
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
       document.body.style.top = '0';
+      document.body.style.height = '100vh';
       load2026Races();
     });
 
@@ -2857,6 +3094,7 @@
       document.body.style.position = '';
       document.body.style.width = '';
       document.body.style.top = '';
+      document.body.style.height = '';
     });
 
     sessionRaceSelect.addEventListener('change', () => {
@@ -2896,6 +3134,97 @@
         }, 300);
       }
     });
+
+    // ── Team Select ──
+    const teams = [
+      { id: 'default', name: 'Default', color: '#93c5fd', text: '#fff', abbr: 'DF' },
+      { id: 'mclaren', name: 'McLaren', color: '#FF8000', text: '#000', abbr: 'MCL' },
+      { id: 'ferrari', name: 'Ferrari', color: '#DC0000', text: '#fff', abbr: 'FER' },
+      { id: 'redbull', name: 'Red Bull Racing', color: '#1E41FF', text: '#fff', abbr: 'RBR' },
+      { id: 'mercedes', name: 'Mercedes', color: '#00D2BE', text: '#000', abbr: 'MER' },
+      { id: 'williams', name: 'Williams', color: '#005AFF', text: '#fff', abbr: 'WIL' },
+      { id: 'astonmartin', name: 'Aston Martin', color: '#006F62', text: '#fff', abbr: 'AM' },
+      { id: 'alpine', name: 'Alpine', color: '#FF0080', text: '#fff', abbr: 'ALP' },
+      { id: 'haas', name: 'Haas', color: '#FFFFFF', text: '#000', abbr: 'HAA' },
+      { id: 'audi', name: 'Audi', color: '#B6BABD', text: '#000', abbr: 'AUD' },
+      { id: 'cadillac', name: 'Cadillac', color: '#000000', text: '#fff', abbr: 'CAD' },
+      { id: 'racingbulls', name: 'Racing Bulls', color: '#2B4562', text: '#fff', abbr: 'RB' }
+    ];
+
+    const teamSelectOverlay = document.getElementById('teamSelectOverlay');
+    const teamSelectClose = document.getElementById('teamSelectClose');
+    const teamSelectBtn = document.getElementById('teamSelectBtn');
+    const teamGrid = document.getElementById('teamGrid');
+
+    function applyTeamTheme(teamId) {
+      const team = teams.find(t => t.id === teamId) || teams[0];
+      document.documentElement.style.setProperty('--team-color', team.color);
+      
+      document.querySelectorAll('.team-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.teamId === teamId);
+      });
+    }
+
+    function renderTeamGrid() {
+      teamGrid.innerHTML = '';
+      teams.forEach(team => {
+        const card = document.createElement('div');
+        card.className = 'team-card';
+        card.dataset.teamId = team.id;
+        card.style.setProperty('--team-color', team.color);
+        
+        const logo = document.createElement('div');
+        logo.className = 'team-logo';
+        logo.style.background = team.color;
+        logo.style.color = team.text;
+        logo.textContent = team.abbr;
+        
+        const name = document.createElement('div');
+        name.className = 'team-name';
+        name.textContent = team.name;
+        
+        const check = document.createElement('div');
+        check.className = 'check';
+        check.textContent = '✓';
+        
+        card.appendChild(logo);
+        card.appendChild(name);
+        card.appendChild(check);
+        
+        card.addEventListener('click', () => {
+          applyTeamTheme(team.id);
+          localStorage.setItem('freef1_team', team.id);
+        });
+        
+        teamGrid.appendChild(card);
+      });
+    }
+
+    teamSelectBtn.addEventListener('click', () => {
+      teamSelectOverlay.classList.add('active');
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = '0';
+      renderTeamGrid();
+      const savedTeam = localStorage.getItem('freef1_team') || 'default';
+      applyTeamTheme(savedTeam);
+    });
+
+    teamSelectClose.addEventListener('click', () => {
+      teamSelectOverlay.classList.remove('active');
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    });
+
+    const savedTeam = localStorage.getItem('freef1_team');
+    if (savedTeam) {
+      applyTeamTheme(savedTeam);
+    }
   </script>
 </body>
 </html>
