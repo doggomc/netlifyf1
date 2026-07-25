@@ -1,0 +1,2233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F1 - Live</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    :root {
+      --bg: #06080d;
+      --panel: rgba(255,255,255,0.025);
+      --panel-hover: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.06);
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --blue: #60a5fa;
+      --blue-glow: rgba(96,165,250,0.25);
+      --green: #4ade80;
+      --red: #f87171;
+      --yellow: #facc15;
+      --purple: #a78bfa;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      position: relative;
+      line-height: 1.5;
+    }
+
+    /* Animated gradient orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.15;
+      z-index: 0;
+      pointer-events: none;
+      animation: float 20s ease-in-out infinite;
+    }
+    .orb-1 {
+      width: 600px; height: 600px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      top: -200px; left: -150px;
+    }
+    .orb-2 {
+      width: 500px; height: 500px;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      bottom: -200px; right: -100px;
+      animation-delay: -10s;
+    }
+    .orb-3 {
+      width: 400px; height: 400px;
+      background: linear-gradient(135deg, #06b6d4, #3b82f6);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.08;
+      animation-delay: -5s;
+    }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -30px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    }
+
+    /* ── Layout ── */
+    .app {
+      position: relative;
+      z-index: 2;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      min-height: 100vh;
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 20px 16px 40px; }
+    }
+
+    /* ── Main content ── */
+    .main {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Header */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 4px 0;
+      width: 100%;
+    }
+
+    .session-info h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .session-info .meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.25);
+      color: #4ade80;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+    .live-badge::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(74,222,128,0.1), transparent);
+      animation: shimmer 2s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .live-badge::after {
+      content: '';
+      width: 7px; height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--green);
+      animation: pulse 1.8s ease-in-out infinite;
+      position: relative;
+      z-index: 1;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.75); }
+    }
+
+    .timer {
+      font-variant-numeric: tabular-nums;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #93c5fd;
+      background: rgba(59,130,246,0.08);
+      border: 1px solid rgba(59,130,246,0.2);
+      padding: 7px 16px;
+      border-radius: var(--radius-sm);
+      backdrop-filter: blur(10px);
+      letter-spacing: 0.02em;
+    }
+    .countdown {
+      color: #facc15;
+      background: rgba(250,204,21,0.08);
+      border-color: rgba(250,204,21,0.2);
+    }
+    .visitor-counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #4ade80;
+      background: rgba(74,222,128,0.08);
+      border: 1px solid rgba(74,222,128,0.2);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      backdrop-filter: blur(10px);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      position: relative;
+      overflow: hidden;
+    }
+    .controls::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(96,165,250,0.05), rgba(139,92,246,0.05));
+      pointer-events: none;
+    }
+    .select-wrap {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+      z-index: 1;
+    }
+    .select-wrap label {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      margin-bottom: 8px;
+      padding-left: 4px;
+    }
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 14px 44px 14px 18px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+      width: 100%;
+    }
+    select:hover {
+      border-color: rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.05);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(96,165,250,0.1);
+    }
+    select:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 4px rgba(96,165,250,0.15), 0 0 40px rgba(96,165,250,0.15);
+      transform: translateY(-2px);
+    }
+    select option {
+      background: #0f172a;
+      color: var(--text);
+      padding: 12px;
+    }
+    select option:disabled {
+      color: #475569;
+      opacity: 0.6;
+    }
+
+    /* Sources */
+    .sources {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .sources button {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+    .sources button::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(96,165,250,0.1), rgba(139,92,246,0.1));
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .sources button:hover {
+      color: var(--text);
+      border-color: rgba(255,255,255,0.15);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .sources button:hover::before { opacity: 1; }
+    .sources button.active {
+      background: rgba(96,165,250,0.12);
+      border-color: rgba(96,165,250,0.4);
+      color: #93c5fd;
+      box-shadow: 0 0 20px rgba(96,165,250,0.15);
+    }
+    .sources button.active::before { opacity: 1; }
+
+    /* Player */
+    .player-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: linear-gradient(135deg, #0c1222 0%, #0f172a 100%);
+      border: 1px solid var(--border);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03) inset,
+        0 20px 50px -10px rgba(0,0,0,0.6),
+        0 0 100px -20px rgba(96,165,250,0.15);
+      transition: box-shadow 0.4s;
+    }
+    .player-wrapper:hover {
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05) inset,
+        0 25px 60px -10px rgba(0,0,0,0.7),
+        0 0 120px -20px rgba(96,165,250,0.2);
+    }
+
+    .player {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #020408;
+    }
+    .player iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      opacity: 0;
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .player iframe.loaded { opacity: 1; }
+
+    .loader {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: linear-gradient(135deg, #020408 0%, #0a1020 100%);
+      z-index: 2;
+      transition: opacity 0.4s, visibility 0.4s;
+    }
+    .loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.05);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      box-shadow: 0 0 20px rgba(96,165,250,0.3);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader span {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    /* No stream fallback */
+    .no-stream {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: linear-gradient(135deg, #020408 0%, #0a1020 100%);
+      z-index: 3;
+      text-align: center;
+      padding: 40px;
+    }
+    .no-stream.visible { display: flex; }
+    .no-stream h3 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+      animation: fadeText 3s ease-in-out infinite;
+    }
+    .no-stream p {
+      font-size: 0.9rem;
+      color: var(--muted);
+      max-width: 360px;
+      line-height: 1.7;
+      animation: fadeText 3s ease-in-out infinite;
+      animation-delay: 0.3s;
+    }
+    @keyframes fadeText {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    /* Current Stream button */
+    .current-stream-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(135deg, rgba(96,165,250,0.15), rgba(139,92,246,0.15));
+      border: 1px solid rgba(96,165,250,0.3);
+      color: #93c5fd;
+      padding: 12px 24px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+      width: fit-content;
+      box-shadow: 0 0 20px rgba(96,165,250,0.1);
+    }
+    .current-stream-btn:hover {
+      background: linear-gradient(135deg, rgba(96,165,250,0.25), rgba(139,92,246,0.25));
+      border-color: rgba(96,165,250,0.5);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(96,165,250,0.2);
+    }
+    .current-stream-btn:active {
+      transform: translateY(0);
+    }
+    .btn-icon {
+      font-size: 0.75rem;
+      opacity: 0.9;
+    }
+
+    /* ── Legal / Terms / FAQ ── */
+    .legal-section {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      margin-top: 48px;
+      padding: 0 24px 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .legal-block {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      position: relative;
+      overflow: hidden;
+      animation: fadeInUp 0.6s ease-out backwards;
+    }
+    .legal-block:nth-child(1) { animation-delay: 0.1s; }
+    .legal-block:nth-child(2) { animation-delay: 0.2s; }
+    .legal-block:nth-child(3) { animation-delay: 0.3s; }
+
+    .legal-block::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(96,165,250,0.04), rgba(139,92,246,0.04));
+      pointer-events: none;
+    }
+
+    .legal-block h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+      color: var(--text);
+      position: relative;
+      z-index: 1;
+    }
+
+    .legal-block h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #93c5fd;
+      margin-top: 24px;
+      margin-bottom: 10px;
+      position: relative;
+      z-index: 1;
+    }
+    .legal-block h3:first-of-type { margin-top: 0; }
+
+    .legal-block p, .legal-block li {
+      font-size: 0.88rem;
+      line-height: 1.8;
+      color: #cbd5e1;
+      position: relative;
+      z-index: 1;
+    }
+
+    .legal-block p { margin-bottom: 12px; }
+    .legal-block ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 12px 0;
+    }
+    .legal-block ul li {
+      padding: 6px 0 6px 20px;
+      position: relative;
+    }
+    .legal-block ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 16px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 8px var(--blue-glow);
+    }
+
+    .legal-block a {
+      color: #93c5fd;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(96,165,250,0.3);
+      transition: all 0.2s;
+    }
+    .legal-block a:hover {
+      color: #60a5fa;
+      border-bottom-color: #60a5fa;
+    }
+
+    /* FAQ Accordion */
+    .faq-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 10px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.01);
+      transition: all 0.3s;
+      position: relative;
+      z-index: 1;
+    }
+    .faq-item:hover {
+      border-color: rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .faq-question {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 600;
+      padding: 16px 20px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    .faq-question:hover { color: #93c5fd; }
+
+    .faq-icon {
+      width: 20px;
+      height: 20px;
+      position: relative;
+      flex-shrink: 0;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .faq-icon::before, .faq-icon::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #93c5fd;
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+    .faq-icon::before {
+      width: 12px;
+      height: 2px;
+    }
+    .faq-icon::after {
+      width: 2px;
+      height: 12px;
+    }
+    .faq-item.active .faq-icon {
+      transform: rotate(180deg);
+    }
+    .faq-item.active .faq-icon::after {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s;
+    }
+    .faq-answer-inner {
+      padding: 0 20px 16px;
+      font-size: 0.88rem;
+      line-height: 1.8;
+      color: #cbd5e1;
+    }
+
+    .last-updated {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: right;
+      margin-top: -8px;
+      padding: 0 32px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      width: 100%;
+      text-align: center;
+      padding: 32px 20px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+      position: relative;
+      z-index: 2;
+    }
+    .footer a {
+      color: #93c5fd;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(96,165,250,0.2);
+      transition: all 0.2s;
+    }
+    .footer a:hover { color: #60a5fa; border-bottom-color: #60a5fa; }
+
+    /* ── Info Panels ── */
+    .info-panel {
+      display: none;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      position: relative;
+      overflow: hidden;
+      animation: fadeInUp 0.4s ease-out;
+    }
+    .info-panel.active {
+      display: block;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 32px 16px;
+      position: relative;
+      z-index: 1;
+    }
+    .panel-header h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin: 0;
+    }
+    .panel-close {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .panel-close:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.2);
+      color: #f87171;
+    }
+
+    .panel-accordion {
+      padding: 0 32px 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .panel-accordion-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 10px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.01);
+      transition: all 0.3s;
+    }
+    .panel-accordion-item:hover {
+      border-color: rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.02);
+    }
+    .panel-accordion-question {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 600;
+      padding: 16px 20px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    .panel-accordion-question:hover { color: #93c5fd; }
+    .panel-accordion-item.active .faq-icon {
+      transform: rotate(180deg);
+    }
+    .panel-accordion-item.active .faq-icon::after {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+    .panel-accordion-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s;
+    }
+    .panel-accordion-answer-inner {
+      padding: 0 20px 16px;
+      font-size: 0.88rem;
+      line-height: 1.8;
+      color: #cbd5e1;
+    }
+    .panel-accordion-item h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #93c5fd;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    .panel-accordion-item h3:first-of-type { margin-top: 0; }
+    .panel-accordion-item p, .panel-accordion-item li {
+      font-size: 0.88rem;
+      line-height: 1.8;
+      color: #cbd5e1;
+    }
+    .panel-accordion-item p { margin-bottom: 12px; }
+    .panel-accordion-item ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 12px 0;
+    }
+    .panel-accordion-item ul li {
+      padding: 6px 0 6px 20px;
+      position: relative;
+    }
+    .panel-accordion-item ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 16px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 8px var(--blue-glow);
+    }
+
+    /* Footer buttons */
+    .footer-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .info-btn {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .info-btn:hover {
+      border-color: rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.05);
+      color: #93c5fd;
+    }
+
+    /* Ad placeholders */
+    .ad-container {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 8px 0;
+    }
+    .ad-slot {
+      width: 100%;
+      max-width: 728px;
+      height: 90px;
+      background: var(--panel);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s;
+    }
+    .ad-slot:hover {
+      border-color: rgba(255,255,255,0.2);
+      background: var(--panel-hover);
+    }
+    @media (max-width: 768px) {
+      .ad-slot { max-width: 100%; }
+    }
+
+    /* Adblock detector */
+    .adblock-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(6,8,13,0.92);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .adblock-overlay.active { display: flex; }
+    .adblock-modal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      backdrop-filter: blur(20px);
+    }
+    .adblock-modal h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .adblock-modal p {
+      font-size: 0.92rem;
+      color: #cbd5e1;
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+    .adblock-modal button {
+      background: linear-gradient(135deg, rgba(96,165,250,0.2), rgba(139,92,246,0.2));
+      border: 1px solid rgba(96,165,250,0.4);
+      color: #93c5fd;
+      padding: 12px 28px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+    .adblock-modal button:hover {
+      background: linear-gradient(135deg, rgba(96,165,250,0.3), rgba(139,92,246,0.3));
+      border-color: rgba(96,165,250,0.6);
+      transform: translateY(-1px);
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .main > * {
+      animation: fadeInUp 0.5s ease-out backwards;
+    }
+    .main > :nth-child(1) { animation-delay: 0.05s; }
+    .main > :nth-child(2) { animation-delay: 0.1s; }
+    .main > :nth-child(3) { animation-delay: 0.15s; }
+    .main > :nth-child(4) { animation-delay: 0.2s; }
+
+    @media (max-width: 768px) {
+      .app { padding: 20px 16px 40px; }
+      .session-info h1 { font-size: 1.4rem; }
+      .session-info .meta { font-size: 0.78rem; }
+      .topbar-right { gap: 8px; }
+      .timer { font-size: 0.85rem; padding: 6px 12px; }
+      .countdown { font-size: 0.78rem; padding: 5px 10px; }
+      .visitor-counter { font-size: 0.78rem; padding: 5px 10px; gap: 4px; }
+      .live-badge { font-size: 0.65rem; padding: 5px 10px; }
+      .controls { padding: 16px; gap: 12px; }
+      .select-wrap label { font-size: 0.65rem; }
+      select { font-size: 0.82rem; padding: 12px 38px 12px 14px; }
+      .sources button { padding: 8px 14px; font-size: 0.75rem; }
+      .current-stream-btn { width: 100%; justify-content: center; font-size: 0.82rem; padding: 10px 18px; }
+      .player-wrapper { border-radius: 12px; }
+      .legal-section { padding: 0 16px 48px; gap: 24px; margin-top: 32px; }
+      .legal-block { padding: 20px; }
+      .panel-header { padding: 20px 20px 12px; }
+      .panel-header h2 { font-size: 1.1rem; }
+      .panel-accordion { padding: 0 20px 20px; }
+      .footer { padding: 24px 16px; font-size: 0.72rem; }
+      .footer-buttons { gap: 8px; }
+      .info-btn { padding: 8px 14px; font-size: 0.78rem; }
+      .adblock-modal { padding: 24px; }
+      .adblock-modal h2 { font-size: 1.2rem; }
+      .adblock-modal p { font-size: 0.85rem; }
+      .tour-tooltip { padding: 20px; max-width: calc(100% - 32px); }
+      .tour-tooltip h3 { font-size: 1.05rem; }
+      .tour-tooltip p { font-size: 0.85rem; }
+      .tour-tooltip button { padding: 10px 20px; font-size: 0.85rem; }
+      .info-panel { border-radius: 12px; }
+    }
+
+    @media (max-width: 640px) {
+      .app { padding: 16px 12px 32px; gap: 16px; }
+      .session-info h1 { font-size: 1.2rem; }
+      .topbar { gap: 10px; }
+      .topbar-right { width: 100%; justify-content: space-between; }
+      .timer { font-size: 0.78rem; padding: 5px 10px; }
+      .countdown { font-size: 0.72rem; padding: 4px 8px; max-width: 100%; }
+      .visitor-counter { font-size: 0.72rem; padding: 4px 8px; gap: 3px; }
+      .controls { padding: 14px; gap: 10px; }
+      .select-wrap { min-width: 100% !important; }
+      select { font-size: 0.78rem; padding: 10px 34px 10px 12px; }
+      .sources { gap: 6px; }
+      .sources button { padding: 7px 10px; font-size: 0.72rem; }
+      .current-stream-btn { font-size: 0.78rem; padding: 10px 16px; }
+      .player-wrapper { border-radius: 10px; }
+      .ad-container { flex-direction: column; }
+      .legal-section { padding: 0 12px 36px; gap: 20px; margin-top: 24px; }
+      .legal-block { padding: 16px; border-radius: 12px; }
+      .legal-block h2 { font-size: 1.05rem; }
+      .legal-block h3 { font-size: 0.78rem; }
+      .legal-block p, .legal-block li { font-size: 0.82rem; }
+      .panel-header { padding: 16px 16px 10px; }
+      .panel-header h2 { font-size: 1rem; }
+      .panel-accordion { padding: 0 16px 16px; }
+      .panel-accordion-question { font-size: 0.82rem; padding: 14px 16px; }
+      .panel-accordion-answer-inner { font-size: 0.82rem; padding: 0 16px 14px; }
+      .footer { padding: 20px 12px; margin-top: 16px; }
+      .footer-buttons { flex-direction: column; align-items: center; gap: 6px; }
+      .info-btn { width: 100%; max-width: 280px; text-align: center; padding: 10px 16px; font-size: 0.82rem; }
+      .adblock-modal { padding: 20px; border-radius: 12px; }
+      .adblock-modal h2 { font-size: 1.1rem; }
+      .adblock-modal p { font-size: 0.82rem; }
+      .adblock-modal button { padding: 10px 24px; font-size: 0.85rem; width: 100%; }
+      .tour-tooltip { padding: 16px; border-radius: 12px; }
+      .tour-tooltip h3 { font-size: 1rem; }
+      .tour-tooltip p { font-size: 0.82rem; margin-bottom: 16px; }
+      .tour-tooltip button { width: 100%; padding: 12px 20px; font-size: 0.85rem; }
+      .info-panel { border-radius: 12px; }
+      .faq-question { font-size: 0.82rem; padding: 14px 16px; }
+      .faq-answer-inner { font-size: 0.82rem; padding: 0 16px 14px; }
+    }
+
+    /* Tour */
+    .tour-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .tour-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .tour-spotlight {
+      position: absolute;
+      border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(6, 8, 13, 0.88), 0 0 0 2px rgba(96, 165, 250, 0.9), 0 0 24px rgba(96, 165, 250, 0.45);
+      transition: all 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      display: none;
+    }
+    .tour-tooltip {
+      position: absolute;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 360px;
+      width: calc(100% - 48px);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      transition: all 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: auto;
+      z-index: 10001;
+      display: none;
+    }
+    .tour-tooltip h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .tour-tooltip p {
+      font-size: 0.92rem;
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .tour-tooltip button {
+      background: linear-gradient(135deg, rgba(96,165,250,0.2), rgba(139,92,246,0.2));
+      border: 1px solid rgba(96,165,250,0.4);
+      color: #93c5fd;
+      padding: 10px 24px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+    .tour-tooltip button:hover {
+      background: linear-gradient(135deg, rgba(96,165,250,0.3), rgba(139,92,246,0.3));
+      border-color: rgba(96,165,250,0.6);
+    }
+  </style>
+</head>
+<body>
+  <div class="adblock-overlay" id="adblockOverlay">
+    <div class="adblock-modal">
+      <h2>Please disable your ad blocker</h2>
+      <p>This is a <strong>free website</strong> and the ads help us generate money to keep the site running. Without ads, we can't afford to keep providing this service for free.</p>
+      <button id="adblockReload">I have disabled it</button>
+    </div>
+  </div>
+
+  <div class="tour-overlay" id="tourOverlay">
+    <div class="tour-spotlight" id="tourSpotlight"></div>
+    <div class="tour-tooltip" id="tourTooltip">
+      <h3 id="tourTitle">Welcome to FreeF1</h3>
+      <p id="tourText">Let's take a tour shall we?</p>
+      <button id="tourNext">Start</button>
+    </div>
+  </div>
+
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="app">
+    <div class="main">
+      <div class="topbar">
+        <div class="session-info">
+          <h1 id="title">Hungarian Grand Prix</h1>
+          <div class="meta" id="subtitle">Qualifying · 2026</div>
+        </div>
+        <div class="topbar-right">
+          <div class="live-badge" id="badge">Live</div>
+          <div class="timer" id="clock">--:--:--</div>
+          <div class="visitor-counter" id="visitorCounter">
+            <span id="visitorCount">--</span>
+          </div>
+          <div class="timer countdown" id="countdown" title="Next session">Next: --:--:--</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="select-wrap">
+          <label>Grand Prix</label>
+          <select id="eventSelect"></select>
+        </div>
+        <div class="select-wrap">
+          <label>Session</label>
+          <select id="sessionSelect"></select>
+        </div>
+      </div>
+
+      <div class="sources" id="links"></div>
+
+      <button class="current-stream-btn" id="currentStreamBtn">
+        <span class="btn-icon">▶</span>
+        <span>Current Stream</span>
+      </button>
+
+      <div class="ad-container">
+        <!-- Ads disabled
+        <script type="text/javascript">
+          atOptions = {
+            'key': '30431976',
+            'format': 'iframe',
+            'height': 90,
+            'width': 728,
+            'params': {}
+          };
+        </script>
+        <script type="text/javascript" src="//pl30532475.effectivecpmnetwork.com/invoke.js"></script>
+        <div id="at-container-30431976"></div>
+
+        <script type="text/javascript">
+          atOptions = {
+            'key': '30431976',
+            'format': 'iframe',
+            'height': 90,
+            'width': 728,
+            'params': {}
+          };
+        </script>
+        <script type="text/javascript" src="//pl30532475.effectivecpmnetwork.com/invoke.js"></script>
+        <div id="at-container-30431976-2"></div>
+        -->
+      </div>
+
+      <div class="player-wrapper">
+        <div class="player" id="player">
+          <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <span>Loading stream…</span>
+          </div>
+          <div class="no-stream" id="noStream">
+            <h3>Hang tight</h3>
+            <p>We're working on getting this stream up for you. Check back soon!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEGAL / TERMS / FAQ -->
+  <div class="legal-section">
+    <div class="info-panel" id="termsPanel">
+      <div class="panel-header">
+        <h2>Terms of Service</h2>
+        <button class="panel-close" data-panel="termsPanel">&times;</button>
+      </div>
+      <p class="last-updated">Last updated: July 2026</p>
+
+      <div class="panel-accordion">
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            1. Acceptance of Terms
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>By accessing or using this website, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use this website. We reserve the right to modify these terms at any time, and your continued use of the site following any changes indicates your acceptance of the new terms.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            2. No Affiliation with Formula 1
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>This website is not affiliated with, endorsed by, or connected to Formula One Licensing B.V., Formula One World Championship Limited, the Fédération Internationale de l'Automobile (FIA), or any of their respective subsidiaries, affiliates, or related entities. The names "Formula 1," "F1," "Formula One," and all related marks are trademarks of Formula One Licensing B.V. Any use of such marks is for descriptive purposes only and does not imply any endorsement or affiliation.</p>
+              <p>We are an independent service and have no official partnership, sponsorship, or commercial relationship with Formula 1, the FIA, or any official motorsport governing body. All references to racing events, drivers, teams, and circuits are provided for informational and descriptive purposes only.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            3. No Streaming or Broadcasting Services
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>This website does not host, stream, broadcast, transmit, or distribute any video, audio, or multimedia content of any kind. We do not provide live or recorded coverage of any sporting event, including Formula 1 races, qualifying sessions, or practice sessions.</p>
+              <p>Any embedded content displayed on this website is served by third-party services and is not under our control. We do not create, produce, or modify any streaming content. We are merely a directory or interface that links to publicly available content hosted on external servers and platforms that we do not own, operate, or manage.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            4. No Content Ownership
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>We claim no ownership over any content displayed through or linked from this website. All video, audio, imagery, text, graphics, logos, trademarks, and other intellectual property displayed belong to their respective owners. We do not assert any rights to such content and make no claim to any copyrights, trademarks, or other intellectual property rights.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            5. Limitation of Liability
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>This website is provided on an "as is" and "as available" basis without warranties of any kind, either express or implied. To the fullest extent permitted by applicable law, we expressly disclaim all warranties, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement.</p>
+              <p>In no event shall we, our directors, officers, employees, agents, affiliates, or contributors be liable for any direct, indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, use, goodwill, or other intangible losses, resulting from:</p>
+              <ul>
+                <li>Your access to or use of or inability to access or use the website;</li>
+                <li>Any content obtained from the website;</li>
+                <li>Any unauthorized access to or use of our servers or personal information stored therein;</li>
+                <li>Any bugs, viruses, trojan horses, or similar harmful code transmitted to or through the website;</li>
+                <li>Any errors or omissions in the website's content or functionality;</li>
+                <li>Any interruption or cessation of transmission to or from the website;</li>
+                <li>Any defamatory, offensive, or illegal conduct of any user or third party.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            6. Third-Party Content and Links
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>This website may contain links to third-party websites, services, or resources that are not owned or controlled by us. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party websites or services. You acknowledge and agree that we shall not be responsible or liable for any damage or loss caused by your use of any such third-party content or services.</p>
+              <p>The inclusion of any link does not imply our endorsement, recommendation, or approval of the linked website or its content. We encourage you to review the terms of service and privacy policies of any third-party websites you visit.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            7. DMCA and Copyright Notice
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>We respect the intellectual property rights of others and expect our users to do the same. We do not host any content on our servers. If you believe that any content accessible through or from this website infringes upon your copyright, please notify us immediately at the contact information provided below. We will review all claims of copyright infringement and take appropriate action as required by applicable law, which may include removing or disabling access to the allegedly infringing content.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            8. User Conduct
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>You agree not to use this website for any unlawful purpose or in any way that could damage, disable, overburden, or impair the website or interfere with any other party's use and enjoyment of the website. You agree not to attempt to gain unauthorized access to any portion of the website, other accounts, computer systems, or networks connected to the website through hacking, password mining, or any other means.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            9. Indemnification
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>You agree to indemnify, defend, and hold harmless this website, its operators, affiliates, and contributors from and against any and all claims, damages, losses, liabilities, costs, and expenses (including reasonable attorneys' fees) arising out of or in any way connected with your access to or use of the website, your violation of these Terms of Service, or your violation of any rights of another person or entity.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            10. Termination
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>We reserve the right to terminate or suspend your access to all or part of the website at any time, with or without cause, and with or without notice, for any reason whatsoever, including without limitation any breach of these Terms of Service.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            11. Governing Law and Jurisdiction
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>These Terms of Service shall be governed by and construed in accordance with the laws of the jurisdiction in which the website operator resides, without giving effect to any principles of conflicts of law. You agree to submit to the personal and exclusive jurisdiction of the courts located within such jurisdiction for the resolution of any disputes arising out of or relating to these terms or your use of the website.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            12. Severability
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>If any provision of these Terms of Service is found to be invalid, illegal, or unenforceable by a court of competent jurisdiction, the remaining provisions shall continue in full force and effect. The invalid or unenforceable provision shall be replaced with a valid and enforceable provision that most closely matches the intent of the original provision.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            13. Entire Agreement
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>These Terms of Service, together with our Privacy Policy, constitute the entire agreement between you and the website operator with respect to your use of the website and supersede all prior agreements and understandings, whether written or oral.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            14. Contact Information
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>If you have any questions about these Terms of Service, please contact us through the contact methods provided on this website. We will make every effort to respond to your inquiry in a timely manner.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-panel" id="privacyPanel">
+      <div class="panel-header">
+        <h2>Privacy Policy</h2>
+        <button class="panel-close" data-panel="privacyPanel">&times;</button>
+      </div>
+      <p class="last-updated">Last updated: July 2026</p>
+
+      <div class="panel-accordion">
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            1. Information We Collect
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>We do not collect, store, or process any personal information from visitors to this website. We do not require user registration, and we do not ask for any personal details such as your name, email address, phone number, or postal address.</p>
+              <p>We do not collect any data about your browsing behavior, including pages visited, time spent on pages, referring URLs, or interaction with elements on the website. We do not create user profiles or track your activity across sessions.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            2. Cookies and Tracking Technologies
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>This website does not use cookies, web beacons, pixel tags, or any other tracking technologies. We do not place any files on your device, and we do not access any information stored on your device. Your use of this website does not result in any data being stored locally or remotely that could be used to identify you or track your activity.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            3. Log Files and Analytics
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>We do not maintain log files of visitor activity. We do not use any analytics services, including but not limited to Google Analytics, Plausible Analytics, or any third-party tracking scripts. We have no visibility into how you interact with this website beyond what is technically necessary for the basic functioning of the page.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            4. Data Sharing and Disclosure
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>Since we do not collect any personal information, we do not share, sell, rent, or trade any personal information with third parties. There is no data to share. We have no data broker relationships, no advertising partners, and no data monetization practices of any kind.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            5. Third-Party Services
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>While we do not collect data ourselves, please be aware that third-party services embedded on or linked from this website may have their own data collection practices. We strongly encourage you to review the privacy policies of any third-party services you access through links on this website. We are not responsible for the privacy practices of any third-party websites or services.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            6. Data Security
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>Given that we do not collect or store any personal information, the risk of a data breach affecting your personal information through this website is effectively eliminated. We take reasonable precautions to protect the integrity and security of the website itself, but we cannot guarantee absolute security of any data transmitted over the internet.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            7. Children's Privacy
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>This website is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware that we have inadvertently collected personal information from a child under 13, we will take immediate steps to delete such information.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            8. Changes to This Privacy Policy
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated revision date. We encourage you to review this Privacy Policy periodically for any changes. Your continued use of the website following any changes indicates your acceptance of the updated Privacy Policy.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            9. Your Rights
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>Since we do not collect any personal information about you, there is no personal data for you to access, correct, update, or delete. If you have any concerns about your privacy in relation to this website, please contact us and we will address your concerns promptly.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-accordion-item">
+          <button class="panel-accordion-question">
+            10. Contact
+            <span class="faq-icon"></span>
+          </button>
+          <div class="panel-accordion-answer">
+            <div class="panel-accordion-answer-inner">
+              <p>If you have any questions about this Privacy Policy or our data practices, please contact us through the contact methods provided on this website.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-panel" id="faqPanel">
+      <div class="panel-header">
+        <h2>Frequently Asked Questions</h2>
+        <button class="panel-close" data-panel="faqPanel">&times;</button>
+      </div>
+      <p class="last-updated">Have a question? We've got answers.</p>
+
+      <div class="panel-accordion">
+        <div class="faq-item">
+          <button class="faq-question">
+            Do you track my activity on this website?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. We do not track your activity in any way. We do not use analytics tools, tracking scripts, or any technology that monitors your behavior on this website. Your visits are completely private and anonymous.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Do you sell my data?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. We do not collect any personal data, and we certainly do not sell, rent, or share any information with third parties. There is no data to sell. We have no advertising partnerships and no data monetization practices.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Do you use cookies or tracking technologies?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. We do not use cookies, web beacons, pixel tags, local storage, or any other tracking technologies. Nothing is stored on your device when you visit this website.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Are you affiliated with Formula 1 or the FIA?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. We are an independent website and have no affiliation, endorsement, or connection with Formula One Licensing B.V., the Fédération Internationale de l'Automobile (FIA), or any other official motorsport governing body. We are not sponsored by, partnered with, or connected to any official Formula 1 entity.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Do you host the streams shown on this website?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. We do not host, store, or distribute any video or audio content. All streams are embedded from third-party sources that we do not control. We act solely as a directory or interface and have no involvement in the creation, hosting, or distribution of the content displayed.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Where do the streams come from?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Streams are sourced from publicly available embedded content providers. We do not create, produce, or verify the content of these streams. We simply provide links to content that is publicly accessible on the internet. We are not responsible for the availability, quality, or legality of any third-party content.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Is this website legal?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">We operate within the boundaries of applicable law by not hosting any copyrighted content ourselves and by providing only links to publicly available content. However, the legality of streaming sports content varies by jurisdiction. You are responsible for complying with the laws in your country or region. We encourage you to review your local regulations regarding the streaming of sports content.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Do you have any advertising on the website?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. We do not display any advertisements on this website. There are no banner ads, pop-ups, video ads, or any other form of advertising. We are not monetized through advertising, and we have no ad networks or ad serving technologies integrated.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Can I trust the security of this website?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">We take reasonable measures to maintain the security of our website. All connections to this website are encrypted using HTTPS. Since we do not collect any personal data, there is no sensitive information at risk. However, please be aware that third-party embedded content may have different security standards, and we are not responsible for the security practices of external services.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Why do you not provide official F1 timing or race data?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">Official Formula 1 timing and race data are proprietary and are exclusively provided by Formula One Licensing B.V. through official channels. We do not have access to official live timing feeds. Any timing information shown on this website is simulated or estimated for demonstration purposes only and should not be relied upon for accuracy.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            How can I contact you?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">You can reach us through the contact methods provided on this website. We welcome your questions, feedback, and concerns. Please allow reasonable time for a response, as we are a small independent operation. For urgent matters related to copyright or legal issues, please use the subject line "URGENT" in your communication.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Do you store any data at all?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. We do not store any personal data, usage data, or any other information about visitors to this website. We have no database of user information. There are no server-side logs of individual visits. When you leave this website, no trace of your visit remains on our systems.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Will you ever sell this website or my data?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">We have no data to sell. Since we do not collect any personal information from our users, there is nothing to monetize or transfer. If this website is ever sold or transferred to a new owner, this privacy policy will remain in effect, and the new owner will be bound by the same commitment to user privacy.</div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            Can I use this website commercially?
+            <span class="faq-icon"></span>
+          </button>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">No. This website is provided for personal, non-commercial use only. You may not use this website or its content for any commercial purpose, including but not limited to selling access, displaying advertising, or using the content to promote other products or services, without our express written permission.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-buttons">
+        <button class="info-btn" data-panel="termsPanel">Terms of Service</button>
+        <button class="info-btn" data-panel="faqPanel">FAQ</button>
+        <button class="info-btn" data-panel="privacyPanel">Privacy Policy</button>
+      </div>
+      <p>F1 Live Player. All rights reserved. Not affiliated with Formula 1, FIA, or any official motorsport organization. Use at your own risk.</p>
+      <p style="margin-top:8px;">For legal inquiries, contact us through the methods provided on this website.</p>
+    </footer>
+  </div>
+
+  <script>
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    document.addEventListener('selectstart', event => event.preventDefault());
+    document.addEventListener('dragstart', event => event.preventDefault());
+
+    // ── Schedule ──
+    const schedule = [
+      {
+        slug: "hungary",
+        name: "Hungarian Grand Prix",
+        sessions: [
+          { slug: "fp1",        name: "Practice 1",   start: "2026-07-24T11:30:00Z" },
+          { slug: "fp2",        name: "Practice 2",   start: "2026-07-24T15:00:00Z" },
+          { slug: "fp3",        name: "Practice 3",   start: "2026-07-25T10:30:00Z" },
+          { slug: "qualifying", name: "Qualifying",   start: "2026-07-25T14:00:00Z" },
+          { slug: "race",       name: "Race",         start: "2026-07-26T13:00:00Z" }
+        ]
+      },
+      {
+        slug: "netherlands",
+        name: "Dutch Grand Prix",
+        sessions: [
+          { slug: "fp1", name: "Practice 1", start: "2026-08-21T11:30:00Z" },
+          { slug: "fp2", name: "Practice 2", start: "2026-08-21T15:00:00Z" },
+          { slug: "fp3", name: "Practice 3", start: "2026-08-22T10:30:00Z" },
+          { slug: "qualifying", name: "Qualifying", start: "2026-08-22T14:00:00Z" },
+          { slug: "race", name: "Race", start: "2026-08-23T13:00:00Z" }
+        ]
+      },
+      {
+        slug: "italy",
+        name: "Italian Grand Prix",
+        sessions: [
+          { slug: "fp1", name: "Practice 1", start: "2026-09-04T11:30:00Z" },
+          { slug: "fp2", name: "Practice 2", start: "2026-09-04T15:00:00Z" },
+          { slug: "fp3", name: "Practice 3", start: "2026-09-05T10:30:00Z" },
+          { slug: "qualifying", name: "Qualifying", start: "2026-09-05T14:00:00Z" },
+          { slug: "race", name: "Race", start: "2026-09-06T13:00:00Z" }
+        ]
+      }
+    ];
+
+    const sources = [
+      { label: "F1TV",          suffix: "" },
+      { label: "F1TV Alt",      suffix: "/f1tv" },
+      { label: "DAZN",          suffix: "/dazn-es" },
+      { label: "Sky Sports F1", suffix: "/sky-sport-f1-de" }
+    ];
+
+    // ── State ──
+    let currentEvent = schedule[0];
+    let currentSession = currentEvent.sessions[3]; // Qualifying
+    let currentSource = 0;
+
+    const eventSelect    = document.getElementById("eventSelect");
+    const sessionSelect  = document.getElementById("sessionSelect");
+    const linksEl        = document.getElementById("links");
+    const playerEl       = document.getElementById("player");
+    const loaderEl       = document.getElementById("loader");
+    const noStreamEl     = document.getElementById("noStream");
+    const titleEl        = document.getElementById("title");
+    const subtitleEl     = document.getElementById("subtitle");
+    const badgeEl        = document.getElementById("badge");
+    const clockEl        = document.getElementById("clock");
+    const countdownEl    = document.getElementById("countdown");
+    const visitorCountEl = document.getElementById("visitorCount");
+
+    // ── Stream availability check ──
+    function isStreamAvailable(session) {
+      const now = new Date();
+      const start = new Date(session.start);
+      const diffHours = (now - start) / (1000 * 60 * 60);
+      // Stream available from 1 hour before start to 3 hours after start
+      return diffHours >= -1 && diffHours <= 3;
+    }
+
+    function isSessionEnded(session) {
+      const now = new Date();
+      const start = new Date(session.start);
+      const diffHours = (now - start) / (1000 * 60 * 60);
+      return diffHours > 4;
+    }
+
+    function getCurrentLiveSession() {
+      const now = new Date();
+      for (const ev of schedule) {
+        for (const s of ev.sessions) {
+          const start = new Date(s.start);
+          const diffHours = (now - start) / (1000 * 60 * 60);
+          if (diffHours >= -1 && diffHours <= 3) {
+            return { event: ev, session: s };
+          }
+        }
+      }
+      return null;
+    }
+
+    // ── Populate selectors ──
+    function populate() {
+      eventSelect.innerHTML = "";
+      schedule.forEach(ev => {
+        const o = document.createElement("option");
+        o.value = ev.slug;
+        o.textContent = ev.name;
+        if (ev.slug === currentEvent.slug) o.selected = true;
+        eventSelect.appendChild(o);
+      });
+      updateSessions();
+      updateCurrentStreamButton();
+    }
+
+    function updateSessions() {
+      sessionSelect.innerHTML = "";
+      currentEvent.sessions.forEach(s => {
+        const o = document.createElement("option");
+        o.value = s.slug;
+        o.textContent = s.name;
+        if (s.slug === currentSession.slug) o.selected = true;
+        if (isSessionEnded(s)) {
+          o.disabled = true;
+          o.textContent = `${s.name} (ended)`;
+        }
+        sessionSelect.appendChild(o);
+      });
+    }
+
+    // ── Header ──
+    function updateHeader() {
+      titleEl.textContent = currentEvent.name;
+      subtitleEl.textContent = `${currentSession.name} · 2026`;
+
+      if (isStreamAvailable(currentSession)) {
+        badgeEl.style.display = "inline-flex";
+      } else {
+        badgeEl.style.display = "none";
+      }
+    }
+
+    // ── Sources + player ──
+    function renderButtons() {
+      linksEl.innerHTML = "";
+      sources.forEach((s, i) => {
+        const btn = document.createElement("button");
+        btn.textContent = s.label;
+        if (i === currentSource) btn.classList.add("active");
+        btn.onclick = () => { currentSource = i; renderButtons(); load(); };
+        linksEl.appendChild(btn);
+      });
+    }
+
+    function buildUrl(i) {
+      return `https://embedindia.st/embed/f1/2026/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix}`;
+    }
+
+    function showNoStream() {
+      loaderEl.classList.add("hidden");
+      noStreamEl.classList.add("visible");
+      const iframe = playerEl.querySelector("iframe");
+      if (iframe) iframe.remove();
+    }
+
+    function load() {
+      loaderEl.classList.remove("hidden");
+      noStreamEl.classList.remove("visible");
+      const old = playerEl.querySelector("iframe");
+      if (old) old.remove();
+
+      if (!isStreamAvailable(currentSession)) {
+        showNoStream();
+        return;
+      }
+
+      const iframe = document.createElement("iframe");
+      iframe.src = buildUrl(currentSource);
+      iframe.allow = "autoplay; fullscreen; encrypted-media; picture-in-picture";
+      iframe.allowFullscreen = true;
+      iframe.referrerPolicy = "no-referrer";
+      iframe.onload = () => {
+        iframe.classList.add("loaded");
+        setTimeout(() => loaderEl.classList.add("hidden"), 300);
+      };
+      setTimeout(() => {
+        if (!iframe.classList.contains("loaded")) {
+          iframe.classList.add("loaded");
+        }
+        loaderEl.classList.add("hidden");
+      }, 5000);
+      playerEl.appendChild(iframe);
+    }
+
+    // ── Clocks ──
+    function updateClocks() {
+      const now = new Date();
+      clockEl.textContent = now.toLocaleTimeString("en-GB", { hour12: false });
+      updateCountdown();
+    }
+
+    function initVisitorCounter() {
+      const visitorCountEl = document.getElementById('visitorCount');
+      if (!visitorCountEl) return;
+
+      let userId = localStorage.getItem('freef1_user_id');
+      if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+        localStorage.setItem('freef1_user_id', userId);
+      }
+
+      const API_BASE = 'https://f1free.onrender.com';
+      const SECRET = 'doggomc';
+
+      function sendHeartbeat() {
+        fetch(`${API_BASE}/api/visitors/heartbeat`, {
+          method: 'GET',
+          headers: {
+            'X-Visitor-Secret': SECRET,
+            'X-User-Id': userId
+          }
+        }).catch(() => {});
+      }
+
+      function updateActiveCount() {
+        fetch(`${API_BASE}/api/visitors/active`, {
+          headers: {
+            'X-Visitor-Secret': SECRET
+          }
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data && typeof data.active === 'number') {
+              visitorCountEl.textContent = data.active;
+            }
+          })
+          .catch(() => {});
+      }
+
+      sendHeartbeat();
+      updateActiveCount();
+      setInterval(sendHeartbeat, 5000);
+      setInterval(updateActiveCount, 3000);
+    }
+
+    function getNextSession() {
+      const now = new Date();
+      let next = null;
+      let minDiff = Infinity;
+      for (const ev of schedule) {
+        for (const s of ev.sessions) {
+          const start = new Date(s.start);
+          const diff = start - now;
+          if (diff > 0 && diff < minDiff) {
+            minDiff = diff;
+            next = { event: ev, session: s };
+          }
+        }
+      }
+      return next;
+    }
+
+    function updateCountdown() {
+      const next = getNextSession();
+      if (!next) {
+        countdownEl.textContent = "No upcoming session";
+        return;
+      }
+      const now = new Date();
+      const start = new Date(next.session.start);
+      const diff = start - now;
+      if (diff <= 0) {
+        countdownEl.textContent = "Now!";
+        return;
+      }
+      const totalSeconds = Math.floor(diff / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const pad = n => String(n).padStart(2, "0");
+      countdownEl.textContent = `${next.event.name} ${next.session.name}: ${days > 0 ? days + "d " : ""}${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    // ── Current Stream button ──
+    function updateCurrentStreamButton() {
+      const live = getCurrentLiveSession();
+      const btn = document.getElementById("currentStreamBtn");
+      if (live) {
+        btn.style.opacity = "1";
+        btn.style.pointerEvents = "auto";
+        btn.querySelector("span:last-child").textContent =
+          `Current: ${live.event.name} – ${live.session.name}`;
+      } else {
+        btn.style.opacity = "0.5";
+        btn.style.pointerEvents = "none";
+        btn.querySelector("span:last-child").textContent = "No live session";
+      }
+    }
+
+    document.getElementById("currentStreamBtn").addEventListener("click", () => {
+      const live = getCurrentLiveSession();
+      if (!live) return;
+      currentEvent = live.event;
+      currentSession = live.session;
+      currentSource = 0;
+      updateSessions();
+      updateHeader();
+      renderButtons();
+      load();
+      updateCurrentStreamButton();
+    });
+
+    // ── Events ──
+    eventSelect.addEventListener("change", () => {
+      const ev = schedule.find(e => e.slug === eventSelect.value);
+      if (!ev) return;
+      currentEvent = ev;
+      currentSession = ev.sessions.find(s => !isSessionEnded(s)) || ev.sessions[0];
+      currentSource = 0;
+      updateSessions();
+      updateHeader();
+      renderButtons();
+      load();
+      updateCurrentStreamButton();
+    });
+    sessionSelect.addEventListener("change", () => {
+      const s = currentEvent.sessions.find(s => s.slug === sessionSelect.value);
+      if (!s || isSessionEnded(s)) return;
+      currentSession = s;
+      currentSource = 0;
+      updateHeader();
+      renderButtons();
+      load();
+    });
+
+    // ── Init ──
+    populate();
+    updateHeader();
+    renderButtons();
+    load();
+    updateClocks();
+    initVisitorCounter();
+    setInterval(updateClocks, 1000);
+    setInterval(updateCurrentStreamButton, 60000);
+
+    // FAQ Accordion
+    document.querySelectorAll(".faq-question").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.parentElement;
+        const answer = item.querySelector(".faq-answer");
+        const isActive = item.classList.contains("active");
+
+        document.querySelectorAll(".faq-item").forEach(i => {
+          i.classList.remove("active");
+          i.querySelector(".faq-answer").style.maxHeight = null;
+        });
+
+        if (!isActive) {
+          item.classList.add("active");
+          answer.style.maxHeight = answer.scrollHeight + "px";
+        }
+      });
+    });
+
+    // ── Info Panels ──
+    function openPanel(panelId) {
+      document.querySelectorAll('.info-panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById(panelId);
+      if (panel) {
+        panel.classList.add('active');
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function closePanel(panelId) {
+      const panel = document.getElementById(panelId);
+      if (panel) panel.classList.remove('active');
+    }
+
+    document.querySelectorAll('.info-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panelId = btn.getAttribute('data-panel');
+        openPanel(panelId);
+      });
+    });
+
+    document.querySelectorAll('.panel-close').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panelId = btn.getAttribute('data-panel');
+        closePanel(panelId);
+      });
+    });
+
+    // Panel Accordion
+    document.querySelectorAll('.panel-accordion-question').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.parentElement;
+        const answer = item.querySelector('.panel-accordion-answer');
+        const isActive = item.classList.contains('active');
+
+        document.querySelectorAll('.panel-accordion-item').forEach(i => {
+          i.classList.remove('active');
+          i.querySelector('.panel-accordion-answer').style.maxHeight = null;
+        });
+
+        if (!isActive) {
+          item.classList.add('active');
+          answer.style.maxHeight = answer.scrollHeight + 'px';
+        }
+      });
+    });
+
+    // ── Adblock Detector ──
+    (function() {
+      const testScript = document.createElement('script');
+      testScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+      testScript.async = true;
+      testScript.onerror = function() {
+        document.getElementById('adblockOverlay').classList.add('active');
+      };
+      document.head.appendChild(testScript);
+
+      document.getElementById('adblockReload').addEventListener('click', () => {
+        location.reload();
+      });
+    })();
+
+    // ── Onboarding Tour ──
+    const tourSteps = [
+      { target: null, title: "Welcome to FreeF1", text: "Let's take a tour shall we?", buttonText: "Start" },
+      { target: "#eventSelect", title: "Grand Prix", text: "Select which Grand Prix you want to watch. We cover all the major races throughout the season.", buttonText: "Next" },
+      { target: "#sessionSelect", title: "Session", text: "Choose the session you want to stream - Practice, Qualifying, or the Race itself.", buttonText: "Next" },
+      { target: "#links", title: "Sources", text: "Pick your preferred streaming source. If one doesn't work, try another.", buttonText: "Next" },
+      { target: "#currentStreamBtn", title: "Current Stream", text: "Click here to jump directly to the currently live session.", buttonText: "Next" },
+      { target: "#player", title: "Video Player", text: "This is where the stream loads. Once you make your selections, the race appears right here.", buttonText: "Next" },
+      { target: "#countdown", title: "Next Race Countdown", text: "This shows you exactly how long until the next Grand Prix or session starts. Right now, the Hungarian Grand Prix Race is coming up in about 19 hours and 38 minutes.", buttonText: "Next" },
+      { target: ".footer-buttons", title: "Legal Info", text: "Access our Terms of Service, Privacy Policy, and FAQ anytime from these buttons.", buttonText: "Next" },
+      { target: null, title: "Enjoy!", text: "You're all set. Enjoy the race!", buttonText: "Finish" }
+    ];
+
+    let currentTourStep = 0;
+
+    function showTourStep(index) {
+      const step = tourSteps[index];
+      const spotlight = document.getElementById('tourSpotlight');
+      const tooltip = document.getElementById('tourTooltip');
+      const title = document.getElementById('tourTitle');
+      const text = document.getElementById('tourText');
+      const button = document.getElementById('tourNext');
+
+      title.textContent = step.title;
+      button.textContent = step.buttonText;
+
+      if (step.target === '#countdown') {
+        const next = getNextSession();
+        if (next) {
+          const now = new Date();
+          const start = new Date(next.session.start);
+          const diff = start - now;
+          const totalSeconds = Math.floor(diff / 1000);
+          const days = Math.floor(totalSeconds / 86400);
+          const hours = Math.floor((totalSeconds % 86400) / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+          const pad = n => String(n).padStart(2, '0');
+          const timeStr = `${days > 0 ? days + 'd ' : ''}${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+          text.textContent = `This shows you exactly how long until the next Grand Prix or session starts. Right now, the ${next.event.name} ${next.session.name} is coming up in ${timeStr}.`;
+        } else {
+          text.textContent = step.text;
+        }
+      } else {
+        text.textContent = step.text;
+      }
+
+      if (step.target) {
+        const el = document.querySelector(step.target);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => {
+            const rect = el.getBoundingClientRect();
+            spotlight.style.display = 'block';
+            spotlight.style.top = (rect.top - 8) + 'px';
+            spotlight.style.left = (rect.left - 8) + 'px';
+            spotlight.style.width = (rect.width + 16) + 'px';
+            spotlight.style.height = (rect.height + 16) + 'px';
+
+            const tooltipWidth = 360;
+            const tooltipHeight = 220;
+
+            let tooltipTop = rect.bottom + 24;
+            let tooltipLeft = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+
+            if (tooltipTop + tooltipHeight > window.innerHeight - 10) {
+              tooltipTop = rect.top - tooltipHeight - 24;
+            }
+            tooltipTop = Math.max(10, tooltipTop);
+            tooltipLeft = Math.max(10, Math.min(tooltipLeft, window.innerWidth - tooltipWidth - 10));
+
+            tooltip.style.top = tooltipTop + 'px';
+            tooltip.style.left = tooltipLeft + 'px';
+            tooltip.style.transform = 'none';
+            tooltip.style.display = 'block';
+          }, 350);
+          return;
+        }
+      }
+
+      spotlight.style.display = 'none';
+      tooltip.style.top = '50%';
+      tooltip.style.left = '50%';
+      tooltip.style.transform = 'translate(-50%, -50%)';
+      tooltip.style.display = 'block';
+    }
+
+    function nextTourStep() {
+      currentTourStep++;
+      if (currentTourStep >= tourSteps.length) {
+        finishTour();
+      } else {
+        showTourStep(currentTourStep);
+      }
+    }
+
+    function finishTour() {
+      document.getElementById('tourOverlay').classList.remove('active');
+      document.getElementById('tourSpotlight').style.display = 'none';
+      document.getElementById('tourTooltip').style.display = 'none';
+      document.body.style.overflow = '';
+      localStorage.setItem('freef1_tour_done', 'true');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.getElementById('tourNext').addEventListener('click', nextTourStep);
+
+    function startTour() {
+      currentTourStep = 0;
+      document.getElementById('tourOverlay').classList.add('active');
+      document.body.style.overflow = 'hidden';
+      showTourStep(currentTourStep);
+    }
+
+    setTimeout(() => {
+      if (localStorage.getItem('freef1_tour_done') !== 'true') {
+        startTour();
+      }
+    }, 800);
+  </script>
+</body>
+</html>
