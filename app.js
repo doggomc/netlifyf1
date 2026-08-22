@@ -262,7 +262,13 @@ function initVisitorCounter(){
   beat();
 }
 
-/* ═══════════ STREAM OVERRIDE (SSE) ═══════════ */
+/* ═══════════ LIVE SITE STATE + STREAM OVERRIDE (SSE) ═══════════ */
+const PUBLIC_API='https://f1free.onrender.com';
+function applyMaintenanceMode(state){
+  if(state?.active&&location.pathname!=='/maintenance.html')location.replace('/maintenance.html');
+}
+window.__APEX_SITE_STATUS?.then(data=>applyMaintenanceMode(data?.maintenance));
+
 let streamOverride={active:false,url:null,type:null};
 let lastOverrideToastKey='',streamEvents=null,streamSseConnected=false,streamReconnectTimer=0,streamRetryMs=2000;
 
@@ -304,6 +310,7 @@ function initStreamOverrideSSE(){
     es.addEventListener('stream_override',onState);
     // Kept for compatibility with older backend deployments; duplicate state is ignored above.
     es.addEventListener('stream_update',onState);
+    es.addEventListener('maintenance_update',event=>{try{applyMaintenanceMode(JSON.parse(event.data))}catch(_){}});
     es.addEventListener('error',()=>{
       streamSseConnected=false;es.close();if(streamEvents===es)streamEvents=null;
       clearTimeout(streamReconnectTimer);
@@ -314,7 +321,15 @@ function initStreamOverrideSSE(){
 }
 
 // Low-frequency polling is active only while SSE is unavailable.
-let streamPollTimer=0,streamPollInFlight=false;
+let streamPollTimer=0,streamPollInFlight=false,sitePollInFlight=false;
+async function pollSiteStatus(force=false){
+  if(document.hidden||sitePollInFlight||(!force&&streamSseConnected))return;
+  sitePollInFlight=true;
+  try{
+    const response=await fetch(`${PUBLIC_API}/api/site/status`,{cache:'no-store',credentials:'omit'});
+    if(response.ok)applyMaintenanceMode((await response.json()).maintenance);
+  }catch(_){}finally{sitePollInFlight=false}
+}
 async function pollStreamStatus(force=false){
   if(document.hidden||streamPollInFlight||(!force&&streamSseConnected))return;
   streamPollInFlight=true;
@@ -324,11 +339,11 @@ async function pollStreamStatus(force=false){
   }catch(_){}finally{streamPollInFlight=false}
 }
 function initStreamPolling(){
-  clearInterval(streamPollTimer);pollStreamStatus(true);
-  streamPollTimer=setInterval(pollStreamStatus,30000);
+  clearInterval(streamPollTimer);pollStreamStatus(true);pollSiteStatus(true);
+  streamPollTimer=setInterval(()=>{pollStreamStatus();pollSiteStatus()},30000);
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){streamEvents?.close();streamEvents=null;streamSseConnected=false}
-    else{pollStreamStatus(true);initStreamOverrideSSE()}
+    else{pollStreamStatus(true);pollSiteStatus(true);initStreamOverrideSSE()}
   },{passive:true});
 }
 

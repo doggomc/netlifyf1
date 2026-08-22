@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080a">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="APEX is making a quick pit stop. We'll be back before the race.">
+<title>Pit Stop in Progress — APEX</title>
+<link rel="preconnect" href="https://f1free.onrender.com" crossorigin>
+<link rel="stylesheet" href="/maintenance.css">
+</head>
+<body>
+<div class="track-grid" aria-hidden="true"></div>
+<div class="speed-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+<div class="red-haze" aria-hidden="true"></div>
+
+<header class="pit-header">
+  <a class="pit-brand" href="/" aria-label="APEX home">
+    <span class="pit-brand-mark">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 17.5 7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2Z"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4Z" opacity=".72"/></svg>
+    </span>
+    <span class="pit-brand-copy"><b>APEX</b><small>F1 LIVE</small></span>
+  </a>
+  <div class="race-control"><i></i><span>Race control</span><b>In the pits</b></div>
+</header>
+
+<main class="pit-main">
+  <section class="pit-copy" aria-labelledby="maintenanceTitle">
+    <div class="pit-kicker"><span>●</span> Scheduled pit stop</div>
+    <h1 id="maintenanceTitle">We're changing<br><em>the tires.</em></h1>
+    <p class="pit-lead" id="maintenanceMessage">We'll be back before the race.</p>
+    <p class="pit-detail">The crew is tuning the cockpit, tightening every bolt and getting APEX ready for its next stint. This page will release automatically the moment we're back on track.</p>
+
+    <div class="return-board">
+      <div class="checker-icon" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div><span>Estimated return</span><strong>Before lights out</strong></div>
+      <div class="return-pulse" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="pit-visual" aria-label="Animated pit-stop status">
+    <div class="telemetry-head">
+      <span>APX / GARAGE 01</span>
+      <span id="pitClock">--:--:--</span>
+    </div>
+
+    <div class="wheel-bay" aria-hidden="true">
+      <div class="bay-ring ring-one"></div>
+      <div class="bay-ring ring-two"></div>
+      <div class="scan-arm"></div>
+      <div class="wheel-shadow"></div>
+      <div class="tire">
+        <div class="tire-tread"></div>
+        <div class="rim">
+          <div class="spokes"></div>
+          <div class="hub"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <div class="wheel-gun"><span></span><i></i></div>
+      <div class="spark spark-a"></div><div class="spark spark-b"></div><div class="spark spark-c"></div>
+      <div class="car-line car-line-one"></div><div class="car-line car-line-two"></div>
+      <div class="bay-label"><span>TYRE SET</span><b>C4</b></div>
+    </div>
+
+    <div class="upgrade-sequence" id="upgradeSequence">
+      <div class="sequence-item active"><i></i><span>Bodywork</span><b>Optimising</b></div>
+      <div class="sequence-item"><i></i><span>Telemetry</span><b>Calibrating</b></div>
+      <div class="sequence-item"><i></i><span>Race systems</span><b>Checking</b></div>
+    </div>
+    <div class="sequence-progress"><span></span></div>
+  </section>
+</main>
+
+<footer class="pit-footer">
+  <div><span class="footer-label">Garage time</span><b id="garageTime">00:00:00</b></div>
+  <div class="auto-status" id="autoStatus" role="status" aria-live="polite"><i></i> Auto-checking race control</div>
+  <div class="independent-note">Independent fan project · No affiliation with Formula 1 or the FIA</div>
+</footer>
+<div class="finish-line" aria-hidden="true"></div>
+
+<noscript><div class="noscript-note">JavaScript is disabled. Please refresh this page later to see if APEX is back on track.</div></noscript>
+<script src="/maintenance.js" defer></script>
+</body>
+</html>
