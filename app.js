@@ -202,7 +202,6 @@ function load(){
     }else{
       f.src=streamOverride.url;f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
       f.allowFullscreen=true;f.referrerPolicy='no-referrer';
-      f.setAttribute("sandbox","allow-scripts allow-same-origin");
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
       f.onload=()=>{if(token!==playerLoadToken)return;f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
     }
@@ -215,7 +214,6 @@ function load(){
   f.src=buildUrl(currentSource);
   f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
   f.allowFullscreen=true;f.referrerPolicy="no-referrer";
-  f.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-downloads");
   f.onload=()=>{if(token!==playerLoadToken)return;f.classList.add('loaded');setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
   setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;f.classList.add('loaded');loaderEl.classList.add('hidden')},5000);
   playerEl.appendChild(f);
