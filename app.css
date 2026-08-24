@@ -572,8 +572,8 @@ footer{position:relative;z-index:2;border-top:1px solid var(--line);margin-top:4
   justify-content:space-between;gap:14px;flex-wrap:wrap;
   font-family:'JetBrains Mono';font-size:.62rem;letter-spacing:.1em;color:var(--dim);
   text-transform:uppercase}
-.foot-bar a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line)}
-.foot-bar a:hover{color:var(--team)}
+.foot-bar .credit{color:var(--muted);border-bottom:1px solid var(--line);cursor:pointer;transition:color .2s,border-color .2s}
+.foot-bar .credit:hover{color:var(--team);border-color:var(--team)}
 .checker{height:8px;background:repeating-linear-gradient(90deg,#fff 0 12px,#101114 12px 24px);opacity:.13}
 
 /* Auth */
