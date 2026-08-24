@@ -669,54 +669,6 @@ addEventListener('keydown',e=>{if(e.key==='Escape'){
   document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'));lockScroll(false)}});
 applyTeamTheme(store.get('freef1_team')||'default');
 
-/* ═══════════ TOUR ═══════════ */
-const tourSteps=[
- {t:null,h:"Welcome to Apex",p:"A premium cockpit for every race weekend. Let's take an installation lap.",b:"Start"},
- {t:"#eventSelect",h:"Grand Prix",p:"Pick the round you want. Every event on the calendar, one dropdown.",b:"Next"},
- {t:"#sessionSelect",h:"Session",p:"Practice, Qualifying or the Race — jump straight to the session you care about.",b:"Next"},
- {t:"#links",h:"Feed Sources",p:"Four independent feeds. If one drops, switch instantly without losing your place.",b:"Next"},
- {t:"#currentStreamBtn",h:"Live Now",p:"One tap takes you to whatever session is running right this second.",b:"Next"},
- {t:"#player",h:"The Stage",p:"Your 16:9 broadcast window, framed to keep the racing front and centre.",b:"Next"},
- {t:"#standings",h:"Championship",p:"Live driver and constructor standings, colour-coded by team livery.",b:"Next"},
- {t:"#sessionsBtn",h:"Results Archive",p:"Dive into any completed session and read the full classification.",b:"Next"},
- {t:"#teamSelectBtn",h:"Team Livery",p:"Repaint the entire interface in your team's authentic colours.",b:"Next"},
- {t:"#countdown",h:"Lights Out In",p:"A precise countdown to the next session on the calendar.",b:"Next"},
- {t:null,h:"Box, box.",p:"You're all set. Enjoy the race.",b:"Finish"}
-];
-let step=0;
-const spot=$("tourSpotlight"),tip=$("tourTooltip");
-$("tourDots").innerHTML=tourSteps.map(()=>'<i></i>').join('');
-function showStep(i){
-  const s=tourSteps[i];
-  $("tourStepNo").textContent='Step '+String(i+1).padStart(2,'0')+' / '+tourSteps.length;
-  $("tourTitle").textContent=s.h;$("tourText").textContent=s.p;$("tourNext").textContent=s.b;
-  $("tourDots").querySelectorAll('i').forEach((d,k)=>d.classList.toggle('on',k===i));
-  const center=()=>{spot.style.display='none';
-    tip.style.top='50%';tip.style.left='50%';tip.style.transform='translate(-50%,-50%)';tip.style.display='block'};
-  if(!s.t)return center();
-  const el=document.querySelector(s.t);if(!el)return center();
-  el.scrollIntoView({behavior:'smooth',block:'center'});
-  setTimeout(()=>{
-    const r=el.getBoundingClientRect();
-    spot.style.display='block';
-    spot.style.top=(r.top-8)+'px';spot.style.left=(r.left-8)+'px';
-    spot.style.width=(r.width+16)+'px';spot.style.height=(r.height+16)+'px';
-    const w=Math.min(380,innerWidth-40),h=tip.offsetHeight||210;
-    let top=r.bottom+22,left=r.left+r.width/2-w/2;
-    if(top+h>innerHeight-12)top=Math.max(12,r.top-h-22);
-    left=Math.max(12,Math.min(left,innerWidth-w-12));
-    tip.style.transform='none';tip.style.top=top+'px';tip.style.left=left+'px';tip.style.display='block';
-  },560);
-}
-function finishTour(){
-  $("tourOverlay").classList.remove('on');spot.style.display='none';tip.style.display='none';
-  document.body.style.overflow='';store.set('freef1_tour_done','true');
-}
-function startTour(){step=0;$("tourOverlay").classList.add('on');showStep(0)}
-$("tourNext").addEventListener('click',()=>{step++;step>=tourSteps.length?finishTour():showStep(step)});
-$("replayTour").addEventListener('click',startTour);
-setTimeout(()=>{if(store.get('freef1_tour_done')!=='true')startTour()},1200);
-
 /* ═══════════ SPEED-LINE CANVAS ═══════════ */
 (function(){
   const canvas=$("speedCanvas"),context=canvas?.getContext('2d');if(!context||reduceMotion)return;

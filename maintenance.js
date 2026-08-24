@@ -10,14 +10,11 @@ const VISITOR_SECRET = 'doggomc';
 
 const messageEl = document.getElementById('maintenanceMessage');
 const garageTimeEl = document.getElementById('garageTime');
-const pitClockEl = document.getElementById('pitClock');
 const autoStatusEl = document.getElementById('autoStatus');
-const sequenceItems = [...document.querySelectorAll('.sequence-item')];
 let maintenanceStartedAt = Date.now();
 let released = false;
 let eventSource = null;
 let sseConnected = false;
-let sequenceIndex = 0;
 
 function safeStoreGet(key) {
   try { return localStorage.getItem(key); } catch (_) { return null; }
@@ -126,15 +123,7 @@ function initVisitorHeartbeat() {
 
 function updateTelemetry() {
   if (document.hidden) return;
-  const now = new Date();
-  if (pitClockEl) pitClockEl.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
   if (garageTimeEl) garageTimeEl.textContent = formatDuration(Date.now() - maintenanceStartedAt);
-}
-
-function rotateSequence() {
-  if (document.hidden || !sequenceItems.length) return;
-  sequenceIndex = (sequenceIndex + 1) % sequenceItems.length;
-  sequenceItems.forEach((item, index) => item.classList.toggle('active', index === sequenceIndex));
 }
 
 fetchMaintenanceStatus();
@@ -142,7 +131,6 @@ connectEvents();
 initVisitorHeartbeat();
 updateTelemetry();
 setInterval(updateTelemetry, 1000);
-setInterval(rotateSequence, 2400);
 setInterval(() => { if (!sseConnected) fetchMaintenanceStatus(); }, 30000);
 
 document.addEventListener('visibilitychange', () => {
