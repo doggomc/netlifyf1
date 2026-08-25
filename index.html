@@ -54,6 +54,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
     <a href="#watch">Watch</a>
     <a href="#grid">The Grid</a>
     <a href="#standings">Standings</a>
+    <a href="#news">News</a>
     <a href="#info">Info</a>
   </div>
   <div class="nav-right">
@@ -195,6 +196,25 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </section>
 
+<!-- ══ NEWS ══ -->
+<section class="sec" id="news">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div>
+        <span class="eyebrow">Race Control</span>
+        <h2>Latest <span class="accent">News</span></h2>
+        <div class="rule" style="width:120px"></div>
+      </div>
+      <div class="pill mono news-status" id="newsStatus">NEWS · STANDBY</div>
+    </div>
+    <div class="card rv d1 news-card">
+      <div class="news-feed" id="newsFeed" aria-live="polite">
+        <div class="state">Checking for the latest updates…</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ INFO / LEGAL ══ -->
 <section class="sec" id="info">
   <div class="wrap">
@@ -313,7 +333,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <h4>Navigate</h4>
         <div class="foot-links">
           <a href="#watch">Cockpit</a><a href="#grid">The Grid</a>
-          <a href="#standings">Standings</a><a href="#info">Information</a>
+          <a href="#standings">Standings</a><a href="#news">News</a><a href="#info">Information</a>
         </div>
       </div>
       <div>
@@ -334,6 +354,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260823-iframefix1" defer></script>
+<script src="/app.js?v=20260825-news1" defer></script>
 </body>
 </html>

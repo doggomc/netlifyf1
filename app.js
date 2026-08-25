@@ -8,7 +8,8 @@ const store={
 /* ═══════════ AUTH ═══════════ */
 const AUTH_PROTECTION_ENABLED=true;
 const AUTHORIZED_DOMAIN='freef1.netlify.app';
-const AUTH_API_URL='https://f1free.onrender.com/api/auth/verify';
+const PREVIEW_HOST=location.hostname==='localhost'||location.hostname==='127.0.0.1'||location.hostname.endsWith('.e2b.app');
+const AUTH_API_URL=PREVIEW_HOST?`${location.origin}/api/auth/verify`:'https://f1free.onrender.com/api/auth/verify';
 
 /* Content protection — follows AUTH_PROTECTION_ENABLED */
 (function(){
@@ -33,7 +34,7 @@ const AUTH_API_URL='https://f1free.onrender.com/api/auth/verify';
 function checkAuth(){
   if(!AUTH_PROTECTION_ENABLED)return;
   const host=location.hostname.toLowerCase();
-  if(host===AUTHORIZED_DOMAIN||host==='localhost'||host==='127.0.0.1')return;
+  if(host===AUTHORIZED_DOMAIN||PREVIEW_HOST)return;
   fetch(AUTH_API_URL,{cache:'no-store'}).then(r=>r.json()).then(d=>{
     if(d.authorized)return;showUnauthorized(d.error||'Unauthorized access detected');
   }).catch(()=>showUnauthorized('Unable to verify authorization.'));
@@ -81,7 +82,7 @@ const sources=[
 const $=id=>document.getElementById(id);
 const eventSelect=$("eventSelect"),sessionSelect=$("sessionSelect"),linksEl=$("links"),
  playerEl=$("player"),loaderEl=$("loader"),noStreamEl=$("noStream"),badgeEl=$("badge"),
- clockEl=$("clock"),countdownEl=$("countdown");
+ clockEl=$("clock"),countdownEl=$("countdown"),newsFeedEl=$("newsFeed"),newsStatusEl=$("newsStatus");
 
 function hoursSince(s){return (Date.now()-s.ts)/3600000}
 function isStreamAvailable(s){const d=hoursSince(s);return d>=-1&&d<=3}
@@ -243,7 +244,7 @@ function initVisitorCounter(){
   const el=$("visitorCount");if(!el)return;
   let uid=store.get('freef1_user_id');
   if(!uid){uid='user_'+(crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36));store.set('freef1_user_id',uid)}
-  const API='https://f1free.onrender.com',SECRET='doggomc',INTERVAL=18000;
+  const API=PREVIEW_HOST?location.origin:'https://f1free.onrender.com',SECRET='doggomc',INTERVAL=18000;
   let timer=0,inFlight=false;
   const updateCount=data=>{if(data&&Number.isFinite(data.active))el.textContent=String(data.active)};
   const beat=async()=>{
@@ -262,6 +263,57 @@ function initVisitorCounter(){
 
 /* ═══════════ LIVE SITE STATE + STREAM OVERRIDE (SSE) ═══════════ */
 const PUBLIC_API='https://f1free.onrender.com';
+const newsDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+let newsPollInFlight=false;
+
+function newsFromPayload(payload){
+  if(Array.isArray(payload))return payload;
+  return Array.isArray(payload?.news)?payload.news:Array.isArray(payload?.items)?payload.items:[];
+}
+function updateNewsStatus(online){
+  if(!newsStatusEl)return;
+  newsStatusEl.textContent=online?'NEWS · LIVE':'NEWS · OFFLINE';
+  newsStatusEl.classList.toggle('is-live',online);
+  newsStatusEl.classList.toggle('is-offline',!online);
+}
+function formatNewsDate(timestamp){
+  const date=new Date(Number(timestamp));
+  return Number.isNaN(date.getTime())?'—':newsDateFormat.format(date);
+}
+function renderNews(items){
+  if(!newsFeedEl)return;
+  const list=newsFromPayload(items).filter(item=>item&&item.title&&item.body).slice(0,8);
+  if(!list.length){
+    newsFeedEl.innerHTML='<div class="state">No news updates yet. Check back soon.</div>';
+    return;
+  }
+  const fragment=document.createDocumentFragment();
+  list.forEach((item,index)=>{
+    const article=document.createElement('article');
+    article.className='news-item';
+    article.style.animation=`fadeUp .55s var(--ease) ${index*55}ms both`;
+    article.innerHTML=`<div class="news-meta"><span class="news-tag">${escapeHtml(item.tag||'Race Control')}</span><time class="news-date" datetime="${escapeHtml(new Date(Number(item.createdAt)||Date.now()).toISOString())}">${escapeHtml(formatNewsDate(item.createdAt))}</time></div>
+      <h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.body)}</p>`;
+    fragment.appendChild(article);
+  });
+  newsFeedEl.replaceChildren(fragment);
+}
+function applyNewsUpdate(payload,online=true){
+  renderNews(newsFromPayload(payload));
+  updateNewsStatus(online);
+}
+async function pollNews(force=false){
+  if(!newsFeedEl||document.hidden||newsPollInFlight)return;
+  newsPollInFlight=true;
+  try{
+    const response=await fetch(`${PUBLIC_API}/api/news`,{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    applyNewsUpdate(await response.json(),true);
+  }catch(_){
+    updateNewsStatus(false);
+    if(!newsFeedEl.querySelector('.news-item'))newsFeedEl.innerHTML='<div class="state">News feed unavailable right now.</div>';
+  }finally{newsPollInFlight=false}
+}
 function applyMaintenanceMode(state){
   if(state?.active&&location.pathname!=='/maintenance.html')location.replace('/maintenance.html');
 }
@@ -300,7 +352,7 @@ function applyStreamOverride(override){
 
 function initStreamOverrideSSE(){
   if(document.hidden||streamEvents)return;
-  const SSE_URL='https://f1free.onrender.com/api/events';
+  const SSE_URL=`${PUBLIC_API}/api/events`;
   try{
     const es=new EventSource(SSE_URL);streamEvents=es;
     const onState=e=>{try{applyStreamOverride(JSON.parse(e.data))}catch(_){}};
@@ -309,6 +361,7 @@ function initStreamOverrideSSE(){
     // Kept for compatibility with older backend deployments; duplicate state is ignored above.
     es.addEventListener('stream_update',onState);
     es.addEventListener('maintenance_update',event=>{try{applyMaintenanceMode(JSON.parse(event.data))}catch(_){}});
+    es.addEventListener('news_update',event=>{try{applyNewsUpdate(JSON.parse(event.data),true)}catch(_){}});
     es.addEventListener('error',()=>{
       streamSseConnected=false;es.close();if(streamEvents===es)streamEvents=null;
       clearTimeout(streamReconnectTimer);
@@ -332,16 +385,16 @@ async function pollStreamStatus(force=false){
   if(document.hidden||streamPollInFlight||(!force&&streamSseConnected))return;
   streamPollInFlight=true;
   try{
-    const r=await fetch('https://f1free.onrender.com/api/stream/status',{cache:'no-store',credentials:'omit'});
+    const r=await fetch(`${PUBLIC_API}/api/stream/status`,{cache:'no-store',credentials:'omit'});
     if(r.ok)applyStreamOverride(await r.json());
   }catch(_){}finally{streamPollInFlight=false}
 }
 function initStreamPolling(){
-  clearInterval(streamPollTimer);pollStreamStatus(true);pollSiteStatus(true);
-  streamPollTimer=setInterval(()=>{pollStreamStatus();pollSiteStatus()},30000);
+  clearInterval(streamPollTimer);pollStreamStatus(true);pollSiteStatus(true);pollNews(true);
+  streamPollTimer=setInterval(()=>{pollStreamStatus();pollSiteStatus();pollNews()},30000);
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){streamEvents?.close();streamEvents=null;streamSseConnected=false}
-    else{pollStreamStatus(true);pollSiteStatus(true);initStreamOverrideSSE()}
+    else{pollStreamStatus(true);pollSiteStatus(true);pollNews(true);initStreamOverrideSSE()}
   },{passive:true});
 }
 

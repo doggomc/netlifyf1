@@ -134,6 +134,8 @@ img{display:block;max-width:100%}
 .pill.count{color:var(--green);border-color:rgba(0,213,126,.28);background:rgba(0,213,126,.08)}
 .pill.next{color:var(--amber);border-color:rgba(255,176,32,.28);background:rgba(255,176,32,.08);
   max-width:min(340px,42vw);overflow:hidden;text-overflow:ellipsis}
+.news-status.is-live{color:var(--green);border-color:rgba(0,213,126,.28);background:rgba(0,213,126,.08)}
+.news-status.is-offline{color:var(--muted);border-color:var(--line);background:var(--surface)}
 
 /* ═══════════════ HERO ═══════════════ */
 .hero{
@@ -469,6 +471,27 @@ select option:disabled{color:#4A4F57}
 .state{color:var(--muted);font-family:'JetBrains Mono';font-size:.72rem;letter-spacing:.14em;
   text-transform:uppercase;padding:26px;text-align:center}
 
+/* ═══════════════ NEWS ═══════════════ */
+.news-card{overflow:hidden}
+.news-feed{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:20px}
+.news-feed>.state{grid-column:1/-1}
+.news-item{position:relative;overflow:hidden;padding:19px 20px 20px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:rgba(255,255,255,.018);
+  transition:transform .4s var(--ease),border-color .35s var(--ease),background .35s var(--ease),box-shadow .35s var(--ease)}
+.news-item::before{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:var(--team);
+  transform:scaleY(0);transform-origin:bottom;transition:transform .4s var(--ease)}
+.news-item:hover{transform:translateY(-3px);border-color:var(--line-2);background:rgba(255,255,255,.045);
+  box-shadow:0 18px 38px -26px var(--red-glow)}
+.news-item:hover::before{transform:scaleY(1)}
+.news-item:first-child{grid-column:1/-1;background:linear-gradient(120deg,color-mix(in srgb,var(--team) 10%,transparent),rgba(255,255,255,.018) 48%)}
+.news-item:first-child h3{font-size:clamp(1.1rem,2.5vw,1.5rem)}
+.news-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}
+.news-tag{font-family:'JetBrains Mono';font-size:.58rem;font-weight:700;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--team)}
+.news-date{font-family:'JetBrains Mono';font-size:.58rem;letter-spacing:.08em;color:var(--dim);white-space:nowrap}
+.news-item h3{font-family:'Archivo';font-size:1rem;font-weight:800;letter-spacing:-.015em;line-height:1.15;margin-bottom:8px}
+.news-item p{color:var(--muted);font-size:.82rem;line-height:1.7;white-space:pre-line}
+
 /* ═══════════════ MODALS ═══════════════ */
 .modal{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;
   padding:22px;background:rgba(5,5,6,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
@@ -606,7 +629,7 @@ footer{position:relative;z-index:2;border-top:1px solid var(--line);margin-top:4
 .sec,footer{content-visibility:auto;contain-intrinsic-size:1px 900px}
 #watch{contain-intrinsic-size:1px 780px}
 #grid{contain-intrinsic-size:1px 1900px}
-#standings,#info{contain-intrinsic-size:1px 900px}
+#standings,#news,#info{contain-intrinsic-size:1px 900px}
 button,a,select{-webkit-tap-highlight-color:transparent}
 button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--team);outline-offset:3px}
 .nav-toggle{display:none;width:42px;height:42px;flex:0 0 42px;border:1px solid var(--line);border-radius:var(--r-sm);background:rgba(10,10,11,.78);color:var(--text);cursor:pointer;place-content:center;gap:4px;padding:0}
@@ -647,6 +670,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
   .deck-box{padding:17px}.sel{min-width:100%}
   select{font-size:16px;min-height:48px}
   .chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.chip{min-height:46px;padding:10px 8px}
+  .news-feed{grid-template-columns:1fr;padding:12px}.news-item:first-child{grid-column:auto}
   .player{min-height:0}.nostream{padding:22px}.nostream h3{font-size:1.2rem}.nostream p{font-size:.82rem}
   .stage-actions{display:grid;grid-template-columns:1fr 1fr}.stage-actions .btn{width:100%;padding-inline:10px}
   .drivers{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dcard{border-radius:9px}.dbody{padding:10px}.dname{font-size:.82rem}.dnum{font-size:1.5rem}.dteam{font-size:.49rem}.dpts{font-size:.52rem}
