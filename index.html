@@ -6,6 +6,19 @@
 <meta name="theme-color" content="#0A0A0B">
 <meta name="color-scheme" content="dark">
 <meta name="description" content="APEX is a fast, ad-free Formula racing weekend companion with multi-feed switching, standings and session results.">
+<link rel="canonical" href="https://freef1.netlify.app/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="APEX F1 Live">
+<meta property="og:title" content="APEX — F1 Live">
+<meta property="og:description" content="Every session, every source and championship telemetry in one race-weekend cockpit.">
+<meta property="og:url" content="https://freef1.netlify.app/">
+<meta property="og:image" content="https://freef1.netlify.app/assets/hero-f1-1200.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="APEX — F1 Live">
+<meta name="twitter:description" content="Every session, every source and championship telemetry in one race-weekend cockpit.">
+<meta name="twitter:image" content="https://freef1.netlify.app/assets/hero-f1-1200.webp">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"APEX F1 Live","url":"https://freef1.netlify.app/","description":"An independent, ad-free Formula racing weekend companion."}</script>
 <style>
 .site-state-gate{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#07080a;color:#f5f6f7;font:700 11px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;transition:opacity .2s}
 .site-state-gate>div{display:flex;align-items:center;gap:11px}.site-state-gate i{width:9px;height:9px;border-radius:50%;background:#e10600;box-shadow:0 0 14px #e10600;animation:siteGatePulse 1s ease-in-out infinite}
@@ -33,9 +46,9 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <div class="scanlines"></div><div class="vignette"></div><div class="grain"></div>
 
 <!-- ══ AUTH ══ -->
-<div class="auth" id="authOverlay">
+<div class="auth" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
   <div class="sheet">
-    <h2>Unauthorized Access</h2>
+    <h2 id="authTitle">Unauthorized Access</h2>
     <p style="color:#B8BDC5;font-size:.88rem;margin-top:12px">This experience is protected and can only be accessed from the official domain: <strong>https://freef1.netlify.app</strong></p>
     <div class="code" id="authErrorCode">Error: Unauthorized.</div>
     <button class="btn primary" id="authRetryBtn">Retry Authorization</button>
@@ -70,7 +83,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   <div class="hero-flag"></div>
   <div class="hero-layer" id="heroLayer"><picture>
     <source type="image/webp" srcset="/assets/hero-f1-800.webp 800w, /assets/hero-f1-1200.webp 1200w, /assets/hero-f1-1600.webp 1600w" sizes="100vw">
-    <img src="/assets/hero-f1.jpg" alt="Formula 1 car with glowing brakes and rising embers at night" width="1600" height="900" fetchpriority="high" decoding="async">
+    <img src="/assets/hero-f1.jpg" alt="Formula 1 cars racing on a wet circuit in heavy rain with grandstands behind them" width="1600" height="900" fetchpriority="high" decoding="async">
   </picture></div>
   <div class="hero-inner">
     <span class="eyebrow" id="heroRound">Season 2026</span>
@@ -112,8 +125,8 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
       <div class="card deck-box">
         <h3>Session Selector</h3>
         <div class="selects">
-          <div class="sel"><label>Grand Prix</label><select id="eventSelect"></select></div>
-          <div class="sel"><label>Session</label><select id="sessionSelect"></select></div>
+          <div class="sel"><label for="eventSelect">Grand Prix</label><select id="eventSelect"></select></div>
+          <div class="sel"><label for="sessionSelect">Session</label><select id="sessionSelect"></select></div>
         </div>
       </div>
       <div class="card deck-box">
@@ -184,12 +197,12 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <h2 id="standingsTitle">Driver <span class="accent">Standings</span></h2>
         <div class="rule" style="width:120px"></div>
       </div>
-      <div class="tabs">
-        <button class="tab active" data-type="drivers">Drivers</button>
-        <button class="tab" data-type="constructors">Constructors</button>
+      <div class="tabs" role="tablist" aria-label="Championship standings">
+        <button class="tab active" type="button" role="tab" aria-selected="true" aria-controls="standingsPanel" data-type="drivers">Drivers</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="standingsPanel" data-type="constructors">Constructors</button>
       </div>
     </div>
-    <div class="card rv d1" style="padding:20px">
+    <div class="card rv d1" id="standingsPanel" role="tabpanel" aria-labelledby="standingsTitle" aria-live="polite" style="padding:20px">
       <div class="state" id="standingsLoading">Loading standings…</div>
       <div class="rows" id="standingsList"></div>
     </div>
@@ -224,16 +237,16 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <h2>Terms, Privacy &amp; <span class="accent">FAQ</span></h2>
         <div class="rule" style="width:120px"></div>
       </div>
-      <div class="tabs" id="infoTabs">
-        <button class="tab active" data-panel="termsPanel">Terms</button>
-        <button class="tab" data-panel="privacyPanel">Privacy</button>
-        <button class="tab" data-panel="faqPanel">FAQ</button>
+      <div class="tabs" id="infoTabs" role="tablist" aria-label="Site information">
+        <button class="tab active" type="button" role="tab" aria-selected="true" aria-controls="termsPanel" id="termsTab" data-panel="termsPanel">Terms</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="privacyPanel" id="privacyTab" data-panel="privacyPanel">Privacy</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="faqPanel" id="faqTab" data-panel="faqPanel">FAQ</button>
       </div>
     </div>
 
     <div class="card rv d1">
       <!-- TERMS -->
-      <div class="panel active" id="termsPanel">
+      <div class="panel active" id="termsPanel" role="tabpanel" aria-labelledby="termsTab">
         <div class="panel-head"><h2>Terms of Service</h2></div>
         <p class="stamp">Last updated: July 2026</p>
         <div class="acc-wrap">
@@ -255,11 +268,11 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
       </div>
 
       <!-- PRIVACY -->
-      <div class="panel" id="privacyPanel">
+      <div class="panel" id="privacyPanel" role="tabpanel" aria-labelledby="privacyTab">
         <div class="panel-head"><h2>Privacy Policy</h2></div>
         <p class="stamp">Last updated: July 2026</p>
         <div class="acc-wrap">
-          <div class="acc-item"><button class="acc-q">1. Information We Collect<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not require registration or ask for details such as your name, email address, phone number, or postal address.</p><p>To operate the live visitor counter and protect the service, the backend temporarily processes a random browser identifier, IP address, basic device/browser information, referring page, and approximate location. Active-session records expire after a short inactivity period. The random identifier may persist locally, and a one-way keyed hash of it may be retained in our hosted data store so a returning browser is not counted again after a server restart. The raw identifier and IP address are not placed in that permanent unique-count set.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">1. Information We Collect<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not require registration or ask for details such as your name, email address, phone number, or postal address.</p><p>To operate the live visitor counter and protect the service, the backend temporarily processes a random browser identifier, IP address, basic device/browser information, referring page, and approximate location. Approximate location is requested from the HTTPS geolocation provider configured by the service and is not included in the permanent unique-count set. Active-session records expire after a short inactivity period. The random identifier may persist locally, and a one-way keyed hash of it may be retained in our hosted data store so a returning browser is not counted again after a server restart. The raw identifier and IP address are not placed in that permanent unique-count set.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">2. Cookies and Tracking Technologies<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising cookies, web beacons, or cross-site profiling. We use local storage only for functional preferences such as your chosen team livery, and a random visitor-counter identifier. Embedded third-party video providers may apply their own cookies or storage under their own policies.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">3. Log Files and Analytics<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising analytics or build behavioral profiles. The service processes short-lived operational telemetry for active-session counts, service health, abuse prevention, and the admin dashboard. It also retains a one-way keyed identifier hash solely for the cumulative unique-visitor total. Hosting, data-store, and embedded-content providers may maintain standard security and access logs.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">4. Data Sharing and Disclosure<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not sell, rent, or monetize visitor information and have no data-broker or advertising relationships. Requests necessarily pass through our hosting providers, and optional video/data features contact the third-party providers described on this page.</p></div></div></div>
@@ -273,7 +286,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
       </div>
 
       <!-- FAQ -->
-      <div class="panel" id="faqPanel">
+      <div class="panel" id="faqPanel" role="tabpanel" aria-labelledby="faqTab">
         <div class="panel-head"><h2>Frequently Asked Questions</h2></div>
         <p class="stamp">Have a question? We've got answers.</p>
         <div class="acc-wrap">
@@ -296,12 +309,12 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </section>
 
 <!-- ══ MODALS ══ -->
-<div class="modal" id="sessionsOverlay">
+<div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
   <div class="sheet">
-    <div class="sheet-head"><h2>Session Results</h2><button class="x" id="sessionsClose" type="button" aria-label="Close session results">&times;</button></div>
+    <div class="sheet-head"><h2 id="sessionsTitle">Session Results</h2><button class="x" id="sessionsClose" type="button" aria-label="Close session results">&times;</button></div>
     <div class="selects" style="margin-bottom:18px">
-      <div class="sel"><label>Grand Prix</label><select id="sessionRaceSelect"><option>Loading…</option></select></div>
-      <div class="sel"><label>Session</label><select id="sessionTypeSelect">
+      <div class="sel"><label for="sessionRaceSelect">Grand Prix</label><select id="sessionRaceSelect"><option>Loading…</option></select></div>
+      <div class="sel"><label for="sessionTypeSelect">Session</label><select id="sessionTypeSelect">
         <option value="results">Race</option><option value="qualifying">Qualifying</option><option value="sprint">Sprint</option>
       </select></div>
     </div>
@@ -310,9 +323,9 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </div>
 
-<div class="modal" id="teamSelectOverlay">
+<div class="modal" id="teamSelectOverlay" role="dialog" aria-modal="true" aria-labelledby="teamSelectTitle">
   <div class="sheet" style="max-width:620px">
-    <div class="sheet-head"><h2>Choose Your Livery</h2><button class="x" id="teamSelectClose" type="button" aria-label="Close team selector">&times;</button></div>
+    <div class="sheet-head"><h2 id="teamSelectTitle">Choose Your Livery</h2><button class="x" id="teamSelectClose" type="button" aria-label="Close team selector">&times;</button></div>
     <p style="color:var(--muted);font-size:.82rem;margin-bottom:18px">Team colours are authentic; official logos are trademarked and intentionally not reproduced.</p>
     <div class="teams" id="teamGrid"></div>
   </div>
@@ -354,6 +367,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260825-news1" defer></script>
+<script src="/app.js?v=20260826-hardening2" defer></script>
 </body>
 </html>

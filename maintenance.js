@@ -6,7 +6,6 @@ const backendHost = location.hostname === 'localhost' ||
   location.hostname === 'f1free.onrender.com' ||
   location.hostname.endsWith('.e2b.app');
 const API = backendHost ? location.origin : productionApi;
-const VISITOR_SECRET = 'doggomc';
 
 const messageEl = document.getElementById('maintenanceMessage');
 const garageTimeEl = document.getElementById('garageTime');
@@ -15,6 +14,12 @@ let maintenanceStartedAt = Date.now();
 let released = false;
 let eventSource = null;
 let sseConnected = false;
+
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
+}
 
 function safeStoreGet(key) {
   try { return localStorage.getItem(key); } catch (_) { return null; }
@@ -51,7 +56,7 @@ function applyMaintenanceState(state) {
 async function fetchMaintenanceStatus() {
   if (released || document.hidden) return;
   try {
-    const response = await fetch(`${API}/api/site/status`, {
+    const response = await fetchWithTimeout(`${API}/api/site/status`, {
       cache: 'no-store',
       credentials: 'omit',
       headers: { Accept: 'application/json' }
@@ -94,6 +99,19 @@ function initVisitorHeartbeat() {
 
   let timer = 0;
   let inFlight = false;
+  let visitorToken = '';
+  let visitorTokenExpiresAt = 0;
+  const refreshVisitorToken = async () => {
+    const response = await fetchWithTimeout(`${API}/api/visitors/token`, {
+      cache: 'no-store',
+      credentials: 'omit',
+      headers: { 'X-User-Id': visitorId }
+    });
+    if (!response.ok) throw new Error(`Token request failed: ${response.status}`);
+    const data = await response.json();
+    visitorToken = data.token || '';
+    visitorTokenExpiresAt = Number(data.expiresAt) || 0;
+  };
   const heartbeat = async () => {
     clearTimeout(timer);
     if (released || document.hidden || inFlight) {
@@ -102,15 +120,20 @@ function initVisitorHeartbeat() {
     }
     inFlight = true;
     try {
-      await fetch(`${API}/api/visitors/heartbeat`, {
+      if (!visitorToken || visitorTokenExpiresAt - Date.now() < 60000) await refreshVisitorToken();
+      const response = await fetchWithTimeout(`${API}/api/visitors/heartbeat`, {
         cache: 'no-store',
         credentials: 'omit',
         keepalive: true,
         headers: {
-          'X-Visitor-Secret': VISITOR_SECRET,
+          'X-Visitor-Token': visitorToken,
           'X-User-Id': visitorId
         }
       });
+      if (response.status === 403) {
+        visitorToken = '';
+        visitorTokenExpiresAt = 0;
+      }
     } catch (_) {
       // The maintenance experience stays usable while the backend reconnects.
     } finally {

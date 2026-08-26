@@ -11,26 +11,8 @@ const AUTHORIZED_DOMAIN='freef1.netlify.app';
 const PREVIEW_HOST=location.hostname==='localhost'||location.hostname==='127.0.0.1'||location.hostname.endsWith('.e2b.app');
 const AUTH_API_URL=PREVIEW_HOST?`${location.origin}/api/auth/verify`:'https://f1free.onrender.com/api/auth/verify';
 
-/* Content protection — follows AUTH_PROTECTION_ENABLED */
-(function(){
-  if(!AUTH_PROTECTION_ENABLED)return;
-  const stop=e=>{e.preventDefault();return false};
-  document.addEventListener('contextmenu',stop);
-  document.addEventListener('dragstart',stop);
-  document.addEventListener('selectstart',e=>{
-    if(e.target.closest('input,textarea,select'))return;
-    e.preventDefault();return false;
-  });
-  document.addEventListener('copy',stop);
-  document.addEventListener('cut',stop);
-  document.addEventListener('keydown',e=>{
-    const k=(e.key||'').toLowerCase();
-    if(k==='f12')return stop(e);
-    if(e.ctrlKey&&e.shiftKey&&['i','j','c'].includes(k))return stop(e);
-    if(e.ctrlKey&&['u','s'].includes(k))return stop(e);
-  });
-})();
-
+/* This is a friendly domain check, not a security boundary. The API and
+   admin routes enforce their own access rules on the server. */
 function checkAuth(){
   if(!AUTH_PROTECTION_ENABLED)return;
   const host=location.hostname.toLowerCase();
@@ -48,6 +30,8 @@ function showUnauthorized(reason){
 setTimeout(checkAuth,100);
 
 /* ═══════════ SCHEDULE ═══════════ */
+// Keep all season-aware API requests tied to the same schedule year.
+const SITE_SEASON=2026;
 const schedule=[
  {round:1,slug:"australia",name:"Australian Grand Prix",circuit:"Albert Park Grand Prix Circuit",locality:"Melbourne",country:"Australia",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-06T01:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-03-06T05:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-03-07T01:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-07T05:00:00Z"},{slug:"race",name:"Race",start:"2026-03-08T04:00:00Z"}]},
  {round:2,slug:"china",name:"Chinese Grand Prix",circuit:"Shanghai International Circuit",locality:"Shanghai",country:"China",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-13T03:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-03-13T07:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-03-14T03:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-14T07:00:00Z"},{slug:"race",name:"Race",start:"2026-03-15T07:00:00Z"}]},
@@ -128,13 +112,119 @@ function updateSessions(){
     sessionSelect.appendChild(o);
   });
 }
+
+/* ── accessible custom dropdowns ──
+   Keep the real select as the source of truth, but render the opened menu
+   ourselves so it follows the APEX visual system on every browser. */
+let customSelectSequence=0;
+function enhanceSelect(select){
+  if(!select||select.dataset.customEnhanced==='true')return;
+  select.dataset.customEnhanced='true';
+  const shell=document.createElement('div');shell.className='select-shell';
+  select.parentNode.insertBefore(shell,select);shell.appendChild(select);
+  const menuId=`custom-select-menu-${++customSelectSequence}`;
+  const trigger=document.createElement('button');
+  trigger.type='button';trigger.className='select-trigger';trigger.setAttribute('aria-haspopup','listbox');
+  trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-controls',menuId);
+  const label=select.closest('.sel')?.querySelector(`label[for="${select.id}"]`);
+  if(label){if(!label.id)label.id=`${select.id}-label`;trigger.setAttribute('aria-labelledby',label.id)}
+  trigger.innerHTML='<span class="select-value"></span><span class="select-chevron" aria-hidden="true"></span>';
+  const menu=document.createElement('div');menu.className='select-menu';menu.id=menuId;menu.setAttribute('role','listbox');menu.hidden=true;
+  shell.insertBefore(trigger,select);shell.appendChild(menu);
+  select.classList.add('native-select-source');select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+  let optionButtons=[];
+  const getAvailableIndex=(start,direction)=>{
+    let index=start;
+    while(index>=0&&index<optionButtons.length){
+      const option=optionButtons[index];
+      if(!option.disabled&&!option.hidden)return index;
+      index+=direction;
+    }
+    return -1;
+  };
+  const close=focusTrigger=>{
+    menu.hidden=true;trigger.setAttribute('aria-expanded','false');
+    if(focusTrigger)trigger.focus();
+  };
+  const sync=()=>{
+    const selected=select.options[select.selectedIndex];
+    const value=trigger.querySelector('.select-value');
+    if(value)value.textContent=selected?.textContent||'Select an option';
+    trigger.disabled=select.disabled||!select.options.length;
+    menu.replaceChildren();optionButtons=[];
+    [...select.options].forEach((option,index)=>{
+      const button=document.createElement('button');button.type='button';button.className='select-option';
+      button.textContent=option.textContent;button.dataset.value=option.value;button.dataset.index=String(index);
+      button.setAttribute('role','option');button.setAttribute('aria-selected',String(index===select.selectedIndex));
+      button.disabled=Boolean(option.disabled);button.hidden=Boolean(option.hidden);
+      if(option.disabled)button.classList.add('is-disabled');
+      button.addEventListener('click',()=>{
+        if(option.disabled||option.hidden)return;
+        select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));
+        sync();close(false);trigger.focus();
+      });
+      menu.appendChild(button);optionButtons.push(button);
+    });
+  };
+  const open=direction=>{
+    if(trigger.disabled)return;
+    sync();menu.hidden=false;menu.classList.remove('above');
+    const menuRect=menu.getBoundingClientRect(),shellRect=shell.getBoundingClientRect();
+    if(menuRect.bottom>innerHeight-12&&shellRect.top>menuRect.height+12)menu.classList.add('above');
+    trigger.setAttribute('aria-expanded','true');
+    const selectedIndex=select.selectedIndex>=0?select.selectedIndex:0;
+    const step=direction||0;
+    const target=step?getAvailableIndex(selectedIndex+step,step):getAvailableIndex(selectedIndex,1);
+    (optionButtons[target>=0?target:selectedIndex]||optionButtons[0])?.focus();
+  };
+  trigger.addEventListener('click',()=>{
+    if(menu.hidden)open(0);else close(false);
+  });
+  trigger.addEventListener('keydown',event=>{
+    if(['ArrowDown','ArrowUp','Enter',' '].includes(event.key)){
+      event.preventDefault();
+      if(menu.hidden)open(event.key==='ArrowUp'?-1:1);else close(false);
+    }
+  });
+  menu.addEventListener('keydown',event=>{
+    const current=optionButtons.indexOf(document.activeElement);
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close(true);return;}
+    if(event.key==='Tab'){close(true);return;}
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();document.activeElement?.click();return;}
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      event.preventDefault();
+      const next=getAvailableIndex(current+(event.key==='ArrowDown'?1:-1),event.key==='ArrowDown'?1:-1);
+      if(next>=0)optionButtons[next].focus();
+    }
+    if(event.key==='Home'||event.key==='End'){
+      event.preventDefault();
+      const next=getAvailableIndex(event.key==='Home'?0:optionButtons.length-1,event.key==='Home'?1:-1);
+      if(next>=0)optionButtons[next].focus();
+    }
+  });
+  select.addEventListener('change',sync);
+  new MutationObserver(sync).observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','hidden','selected']});
+  select._syncCustom=sync;
+  sync();
+}
+function setupCustomSelects(){
+  document.querySelectorAll('.sel > select').forEach(enhanceSelect);
+  document.addEventListener('click',event=>{
+    document.querySelectorAll('.select-shell').forEach(shell=>{
+      if(!shell.contains(event.target)){
+        const trigger=shell.querySelector('.select-trigger'),menu=shell.querySelector('.select-menu');
+        if(trigger&&menu&&!menu.hidden){menu.hidden=true;trigger.setAttribute('aria-expanded','false');}
+      }
+    });
+  });
+}
 function updateHeader(){
   const parts=currentEvent.name.split(" ");
   const last=parts.slice(-2).join(" ");const first=parts.slice(0,-2).join(" ")||parts[0];
   $("heroTitle").textContent=first;
   $("heroTitle2").textContent=last;
   document.title=currentEvent.name+" — APEX F1";
-  $("heroSession").textContent=currentSession.name+" · 2026";
+  $("heroSession").textContent=currentSession.name+" · "+SITE_SEASON;
   const done=currentEvent.sessions.every(isSessionEnded);
   $("heroRound").textContent=`Round ${currentEvent.round} · ${currentEvent.locality}, ${currentEvent.country}`
     +(currentEvent.sprint?" · Sprint Weekend":"")+(done?" · Completed":"");
@@ -151,7 +241,7 @@ function renderButtons(){
     linksEl.appendChild(b);
   });
 }
-const buildUrl=i=>`https://embedindia.st/embed/f1/2026/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix}`;
+const buildUrl=i=>`https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix}`;
 
 /* ── no-stream rotator ── */
 let nsTimer=null,nsPaused=false,nsRunning=false;
@@ -244,17 +334,26 @@ function initVisitorCounter(){
   const el=$("visitorCount");if(!el)return;
   let uid=store.get('freef1_user_id');
   if(!uid){uid='user_'+(crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36));store.set('freef1_user_id',uid)}
-  const API=PREVIEW_HOST?location.origin:'https://f1free.onrender.com',SECRET='doggomc',INTERVAL=18000;
-  let timer=0,inFlight=false;
+  const API=PREVIEW_HOST?location.origin:'https://f1free.onrender.com',INTERVAL=18000;
+  let timer=0,inFlight=false,visitorToken='',visitorTokenExpiresAt=0;
   const updateCount=data=>{if(data&&Number.isFinite(data.active))el.textContent=String(data.active)};
+  const refreshVisitorToken=async()=>{
+    const response=await fetchWithTimeout(`${API}/api/visitors/token`,{cache:'no-store',credentials:'omit',headers:{'X-User-Id':uid}});
+    if(!response.ok)throw new Error(`Token request failed: ${response.status}`);
+    const data=await response.json();
+    visitorToken=data.token||'';
+    visitorTokenExpiresAt=Number(data.expiresAt)||0;
+  };
   const beat=async()=>{
     clearTimeout(timer);
     if(document.hidden||inFlight){timer=setTimeout(beat,INTERVAL);return}
     inFlight=true;
     try{
-      const r=await fetch(`${API}/api/visitors/heartbeat`,{cache:'no-store',credentials:'omit',keepalive:true,
-        headers:{'X-Visitor-Secret':SECRET,'X-User-Id':uid}});
-      if(r.ok)updateCount(await r.json());
+      if(!visitorToken||visitorTokenExpiresAt-Date.now()<60000)await refreshVisitorToken();
+      const r=await fetchWithTimeout(`${API}/api/visitors/heartbeat`,{cache:'no-store',credentials:'omit',keepalive:true,
+        headers:{'X-Visitor-Token':visitorToken,'X-User-Id':uid}});
+      if(r.status===403){visitorToken='';visitorTokenExpiresAt=0}
+      else if(r.ok)updateCount(await r.json());
     }catch(_){}finally{inFlight=false;timer=setTimeout(beat,INTERVAL)}
   };
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)beat()},{passive:true});
@@ -262,7 +361,7 @@ function initVisitorCounter(){
 }
 
 /* ═══════════ LIVE SITE STATE + STREAM OVERRIDE (SSE) ═══════════ */
-const PUBLIC_API='https://f1free.onrender.com';
+const PUBLIC_API=PREVIEW_HOST?location.origin:'https://f1free.onrender.com';
 const newsDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 let newsPollInFlight=false;
 
@@ -306,7 +405,7 @@ async function pollNews(force=false){
   if(!newsFeedEl||document.hidden||newsPollInFlight)return;
   newsPollInFlight=true;
   try{
-    const response=await fetch(`${PUBLIC_API}/api/news`,{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}});
+    const response=await fetchWithTimeout(`${PUBLIC_API}/api/news`,{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
     applyNewsUpdate(await response.json(),true);
   }catch(_){
@@ -377,7 +476,7 @@ async function pollSiteStatus(force=false){
   if(document.hidden||sitePollInFlight||(!force&&streamSseConnected))return;
   sitePollInFlight=true;
   try{
-    const response=await fetch(`${PUBLIC_API}/api/site/status`,{cache:'no-store',credentials:'omit'});
+    const response=await fetchWithTimeout(`${PUBLIC_API}/api/site/status`,{cache:'no-store',credentials:'omit'});
     if(response.ok)applyMaintenanceMode((await response.json()).maintenance);
   }catch(_){}finally{sitePollInFlight=false}
 }
@@ -385,7 +484,7 @@ async function pollStreamStatus(force=false){
   if(document.hidden||streamPollInFlight||(!force&&streamSseConnected))return;
   streamPollInFlight=true;
   try{
-    const r=await fetch(`${PUBLIC_API}/api/stream/status`,{cache:'no-store',credentials:'omit'});
+    const r=await fetchWithTimeout(`${PUBLIC_API}/api/stream/status`,{cache:'no-store',credentials:'omit'});
     if(r.ok)applyStreamOverride(await r.json());
   }catch(_){}finally{streamPollInFlight=false}
 }
@@ -504,9 +603,21 @@ document.querySelectorAll('.acc-q').forEach(btn=>{
 /* Panel tabs */
 function openPanel(id){
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));
-  document.querySelectorAll('#infoTabs .tab').forEach(t=>t.classList.toggle('active',t.dataset.panel===id));
+  document.querySelectorAll('#infoTabs [role="tab"]').forEach(t=>{
+    const active=t.dataset.panel===id;
+    t.classList.toggle('active',active);
+    t.setAttribute('aria-selected',String(active));
+  });
 }
-document.querySelectorAll('#infoTabs .tab').forEach(t=>t.addEventListener('click',()=>openPanel(t.dataset.panel)));
+document.querySelectorAll('#infoTabs [role="tab"]').forEach(t=>t.addEventListener('click',()=>openPanel(t.dataset.panel)));
+document.querySelectorAll('[role="tablist"]').forEach(tabList=>tabList.addEventListener('keydown',event=>{
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  const tabs=[...tabList.querySelectorAll('[role="tab"]')];
+  const current=tabs.indexOf(document.activeElement);if(current<0)return;
+  event.preventDefault();
+  const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+  tabs[next].focus();
+}));
 document.querySelectorAll('.foot-links button[data-panel]').forEach(b=>b.addEventListener('click',()=>{
   openPanel(b.dataset.panel);
   document.getElementById('info').scrollIntoView({behavior:'smooth'});
@@ -521,15 +632,35 @@ const TEAM_HEX={'McLaren':'#FF8000','Ferrari':'#DC0000','Red Bull':'#1E41FF','Me
 function hexFor(n){for(const k in TEAM_HEX)if((n||'').includes(k))return TEAM_HEX[k];return 'var(--team)'}
 function escapeHtml(value){return String(value??'').replace(/[&<>\"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[char]))}
 const apiPromises=new Map();
+const API_TIMEOUT_MS=10000;
+const API_STALE_FALLBACK_MS=24*60*60*1000;
+function fetchWithTimeout(url,options={},timeoutMs=API_TIMEOUT_MS){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+  return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timeout));
+}
+function apiCacheKey(url){return `freef1_api_cache_${url}`}
+function readApiFallback(url){
+  try{
+    const cached=JSON.parse(store.get(apiCacheKey(url))||'null');
+    if(!cached||Date.now()-Number(cached.savedAt)>API_STALE_FALLBACK_MS)return null;
+    return cached.data||null;
+  }catch(_){return null}
+}
+function saveApiResponse(url,data){
+  try{store.set(apiCacheKey(url),JSON.stringify({savedAt:Date.now(),data}))}catch(_){}
+}
 function fetchJson(url){
   if(apiPromises.has(url))return apiPromises.get(url);
-  const request=fetch(url,{headers:{Accept:'application/json'}}).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json()})
-    .catch(error=>{apiPromises.delete(url);throw error});
+  const request=fetchWithTimeout(url,{headers:{Accept:'application/json'}})
+    .then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json()})
+    .then(data=>{saveApiResponse(url,data);return data})
+    .catch(error=>{apiPromises.delete(url);const fallback=readApiFallback(url);if(fallback)return fallback;throw error});
   apiPromises.set(url,request);return request;
 }
 let driverStandingsPromise=null;
 function getDriverStandings(){
-  if(!driverStandingsPromise)driverStandingsPromise=fetchJson(`${JOLPI}/current/driverstandings/?limit=40`)
+  if(!driverStandingsPromise)driverStandingsPromise=fetchJson(`${JOLPI}/${SITE_SEASON}/driverstandings/?limit=40`)
     .then(data=>data?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings||[])
     .catch(error=>{driverStandingsPromise=null;throw error});
   return driverStandingsPromise;
@@ -556,7 +687,7 @@ function loadStandings(type){
   $("standingsTitle").innerHTML=(type==='drivers'?'Driver':'Constructor')+' <span class="accent">Standings</span>';
   const request=type==='drivers'
     ? getDriverStandings().then(DriverStandings=>({MRData:{StandingsTable:{StandingsLists:[{DriverStandings}]}}}))
-    : fetchJson(`${JOLPI}/current/constructorstandings/`);
+    : fetchJson(`${JOLPI}/${SITE_SEASON}/constructorstandings/`);
   request.then(data=>{loadEl.style.display='none';rowsEl.style.opacity='1';renderStandings(data,type)})
     .catch(()=>{loadEl.textContent='Standings unavailable right now.';rowsEl.style.opacity='1'});
 }
@@ -612,33 +743,61 @@ function loadDriverGrid(){
     .catch(()=>{$("driverGrid").innerHTML='<div class="state">Grid unavailable right now.</div>'});
 }
 
-document.querySelectorAll('#standings .tab').forEach(t=>t.addEventListener('click',()=>{
-  document.querySelectorAll('#standings .tab').forEach(x=>x.classList.remove('active'));
-  t.classList.add('active');loadStandings(t.dataset.type);
+document.querySelectorAll('#standings [role="tab"]').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('#standings [role="tab"]').forEach(x=>{
+    const active=x===t;
+    x.classList.toggle('active',active);
+    x.setAttribute('aria-selected',String(active));
+  });
+  loadStandings(t.dataset.type);
 }));
 
 /* ═══════════ SESSION RESULTS ═══════════ */
-let races2026=[];
+let seasonRaces=[];
 const sOverlay=$("sessionsOverlay"),sRace=$("sessionRaceSelect"),sType=$("sessionTypeSelect"),
  sLoad=$("sessionsResultsLoading"),sRes=$("sessionsResults");
 function lockScroll(on){document.body.style.overflow=on?'hidden':''}
+let lastModalFocus=null;
+function openModal(modal){
+  lastModalFocus=document.activeElement;
+  modal.classList.add('open');lockScroll(true);
+  requestAnimationFrame(()=>modal.querySelector('button:not(:disabled),select:not([tabindex="-1"])')?.focus());
+}
+function closeModal(modal){
+  modal.classList.remove('open');
+  if(!document.querySelector('.modal.open')){
+    lockScroll(false);
+    if(lastModalFocus&&typeof lastModalFocus.focus==='function')lastModalFocus.focus();
+    lastModalFocus=null;
+  }
+}
+function trapModalFocus(event){
+  if(event.key!=='Tab')return;
+  const modal=document.querySelector('.modal.open');if(!modal)return;
+  const focusable=[...modal.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not([tabindex="-1"]),[href],[tabindex]:not([tabindex="-1"]),textarea:not(:disabled)')]
+    .filter(element=>!element.hidden&&element.offsetParent!==null);
+  if(!focusable.length)return;
+  const first=focusable[0],last=focusable[focusable.length-1];
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+}
 function isDateEnded(d){return d&&(new Date()-new Date(d+'T23:59:59Z'))>0}
 
-async function load2026Races(){
+async function loadSeasonRaces(){
   try{
-    if(!races2026.length){const data=await fetchJson('https://api.jolpi.ca/ergast/f1/2026.json?limit=30');races2026=data?.MRData?.RaceTable?.Races||[]}
+    if(!seasonRaces.length){const data=await fetchJson(`https://api.jolpi.ca/ergast/f1/${SITE_SEASON}.json?limit=30`);seasonRaces=data?.MRData?.RaceTable?.Races||[]}
     sRace.innerHTML='';
-    const valid=races2026.filter(race=>isDateEnded(race.date));
-    const list=(valid.length?valid:races2026).slice().sort((a,b)=>Number(b.round)-Number(a.round));
+    const valid=seasonRaces.filter(race=>isDateEnded(race.date));
+    const list=(valid.length?valid:seasonRaces).slice().sort((a,b)=>Number(b.round)-Number(a.round));
     const fragment=document.createDocumentFragment();
     list.forEach(race=>{const option=document.createElement('option');option.value=race.round;option.textContent=`R${race.round} · ${race.raceName}`;fragment.appendChild(option)});
     sRace.appendChild(fragment);if(list.length)sRace.value=list[0].round;
-    if(!races2026.length)sRace.innerHTML='<option>No races found</option>';
+    if(!seasonRaces.length)sRace.innerHTML='<option>No races found</option>';
     updateSessionTypeOptions();loadSessionResults();
   }catch(_){sRace.innerHTML='<option>Failed to load</option>'}
 }
 function updateSessionTypeOptions(){
-  const rc=races2026.find(r=>r.round===sRace.value);
+  const rc=seasonRaces.find(r=>r.round===sRace.value);
   const sp=sType.querySelector('option[value="sprint"]');
   if(rc&&rc.Sprint){sp.disabled=false;sp.hidden=false}
   else{sp.hidden=true;sp.disabled=true;if(sType.value==='sprint')sType.value='results'}
@@ -649,7 +808,7 @@ async function loadSessionResults(){
   sLoad.style.display='block';sRes.innerHTML='';
   try{
     const ep=({results:'results',qualifying:'qualifying',sprint:'sprint'})[type]||'results';
-    const data=await fetchJson(`https://api.jolpi.ca/ergast/f1/2026/${round}/${ep}/`);
+    const data=await fetchJson(`https://api.jolpi.ca/ergast/f1/${SITE_SEASON}/${round}/${ep}/`);
     sLoad.style.display='none';
     const race=data?.MRData?.RaceTable?.Races?.[0];
     const results=type==='qualifying'?race?.QualifyingResults:type==='sprint'?race?.SprintResults:race?.Results;
@@ -664,8 +823,8 @@ async function loadSessionResults(){
     sRes.replaceChildren(fragment);
   }catch(e){sLoad.style.display='none';sRes.innerHTML='<div class="state">Failed to load results.</div>'}
 }
-$("sessionsBtn").addEventListener('click',()=>{sOverlay.classList.add('open');lockScroll(true);load2026Races()});
-$("sessionsClose").addEventListener('click',()=>{sOverlay.classList.remove('open');lockScroll(false)});
+$("sessionsBtn").addEventListener('click',()=>{openModal(sOverlay);loadSeasonRaces()});
+$("sessionsClose").addEventListener('click',()=>closeModal(sOverlay));
 sRace.addEventListener('change',()=>{updateSessionTypeOptions();loadSessionResults()});
 sType.addEventListener('change',loadSessionResults);
 $("championshipBtn").addEventListener('click',()=>document.getElementById('standings').scrollIntoView({behavior:'smooth'}));
@@ -704,22 +863,32 @@ function renderTeamGrid(){
   tGrid.innerHTML='';
   teams.forEach(t=>{
     const c=document.createElement('div');c.className='tcard';c.dataset.team=t.id;
+    c.setAttribute('role','button');c.tabIndex=0;c.setAttribute('aria-label',`Choose ${t.name} livery`);
     c.style.setProperty('--tc',t.color);
     c.innerHTML=`<div class="tbadge" style="background:linear-gradient(140deg,${t.color},${shade(t.color,-50)});color:${t.text}">${t.abbr}</div>
       <div class="tname">${t.name}</div><div class="tick">✓</div>`;
-    c.addEventListener('click',()=>{applyTeamTheme(t.id);store.set('freef1_team',t.id)});
+    const choose=()=>{applyTeamTheme(t.id);store.set('freef1_team',t.id)};
+    c.addEventListener('click',choose);
+    c.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();choose()}});
     tGrid.appendChild(c);
   });
 }
 $("teamSelectBtn").addEventListener('click',()=>{
-  tOverlay.classList.add('open');lockScroll(true);renderTeamGrid();
+  openModal(tOverlay);renderTeamGrid();
   applyTeamTheme(store.get('freef1_team')||'default');
 });
-$("teamSelectClose").addEventListener('click',()=>{tOverlay.classList.remove('open');lockScroll(false)});
+$("teamSelectClose").addEventListener('click',()=>closeModal(tOverlay));
 [sOverlay,tOverlay].forEach(m=>m.addEventListener('click',e=>{
-  if(e.target===m){m.classList.remove('open');lockScroll(false)}}));
-addEventListener('keydown',e=>{if(e.key==='Escape'){
-  document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'));lockScroll(false)}});
+  if(e.target===m)closeModal(m);
+}));
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    const modal=document.querySelector('.modal.open');
+    if(modal)closeModal(modal);
+    return;
+  }
+  trapModalFocus(e);
+});
 applyTeamTheme(store.get('freef1_team')||'default');
 
 /* ═══════════ SPEED-LINE CANVAS ═══════════ */
@@ -757,7 +926,7 @@ applyTeamTheme(store.get('freef1_team')||'default');
 })();
 
 /* ═══════════ INIT ═══════════ */
-populate();updateHeader();renderButtons();load();updateClocks();initVisitorCounter();updateOverridePill(streamOverride);
+populate();updateHeader();renderButtons();load();setupCustomSelects();updateClocks();initVisitorCounter();updateOverridePill(streamOverride);
 const loadChampionshipData=()=>{loadStandings('drivers');loadDriverGrid()};
 if('requestIdleCallback'in window)requestIdleCallback(loadChampionshipData,{timeout:1600});else setTimeout(loadChampionshipData,700);
 setInterval(updateClocks,1000);
