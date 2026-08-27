@@ -236,6 +236,7 @@ section{position:relative;z-index:2}
 .deck{display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin-bottom:18px}
 @media(max-width:820px){.deck{grid-template-columns:1fr}}
 .deck-box{padding:22px;overflow:visible}
+.deck-box:focus-within{z-index:40;overflow:visible}
 .deck-box h3{font-family:'JetBrains Mono';font-size:.62rem;letter-spacing:.28em;
   text-transform:uppercase;color:var(--dim);margin-bottom:14px}
 .selects{display:flex;gap:12px;flex-wrap:wrap}
