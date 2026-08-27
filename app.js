@@ -832,10 +832,15 @@ sType.addEventListener('change',loadSessionResults);
 $("championshipBtn").addEventListener('click',()=>document.getElementById('standings').scrollIntoView({behavior:'smooth'}));
 
 /* ═══════════ RACE TIMES ═══════════ */
-const raceTimesOverlay=$("raceTimesOverlay"),raceTimesList=$("raceTimesList"),raceTimesSeason=$("raceTimesSeason");
+const raceTimesOverlay=$("raceTimesOverlay"),raceTimesList=$("raceTimesList"),raceTimesSeason=$("raceTimesSeason"),raceTimesTimezone=$("raceTimesTimezone");
 let raceTimesFilter='all';
-const raceDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
-const raceClockFormat=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'UTC'});
+const localTimeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'local timezone';
+const localTimeZoneLabel=(()=>{
+  const parts=new Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(new Date());
+  return parts.find(part=>part.type==='timeZoneName')?.value||localTimeZone;
+})();
+const raceDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const raceClockFormat=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZoneName:'short'});
 function raceStatus(event,now=Date.now()){
   const race=event.sessions.find(session=>session.slug==='race')||event.sessions.at(-1);
   const starts=event.sessions.map(session=>session.ts).filter(Number.isFinite);
@@ -847,12 +852,13 @@ function raceStatus(event,now=Date.now()){
 function formatRaceDateTime(timestamp){
   const date=new Date(Number(timestamp));
   if(Number.isNaN(date.getTime()))return'—';
-  return `${raceDateFormat.format(date)} · ${raceClockFormat.format(date)} UTC`;
+  return `${raceDateFormat.format(date)} · ${raceClockFormat.format(date)}`;
 }
 function renderRaceTimes(filter=raceTimesFilter){
   if(!raceTimesList)return;
   raceTimesFilter=filter;
-  if(raceTimesSeason)raceTimesSeason.textContent=`SEASON ${SITE_SEASON}`;
+  if(raceTimesSeason)raceTimesSeason.textContent=`SEASON ${SITE_SEASON} · LOCAL`;
+  if(raceTimesTimezone)raceTimesTimezone.textContent=`Times shown in your local timezone · ${localTimeZone} (${localTimeZoneLabel})`;
   const items=schedule.map(event=>({event,status:raceStatus(event),race:event.sessions.find(session=>session.slug==='race')||event.sessions.at(-1)}))
     .filter(item=>filter==='all'||item.status===filter);
   if(!items.length){raceTimesList.innerHTML='<div class="state">No races match this filter.</div>';return}
