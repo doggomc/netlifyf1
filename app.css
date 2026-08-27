@@ -526,6 +526,30 @@ select option:disabled{color:#4A4F57}
 .news-item h3{font-family:'Archivo';font-size:1rem;font-weight:800;letter-spacing:-.015em;line-height:1.15;margin-bottom:8px}
 .news-item p{color:var(--muted);font-size:.82rem;line-height:1.7;white-space:pre-line}
 
+/* ═══════════════ RACE TIMES ═══════════════ */
+.race-times-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.race-times-toolbar .tabs{flex-wrap:wrap}
+.race-times-list{display:grid;gap:10px}
+.race-time-item{position:relative;overflow:hidden;padding:17px 18px;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:rgba(255,255,255,.014);transition:background .3s var(--ease),border-color .3s var(--ease)}
+.race-time-item:hover{background:rgba(255,255,255,.04);border-color:var(--line-2)}
+.race-time-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--race-color,var(--team))}
+.race-time-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.race-time-title{font-family:'Archivo';font-weight:800;font-size:1rem;letter-spacing:-.015em;line-height:1.25}
+.race-time-title small{display:block;margin-top:4px;font-family:'JetBrains Mono';font-size:.58rem;font-weight:400;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.race-time-status{flex-shrink:0;padding:5px 9px;border:1px solid var(--line);border-radius:99px;
+  font-family:'JetBrains Mono';font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.race-time-status.finished{color:var(--dim)}
+.race-time-status.current{color:var(--green);border-color:rgba(0,213,126,.28);background:rgba(0,213,126,.08)}
+.race-time-status.upcoming{color:var(--amber);border-color:rgba(255,176,32,.28);background:rgba(255,176,32,.08)}
+.race-time-race{display:flex;align-items:center;gap:8px;margin-top:12px;font-family:'JetBrains Mono';font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--team)}
+.race-time-race::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.race-time-sessions{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:7px;margin-top:13px}
+.race-time-session{display:flex;flex-direction:column;gap:4px;padding:8px 9px;border:1px solid rgba(255,255,255,.06);
+  border-radius:var(--r-xs);background:rgba(0,0,0,.22)}
+.race-time-session b{font-family:'JetBrains Mono';font-size:.53rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.race-time-session time{font-family:'JetBrains Mono';font-size:.61rem;color:var(--muted);white-space:nowrap}
+
 /* ═══════════════ MODALS ═══════════════ */
 .modal{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;
   padding:22px;background:rgba(5,5,6,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
@@ -576,8 +600,11 @@ select option:disabled{color:#4A4F57}
 /* Results rows */
 .rrow{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;
   padding:11px 15px;border:1px solid var(--line);border-radius:var(--r-sm);
-  background:rgba(255,255,255,.014);transition:all .34s var(--ease)}
-.rrow:hover{border-color:var(--line-2);background:rgba(255,255,255,.045);transform:translateX(5px)}
+  background:linear-gradient(90deg,color-mix(in srgb,var(--race-team,var(--team)) 24%,transparent),rgba(255,255,255,.014) 76%);
+  position:relative;overflow:hidden;transition:all .34s var(--ease)}
+.rrow::before{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:var(--race-team,var(--team));
+  opacity:.9;box-shadow:0 0 18px -5px var(--race-team,var(--team))}
+.rrow:hover{border-color:var(--line-2);background:linear-gradient(90deg,color-mix(in srgb,var(--race-team,var(--team)) 32%,transparent),rgba(255,255,255,.045) 78%);transform:translateX(5px)}
 .rrow .pos{font-size:1.15rem}
 .rtime{font-family:'JetBrains Mono';font-size:.76rem;font-weight:500;color:var(--amber);text-align:right}
 
@@ -716,6 +743,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
   .x{width:44px;height:44px}
   .panel-head{padding:19px 17px 6px}.stamp{padding:0 17px 12px}.acc-wrap{padding:0 12px 18px}.acc-q{min-height:52px;padding:14px;font-size:.86rem}.acc-a-in{padding:0 14px 16px}
   .rrow{grid-template-columns:34px minmax(0,1fr);padding:10px;gap:9px}.rtime{grid-column:2;text-align:left;white-space:normal}
+  .race-time-item{padding:15px 14px}.race-time-top{align-items:flex-start}.race-time-title{font-size:.92rem}.race-time-status{font-size:.52rem;padding:5px 7px}.race-time-sessions{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.race-time-session{padding:8px 7px}.race-time-session time{font-size:.55rem}
   .foot-grid{padding-top:40px}.foot-links button,.foot-links a{min-height:36px;display:flex;align-items:center}
   .scanlines{opacity:.2}.grain{opacity:.02}.vignette{background:radial-gradient(130% 95% at 50% 38%,transparent 35%,rgba(0,0,0,.68) 100%)}
   .orb-a{width:430px;height:430px}.orb-b{width:380px;height:380px}.orb-c{display:none}

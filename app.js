@@ -98,6 +98,7 @@ function populate(){
   schedule.forEach(ev=>{
     const o=document.createElement("option");o.value=ev.slug;
     const done=ev.sessions.every(isSessionEnded);
+    o.disabled=done;
     o.textContent=`R${ev.round} · ${ev.name}`+(done?" (finished)":"");
     if(ev.slug===currentEvent.slug)o.selected=true;eventSelect.appendChild(o);
   });
@@ -528,7 +529,7 @@ $("currentStreamBtn").addEventListener("click",()=>{
   document.getElementById('watch').scrollIntoView({behavior:'smooth'});
 });
 eventSelect.addEventListener("change",()=>{
-  const ev=schedule.find(e=>e.slug===eventSelect.value);if(!ev)return;
+  const ev=schedule.find(e=>e.slug===eventSelect.value);if(!ev||ev.sessions.every(isSessionEnded))return;
   currentEvent=ev;currentSession=ev.sessions.find(s=>!isSessionEnded(s))||ev.sessions[0];
   currentSource=0;updateSessions();updateHeader();renderButtons();load();updateCurrentStreamButton();
 });
@@ -816,6 +817,7 @@ async function loadSessionResults(){
     const fragment=document.createDocumentFragment();
     results.forEach((result,index)=>{
       const element=document.createElement('div');element.className='rrow';element.style.animation=`rowIn .5s var(--ease) ${index*24}ms both`;
+      element.style.setProperty('--race-team',hexFor(result.Constructor?.name||''));
       const time=type==='qualifying'?([result.Q3,result.Q2,result.Q1].filter(Boolean)[0]||'—'):(result.Time?.time||result.status||'—');
       element.innerHTML=`<div class="pos">${escapeHtml(result.position)}</div><div class="who"><b>${escapeHtml(`${result.Driver?.givenName||''} ${result.Driver?.familyName||''}`)}</b><small>${escapeHtml(result.Constructor?.name||'')}</small></div><div class="rtime">${escapeHtml(time)}</div>`;
       fragment.appendChild(element);
@@ -828,6 +830,47 @@ $("sessionsClose").addEventListener('click',()=>closeModal(sOverlay));
 sRace.addEventListener('change',()=>{updateSessionTypeOptions();loadSessionResults()});
 sType.addEventListener('change',loadSessionResults);
 $("championshipBtn").addEventListener('click',()=>document.getElementById('standings').scrollIntoView({behavior:'smooth'}));
+
+/* ═══════════ RACE TIMES ═══════════ */
+const raceTimesOverlay=$("raceTimesOverlay"),raceTimesList=$("raceTimesList"),raceTimesSeason=$("raceTimesSeason");
+let raceTimesFilter='all';
+const raceDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+const raceClockFormat=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'UTC'});
+function raceStatus(event,now=Date.now()){
+  const race=event.sessions.find(session=>session.slug==='race')||event.sessions.at(-1);
+  const starts=event.sessions.map(session=>session.ts).filter(Number.isFinite);
+  const first=Math.min(...starts),last=Math.max(...starts);
+  if(race&&now>race.ts+4*60*60*1000)return'finished';
+  if(now>=first-60*60*1000&&now<=last+4*60*60*1000)return'current';
+  return'upcoming';
+}
+function formatRaceDateTime(timestamp){
+  const date=new Date(Number(timestamp));
+  if(Number.isNaN(date.getTime()))return'—';
+  return `${raceDateFormat.format(date)} · ${raceClockFormat.format(date)} UTC`;
+}
+function renderRaceTimes(filter=raceTimesFilter){
+  if(!raceTimesList)return;
+  raceTimesFilter=filter;
+  if(raceTimesSeason)raceTimesSeason.textContent=`SEASON ${SITE_SEASON}`;
+  const items=schedule.map(event=>({event,status:raceStatus(event),race:event.sessions.find(session=>session.slug==='race')||event.sessions.at(-1)}))
+    .filter(item=>filter==='all'||item.status===filter);
+  if(!items.length){raceTimesList.innerHTML='<div class="state">No races match this filter.</div>';return}
+  raceTimesList.innerHTML=items.map(({event,status,race})=>`<article class="race-time-item ${status}">
+    <div class="race-time-top"><div class="race-time-title">R${escapeHtml(event.round)} · ${escapeHtml(event.name)}<small>${escapeHtml(event.locality)}, ${escapeHtml(event.country)}</small></div>
+      <span class="race-time-status ${status}">${status}</span></div>
+    <div class="race-time-race"><span>Race · ${escapeHtml(formatRaceDateTime(race?.ts))}</span></div>
+    <div class="race-time-sessions">${event.sessions.map(session=>`<div class="race-time-session"><b>${escapeHtml(session.name)}</b><time datetime="${escapeHtml(new Date(session.ts).toISOString())}">${escapeHtml(formatRaceDateTime(session.ts))}</time></div>`).join('')}</div>
+  </article>`).join('');
+}
+$("raceTimesBtn").addEventListener('click',()=>{openModal(raceTimesOverlay);renderRaceTimes('all')});
+$("raceTimesClose").addEventListener('click',()=>closeModal(raceTimesOverlay));
+document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach(tab=>tab.addEventListener('click',()=>{
+  document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach(item=>{
+    const active=item===tab;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));
+  });
+  renderRaceTimes(tab.dataset.raceFilter);
+}));
 
 /* ═══════════ TEAM LIVERY ═══════════ */
 const teams=[
@@ -878,7 +921,7 @@ $("teamSelectBtn").addEventListener('click',()=>{
   applyTeamTheme(store.get('freef1_team')||'default');
 });
 $("teamSelectClose").addEventListener('click',()=>closeModal(tOverlay));
-[sOverlay,tOverlay].forEach(m=>m.addEventListener('click',e=>{
+[sOverlay,raceTimesOverlay,tOverlay].forEach(m=>m.addEventListener('click',e=>{
   if(e.target===m)closeModal(m);
 }));
 addEventListener('keydown',e=>{
