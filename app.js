@@ -11,8 +11,26 @@ const AUTHORIZED_DOMAIN='freef1.netlify.app';
 const PREVIEW_HOST=location.hostname==='localhost'||location.hostname==='127.0.0.1'||location.hostname.endsWith('.e2b.app');
 const AUTH_API_URL=PREVIEW_HOST?`${location.origin}/api/auth/verify`:'https://f1free.onrender.com/api/auth/verify';
 
-/* This is a friendly domain check, not a security boundary. The API and
-   admin routes enforce their own access rules on the server. */
+/* Lightweight browser-copy deterrence. This cannot provide real source-code
+   security because browsers must receive the page to render it. */
+(function installCopyProtection(){
+  const editableSelector='input,textarea,select,[contenteditable="true"]';
+  const isEditable=target=>target instanceof Element&&Boolean(target.closest(editableSelector));
+  const blockSelection=event=>{if(!isEditable(event.target))event.preventDefault()};
+  document.addEventListener('contextmenu',event=>{if(!isEditable(event.target))event.preventDefault()});
+  document.addEventListener('selectstart',blockSelection);
+  document.addEventListener('dragstart',blockSelection);
+  document.addEventListener('copy',event=>{if(!isEditable(event.target))event.preventDefault()});
+  document.addEventListener('cut',event=>{if(!isEditable(event.target))event.preventDefault()});
+  document.addEventListener('keydown',event=>{
+    const key=(event.key||'').toLowerCase();
+    const modifier=event.ctrlKey||event.metaKey;
+    const blocked=key==='f12'||
+      (modifier&&['u','s','p'].includes(key))||
+      (modifier&&event.shiftKey&&['i','j','c','k'].includes(key));
+    if(blocked&&!isEditable(event.target)){event.preventDefault();event.stopPropagation()}
+  });
+})();
 function checkAuth(){
   if(!AUTH_PROTECTION_ENABLED)return;
   const host=location.hostname.toLowerCase();

@@ -30,7 +30,9 @@ body{
   font-family:'Inter',system-ui,-apple-system,sans-serif;
   line-height:1.55; overflow-x:hidden; min-height:100vh;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  -webkit-user-select:none; user-select:none;
 }
+input,textarea,select,[contenteditable="true"]{-webkit-user-select:text;user-select:text}
 ::selection{background:var(--team);color:#fff}
 img{display:block;max-width:100%}
 
