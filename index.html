@@ -35,7 +35,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <link rel="preconnect" href="https://f1free.onrender.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260827-copyguard1">
+<link rel="stylesheet" href="/app.css?v=20260906-livery1">
 </head>
 <body>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
@@ -67,8 +67,8 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
     <a href="#watch">Watch</a>
     <a href="#grid">The Grid</a>
     <a href="#standings">Standings</a>
-    <a href="#news">News</a>
-    <a href="#info">Info</a>
+    <a href="/news" data-route="news">News</a>
+    <a href="/info" data-route="info">Info</a>
   </div>
   <div class="nav-right">
     <div class="pill live" id="badge"><span class="dot"></span>Live</div>
@@ -78,6 +78,8 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </nav>
 
+<!-- ══ VIEW: HOME ══ -->
+<div class="view is-active" id="viewHome" data-view="home">
 <!-- ══ HERO ══ -->
 <header class="hero" id="top">
   <div class="hero-flag"></div>
@@ -210,11 +212,15 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </section>
 
-<!-- ══ NEWS ══ -->
-<section class="sec" id="news">
+</div><!-- /viewHome -->
+
+<!-- ══ VIEW: NEWS ══ -->
+<div class="view" id="viewNews" data-view="news" hidden>
+<section class="sec sub-sec" id="news">
   <div class="wrap">
     <div class="sec-head rv">
       <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
         <span class="eyebrow">Race Control</span>
         <h2>Latest <span class="accent">News</span></h2>
         <div class="rule" style="width:120px"></div>
@@ -229,11 +235,15 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </section>
 
-<!-- ══ INFO / LEGAL ══ -->
-<section class="sec" id="info">
+</div><!-- /viewNews -->
+
+<!-- ══ VIEW: INFO ══ -->
+<div class="view" id="viewInfo" data-view="info" hidden>
+<section class="sec sub-sec" id="info">
   <div class="wrap">
     <div class="sec-head rv">
       <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
         <span class="eyebrow">Small Print</span>
         <h2>Terms, Privacy &amp; <span class="accent">FAQ</span></h2>
         <div class="rule" style="width:120px"></div>
@@ -299,7 +309,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
           <div class="acc-item"><button class="acc-q">Where do the streams come from?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>Streams are sourced from publicly available embedded content providers. We do not create, produce, or verify the content of these streams. We simply provide links to content that is publicly accessible on the internet. We are not responsible for the availability, quality, or legality of any third-party content.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Is this website legal?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We operate within the boundaries of applicable law by not hosting any copyrighted content ourselves and by providing only links to publicly available content. However, the legality of streaming sports content varies by jurisdiction. You are responsible for complying with the laws in your country or region.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Do you have any advertising on the website?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>No. We do not display any advertisements on this website. There are no banner ads, pop-ups, video ads, or any other form of advertising.</p></div></div></div>
-          <div class="acc-item"><button class="acc-q">Where do the photographs come from?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>All photography on this site is sourced from Wikimedia Commons and used under Creative Commons licences, with attribution shown on each image. We do not use official Formula 1 or team logos, since those are protected trademarks.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">Where do the photographs come from?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>All photography on this site is sourced from Wikimedia Commons and used under Creative Commons licences, with attribution shown on each image. Driver imagery and team marks are © Formula 1 and the respective teams, loaded directly from the official F1 media CDN and used for identification only; we claim no rights in them.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Why do you not provide official F1 timing or race data?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>Official Formula 1 timing and race data are proprietary and are exclusively provided by Formula One Licensing B.V. through official channels. Standings and results shown here come from the public Ergast/Jolpica community API and should not be relied upon for absolute accuracy.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">How can I contact you?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>You can reach us through the contact methods provided on this website. For urgent matters related to copyright or legal issues, please use the subject line "URGENT" in your communication.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Can I use this website commercially?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>No. This website is provided for personal, non-commercial use only. You may not use this website or its content for any commercial purpose without our express written permission.</p></div></div></div>
@@ -308,6 +318,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
     </div>
   </div>
 </section>
+</div><!-- /viewInfo -->
 
 <!-- ══ MODALS ══ -->
 <div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
@@ -346,7 +357,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <div class="modal" id="teamSelectOverlay" role="dialog" aria-modal="true" aria-labelledby="teamSelectTitle">
   <div class="sheet" style="max-width:620px">
     <div class="sheet-head"><h2 id="teamSelectTitle">Choose Your Livery</h2><button class="x" id="teamSelectClose" type="button" aria-label="Close team selector">&times;</button></div>
-    <p style="color:var(--muted);font-size:.82rem;margin-bottom:18px">Team colours are authentic; official logos are trademarked and intentionally not reproduced.</p>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:18px">Pick a team and the whole cockpit takes its colours. Team marks © Formula 1 and their respective teams, served from the official F1 media CDN.</p>
     <div class="teams" id="teamGrid"></div>
   </div>
 </div>
@@ -366,15 +377,15 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <h4>Navigate</h4>
         <div class="foot-links">
           <a href="#watch">Cockpit</a><a href="#grid">The Grid</a>
-          <a href="#standings">Standings</a><a href="#news">News</a><a href="#info">Information</a>
+          <a href="#standings">Standings</a><a href="/news" data-route="news">News</a><a href="/info" data-route="info">Information</a>
         </div>
       </div>
       <div>
         <h4>Legal</h4>
         <div class="foot-links">
-          <button data-panel="termsPanel">Terms of Service</button>
-          <button data-panel="privacyPanel">Privacy Policy</button>
-          <button data-panel="faqPanel">FAQ</button>
+          <button data-panel="termsPanel" data-route="info">Terms of Service</button>
+          <button data-panel="privacyPanel" data-route="info">Privacy Policy</button>
+          <button data-panel="faqPanel" data-route="info">FAQ</button>
         </div>
       </div>
     </div>
@@ -387,6 +398,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260827-copyguard1" defer></script>
+<script src="/app.js?v=20260906-livery1" defer></script>
 </body>
 </html>

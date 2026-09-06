@@ -109,6 +109,7 @@ const _def=pickDefault();
 let currentEvent=_def.event;
 let currentSession=_def.session;
 let currentSource=0;
+let activeView='home';// which view (home/news/info) is on screen — see VIEWS / ROUTER
 
 /* ── selectors ── */
 function populate(){
@@ -242,7 +243,7 @@ function updateHeader(){
   const last=parts.slice(-2).join(" ");const first=parts.slice(0,-2).join(" ")||parts[0];
   $("heroTitle").textContent=first;
   $("heroTitle2").textContent=last;
-  document.title=currentEvent.name+" — APEX F1";
+  if(activeView==='home')document.title=currentEvent.name+" — APEX F1";
   $("heroSession").textContent=currentSession.name+" · "+SITE_SEASON;
   const done=currentEvent.sessions.every(isSessionEnded);
   $("heroRound").textContent=`Round ${currentEvent.round} · ${currentEvent.locality}, ${currentEvent.country}`
@@ -591,7 +592,7 @@ function onScroll(){
   if(ticking)return;ticking=true;
   requestAnimationFrame(()=>{
     const y=scrollY,h=document.documentElement.scrollHeight-innerHeight;
-    navEl.classList.toggle('stuck',y>40);progressEl.style.width=(h>0?(y/h)*100:0)+'%';
+    navEl.classList.toggle('stuck',y>40||activeView!=='home');progressEl.style.width=(h>0?(y/h)*100:0)+'%';
     if(!liteMotion&&heroLayer&&y<innerHeight*1.3)heroLayer.style.transform=`translate3d(0,${y*.38}px,0) scale(1.06)`;
     if(!liteMotion&&breakLayer){const rect=breakLayer.parentElement.getBoundingClientRect();if(rect.bottom>0&&rect.top<innerHeight){
       const p=(innerHeight-rect.top)/(innerHeight+rect.height);breakLayer.style.transform=`translate3d(0,${(p-.5)*90}px,0) scale(1.1)`}}
@@ -639,8 +640,77 @@ document.querySelectorAll('[role="tablist"]').forEach(tabList=>tabList.addEventL
 }));
 document.querySelectorAll('.foot-links button[data-panel]').forEach(b=>b.addEventListener('click',()=>{
   openPanel(b.dataset.panel);
-  document.getElementById('info').scrollIntoView({behavior:'smooth'});
+  navigate('info');
 }));
+
+/* ═══════════ VIEWS / ROUTER ═══════════
+   Home, News and Info are three "views" in one document. Switching views cross-fades
+   in place (no reload), header + footer stay put, the URL updates (/news, /info) and
+   the browser back button works. Netlify serves index.html for those paths via _redirects,
+   so a direct load of /info opens straight onto the Info view. */
+const VIEWS={home:'viewHome',news:'viewNews',info:'viewInfo'};
+const VIEW_TITLES={news:'News — APEX F1',info:'Terms, Privacy & FAQ — APEX F1'};
+const VIEW_SWAP_MS=reduceMotion?0:260;
+let viewSwapTimer=null;
+function routeFromPath(path){const seg=(path||'/').replace(/^\/+|\/+$/g,'').toLowerCase();return seg in VIEWS?seg:'home'}
+function revealNow(root){root.querySelectorAll('.rv').forEach(el=>el.classList.add('in'))}
+function setActiveNav(route){
+  document.querySelectorAll('.nav-links a[data-route]').forEach(a=>a.classList.toggle('current',a.dataset.route===route));
+  document.body.dataset.view=route;
+}
+function showView(route,{push=true,scroll=true}={}){
+  const next=$(VIEWS[route]),prev=$(VIEWS[activeView]);
+  if(!next)return;
+  const changed=route!==activeView;
+  if(push){
+    const url=route==='home'?'/':'/'+route;
+    if(location.pathname!==url)history.pushState({view:route},'',url);
+  }
+  document.title=route==='home'?currentEvent.name+" — APEX F1":VIEW_TITLES[route];
+  setActiveNav(route);closeNav();
+  if(!changed){if(scroll)scrollTo({top:0,behavior:'smooth'});return}
+  activeView=route;clearTimeout(viewSwapTimer);
+  document.body.classList.add('view-swapping');
+  prev.classList.add('is-leaving');prev.classList.remove('is-active');
+  viewSwapTimer=setTimeout(()=>{
+    prev.hidden=true;prev.classList.remove('is-leaving');
+    next.hidden=false;
+    if(scroll)scrollTo({top:0,behavior:'instant'});
+    // Force a frame so the enter transition actually plays after un-hiding.
+    void next.offsetWidth;
+    next.classList.add('is-active');
+    if(route!=='home')revealNow(next);// sub pages are short: reveal everything immediately
+    document.body.classList.remove('view-swapping');
+    onScroll();
+    if(route==='news')pollNews(true);// refresh the feed the moment the page opens
+  },VIEW_SWAP_MS);
+}
+function navigate(route){showView(route,{push:true,scroll:true})}
+/* Intercept in-page route links (nav, footer, back buttons). Plain hrefs remain as a no-JS fallback. */
+document.addEventListener('click',event=>{
+  const a=event.target.closest('a[data-route]');if(!a)return;
+  if(event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button!==0)return;
+  event.preventDefault();navigate(a.dataset.route);
+});
+/* Anchor links (#watch, #grid, #standings, #top) only make sense on the home view. */
+document.addEventListener('click',event=>{
+  const a=event.target.closest('a[href^="#"]');if(!a||activeView==='home')return;
+  const id=a.getAttribute('href').slice(1);const target=document.getElementById(id);if(!target)return;
+  event.preventDefault();
+  showView('home',{push:true,scroll:false});
+  setTimeout(()=>target.scrollIntoView({behavior:reduceMotion?'instant':'smooth'}),VIEW_SWAP_MS+40);
+});
+addEventListener('popstate',()=>showView(routeFromPath(location.pathname),{push:false,scroll:true}));
+/* Initial route: /news or /info opens directly onto that view (no flash of the home page). */
+(function initView(){
+  const route=routeFromPath(location.pathname);
+  history.replaceState({view:route},'',location.pathname+location.search+location.hash);
+  if(route==='home'){setActiveNav('home');return}
+  const next=$(VIEWS[route]),home=$(VIEWS.home);
+  home.hidden=true;home.classList.remove('is-active');
+  next.hidden=false;next.classList.add('is-active');activeView=route;
+  revealNow(next);setActiveNav(route);document.title=VIEW_TITLES[route];
+})();
 
 /* ═══════════ STANDINGS ═══════════ */
 const JOLPI='https://api.jolpi.ca/ergast/f1';
@@ -899,17 +969,17 @@ document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach(tab=>tab.addEve
 /* ═══════════ TEAM LIVERY ═══════════ */
 const teams=[
  {id:'default',name:'Apex Red',color:'#E10600',text:'#fff',abbr:'APX'},
- {id:'mclaren',name:'McLaren',color:'#FF8000',text:'#000',abbr:'MCL'},
- {id:'ferrari',name:'Ferrari',color:'#DC0000',text:'#fff',abbr:'FER'},
- {id:'redbull',name:'Red Bull Racing',color:'#1E41FF',text:'#fff',abbr:'RBR'},
- {id:'mercedes',name:'Mercedes',color:'#00D2BE',text:'#000',abbr:'MER'},
- {id:'williams',name:'Williams',color:'#005AFF',text:'#fff',abbr:'WIL'},
- {id:'astonmartin',name:'Aston Martin',color:'#006F62',text:'#fff',abbr:'AMR'},
- {id:'alpine',name:'Alpine',color:'#FF0080',text:'#fff',abbr:'ALP'},
- {id:'haas',name:'Haas',color:'#E6E6E6',text:'#000',abbr:'HAA'},
- {id:'audi',name:'Audi',color:'#E62213',text:'#fff',abbr:'AUD'},
- {id:'cadillac',name:'Cadillac',color:'#B4A07A',text:'#000',abbr:'CAD'},
- {id:'racingbulls',name:'Racing Bulls',color:'#6692FF',text:'#000',abbr:'RB'}
+ {id:'mclaren',name:'McLaren',color:'#FF8000',text:'#000',abbr:'MCL',logo:'mclaren'},
+ {id:'ferrari',name:'Ferrari',color:'#DC0000',text:'#fff',abbr:'FER',logo:'ferrari'},
+ {id:'redbull',name:'Red Bull Racing',color:'#1E41FF',text:'#fff',abbr:'RBR',logo:'redbullracing'},
+ {id:'mercedes',name:'Mercedes',color:'#00D2BE',text:'#000',abbr:'MER',logo:'mercedes'},
+ {id:'williams',name:'Williams',color:'#005AFF',text:'#fff',abbr:'WIL',logo:'williams'},
+ {id:'astonmartin',name:'Aston Martin',color:'#006F62',text:'#fff',abbr:'AMR',logo:'astonmartin'},
+ {id:'alpine',name:'Alpine',color:'#FF0080',text:'#fff',abbr:'ALP',logo:'alpine'},
+ {id:'haas',name:'Haas',color:'#E6E6E6',text:'#000',abbr:'HAA',logo:'haasf1team'},
+ {id:'audi',name:'Audi',color:'#E62213',text:'#fff',abbr:'AUD',logo:'audi'},
+ {id:'cadillac',name:'Cadillac',color:'#B4A07A',text:'#000',abbr:'CAD',logo:'cadillac'},
+ {id:'racingbulls',name:'Racing Bulls',color:'#6692FF',text:'#000',abbr:'RB',logo:'racingbulls'}
 ];
 const tOverlay=$("teamSelectOverlay"),tGrid=$("teamGrid");
 function shade(hex,p){
@@ -926,14 +996,30 @@ function applyTeamTheme(id){
   document.querySelectorAll('.tcard').forEach(c=>c.classList.toggle('on',c.dataset.team===id));
   dispatchEvent(new CustomEvent('apexthemechange',{detail:{color:t.color}}));
 }
+/* Team logos: official white marks from the F1 media CDN (same host as the driver imagery,
+   already allowed by img-src). Light liveries (Haas) get a dark badge with a coloured ring so
+   the white logo stays legible. If a logo fails to load we fall back to the abbreviation. */
+const TEAM_LOGO=(slug,w)=>`https://media.formula1.com/image/upload/c_lfill,w_${w}/q_auto/v1740000001/common/f1/2026/${slug}/2026${slug}logowhite.webp`;
+const APEX_MARK='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg>';
+function luma(hex){const n=parseInt(hex.slice(1),16);return (.2126*(n>>16)+.7152*(n>>8&255)+.0722*(n&255))/255}
+function teamBadge(t){
+  const light=luma(t.color)>.7;
+  const fill=light?'linear-gradient(140deg,#1c1e24,#0b0c0f)':`linear-gradient(140deg,${t.color},${shade(t.color,-50)})`;
+  const ring=light?`box-shadow:inset 0 0 0 1.5px ${t.color},0 8px 20px -8px rgba(0,0,0,.8);`:'';
+  if(!t.logo)return `<div class="tbadge mark" style="background:${fill};${ring}color:${t.text}">${APEX_MARK}</div>`;
+  const s1=TEAM_LOGO(t.logo,48),s2=TEAM_LOGO(t.logo,96);
+  return `<div class="tbadge has-logo" style="background:${fill};${ring}color:${light?'#fff':t.text}">
+    <img src="${s1}" srcset="${s1} 1x, ${s2} 2x" width="48" height="48" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+    <span class="tabbr" aria-hidden="true">${t.abbr}</span></div>`;
+}
 function renderTeamGrid(){
   tGrid.innerHTML='';
   teams.forEach(t=>{
     const c=document.createElement('div');c.className='tcard';c.dataset.team=t.id;
     c.setAttribute('role','button');c.tabIndex=0;c.setAttribute('aria-label',`Choose ${t.name} livery`);
     c.style.setProperty('--tc',t.color);
-    c.innerHTML=`<div class="tbadge" style="background:linear-gradient(140deg,${t.color},${shade(t.color,-50)});color:${t.text}">${t.abbr}</div>
-      <div class="tname">${t.name}</div><div class="tick">✓</div>`;
+    c.innerHTML=`${teamBadge(t)}<div class="tname">${t.name}</div><div class="tick">✓</div>`;
+    c.querySelector('.tbadge img')?.addEventListener('error',event=>{const badge=event.target.parentElement;badge.classList.remove('has-logo');event.target.remove()},{once:true});
     const choose=()=>{applyTeamTheme(t.id);store.set('freef1_team',t.id)};
     c.addEventListener('click',choose);
     c.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();choose()}});

@@ -594,6 +594,11 @@ select option:disabled{color:#4A4F57}
 .tbadge{width:46px;height:46px;border-radius:11px;display:grid;place-items:center;
   font-family:'Archivo';font-style:italic;font-weight:900;font-size:.72rem;letter-spacing:.02em;
   position:relative;z-index:1;box-shadow:0 8px 20px -8px rgba(0,0,0,.8)}
+.tbadge img{width:34px;height:34px;object-fit:contain;display:block;
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.45));transition:transform .36s var(--ease)}
+.tbadge.has-logo .tabbr{display:none}
+.tbadge.mark svg{width:30px;height:30px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.45))}
+.tcard:hover .tbadge img,.tcard.on .tbadge img{transform:scale(1.08)}
 .tname{font-family:'Archivo';font-weight:700;font-size:.8rem;position:relative;z-index:1}
 .tick{position:absolute;top:8px;right:8px;width:19px;height:19px;border-radius:50%;
   background:var(--tc);color:#000;font-size:.65rem;font-weight:900;display:none;
@@ -777,3 +782,26 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
   .ticker-track,.orb,.brand-mark::after,.pill.live .dot{animation:none!important}
   .hero h1 .l>span,.hero-sub,.hero-meta,.hero-cta,.dcard,.row{opacity:1;transform:none;animation:none!important}
 }
+
+/* ═══════════════ VIEWS (home / news / info) ═══════════════ */
+.view{position:relative;z-index:2;opacity:0;transform:translateY(14px);
+  transition:opacity .42s var(--ease),transform .42s var(--ease);will-change:opacity,transform}
+.view.is-active{opacity:1;transform:none}
+.view.is-leaving{opacity:0;transform:translateY(-10px);transition-duration:.26s;pointer-events:none}
+.view[hidden]{display:none}
+body.view-swapping{overflow-x:hidden}
+/* Sub pages start below the fixed header and fill the viewport so the footer never floats mid-screen. */
+.sub-sec{padding-top:clamp(120px,16vh,168px);min-height:calc(100svh - 240px)}
+.back-home{
+  display:inline-flex;align-items:center;gap:8px;margin-bottom:22px;
+  font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--muted);text-decoration:none;padding:8px 14px 8px 10px;border:1px solid var(--line);border-radius:99px;
+  background:var(--surface);transition:color .3s var(--ease),border-color .3s var(--ease),transform .3s var(--ease);
+}
+.back-home+.eyebrow{display:block}
+.back-home .arr{display:inline-block;transition:transform .35s var(--ease)}
+.back-home:hover{color:var(--text);border-color:var(--team);transform:translateX(-2px)}
+.back-home:hover .arr{transform:translateX(-4px)}
+.nav-links a.current{color:var(--text)}
+.nav-links a.current::after{transform:scaleX(1)}
+@media(prefers-reduced-motion:reduce){.view,.view.is-leaving{transition:none;transform:none}}

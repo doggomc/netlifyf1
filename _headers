@@ -19,6 +19,18 @@
 /maintenance.html
   Cache-Control: public, max-age=0, must-revalidate
 
+/404.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/404.css
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/news
+  Cache-Control: public, max-age=0, must-revalidate
+
+/info
+  Cache-Control: public, max-age=0, must-revalidate
+
 /maintenance.css
   Cache-Control: public, max-age=3600, must-revalidate
 

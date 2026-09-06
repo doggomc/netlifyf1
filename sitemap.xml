@@ -3,4 +3,10 @@
   <url>
     <loc>https://freef1.netlify.app/</loc>
   </url>
+  <url>
+    <loc>https://freef1.netlify.app/news</loc>
+  </url>
+  <url>
+    <loc>https://freef1.netlify.app/info</loc>
+  </url>
 </urlset>
