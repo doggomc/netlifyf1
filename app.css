@@ -74,6 +74,18 @@ img{display:block;max-width:100%}
 .orb-c{width:460px;height:460px;background:radial-gradient(circle,#FF5E00,transparent 70%);top:45%;left:55%;opacity:.08;animation-delay:-6s}
 @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(50px,-40px) scale(1.08)}66%{transform:translate(-35px,30px) scale(.94)}}
 
+/* ── Player above the atmosphere while a stream is on screen ──
+   .vignette/.scanlines/.grain are fixed overlays at z 58–60. While a stream is loaded
+   (body.has-stream) the player is lifted to 61, so the video is shown untouched and the
+   rest of the page keeps its texture. Zero-lag: the browser handles it natively.
+   For this to work, neither the Watch section nor the view wrapper may form a stacking
+   context (a child can never out-stack its ancestor's context). */
+/* content-visibility:auto (set on .sec further down) also creates a stacking context, so the
+   Watch section opts out of it. It is the first section below the hero, so the paint-skipping
+   optimisation buys nothing there anyway. */
+#watch{z-index:auto;content-visibility:visible;contain:none}
+body.has-stream .player{z-index:61}
+
 /* Top progress bar */
 .progress{position:fixed;top:0;left:0;height:3px;width:0%;z-index:200;
   background:linear-gradient(90deg,var(--team),#fff);box-shadow:0 0 16px var(--team)}
@@ -697,7 +709,6 @@ footer{position:relative;z-index:2;border-top:1px solid var(--line);margin-top:4
 .hero-layer picture{display:block;width:100%;height:100%}
 .hero-layer picture>img{width:100%;height:100%}
 .sec,footer{content-visibility:auto;contain-intrinsic-size:1px 900px}
-#watch{contain-intrinsic-size:1px 780px}
 #grid{contain-intrinsic-size:1px 1900px}
 #standings,#news,#info{contain-intrinsic-size:1px 900px}
 button,a,select{-webkit-tap-highlight-color:transparent}
@@ -784,8 +795,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
 }
 
 /* ═══════════════ VIEWS (home / news / info) ═══════════════ */
-.view{position:relative;z-index:2;opacity:0;transform:translateY(14px);
-  transition:opacity .42s var(--ease),transform .42s var(--ease);will-change:opacity,transform}
+.view{position:relative;opacity:0;transform:translateY(14px);
+  transition:opacity .42s var(--ease),transform .42s var(--ease)}
 .view.is-active{opacity:1;transform:none}
 .view.is-leaving{opacity:0;transform:translateY(-10px);transition-duration:.26s;pointer-events:none}
 .view[hidden]{display:none}

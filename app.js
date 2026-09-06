@@ -257,7 +257,7 @@ function renderButtons(){
   sources.forEach((s,i)=>{
     const b=document.createElement("button");b.className="chip"+(i===currentSource?" active":"");
     b.textContent=s.label;
-    b.onclick=()=>{currentSource=i;renderButtons();updateHeader();load()};
+    b.onclick=()=>{currentSource=i;renderButtons();updateHeader();load();trackEvent('source',s.label)};
     linksEl.appendChild(b);
   });
 }
@@ -292,9 +292,12 @@ noStreamEl.addEventListener("mouseenter",()=>nsPaused=true);
 noStreamEl.addEventListener("mouseleave",()=>nsPaused=false);
 document.addEventListener("visibilitychange",()=>nsPaused=document.hidden);
 
-function showNoStream(){loaderEl.classList.add("hidden");noStreamEl.classList.add("visible");
+function showNoStream(){loaderEl.classList.add("hidden");noStreamEl.classList.add("visible");setStreamOnScreen(false);
   playerEl.querySelector("iframe")?.remove();startNS()}
 function hideNoStream(){noStreamEl.classList.remove("visible");stopNS()}
+
+/* While a stream element is on screen the player is lifted above the page overlays (see .has-stream in app.css). */
+function setStreamOnScreen(on){document.body.classList.toggle('has-stream',on)}
 
 let playerLoadToken=0;
 function load(){
@@ -316,18 +319,18 @@ function load(){
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
       f.onload=()=>{if(token!==playerLoadToken)return;f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
     }
-    playerEl.appendChild(f);
+    playerEl.appendChild(f);setStreamOnScreen(true);
     setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;if(!f.style.opacity||f.style.opacity==='0')f.style.opacity='1';loaderEl.classList.add('hidden')},3000);
     return;
   }
-  if(!isStreamAvailable(currentSession)){showNoStream();return}
-  const f=document.createElement("iframe");
+  if(!isStreamAvailable(currentSession)){showNoStream();trackEvent('nostream');return}
+  const f=document.createElement("iframe"),startedAt=performance.now();let settled=false;
   f.src=buildUrl(currentSource);
   f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
   f.allowFullscreen=true;f.referrerPolicy="no-referrer";
-  f.onload=()=>{if(token!==playerLoadToken)return;f.classList.add('loaded');setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
-  setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;f.classList.add('loaded');loaderEl.classList.add('hidden')},5000);
-  playerEl.appendChild(f);
+  f.onload=()=>{if(token!==playerLoadToken)return;f.classList.add('loaded');if(!settled){settled=true;trackEvent('stream_ready',Math.round(performance.now()-startedAt))}setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+  setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;f.classList.add('loaded');loaderEl.classList.add('hidden');if(!settled){settled=true;trackEvent('stream_timeout')}},5000);
+  playerEl.appendChild(f);setStreamOnScreen(true);
 }
 
 /* ── clocks ── */
@@ -370,15 +373,38 @@ function initVisitorCounter(){
     inFlight=true;
     try{
       if(!visitorToken||visitorTokenExpiresAt-Date.now()<60000)await refreshVisitorToken();
-      const r=await fetchWithTimeout(`${API}/api/visitors/heartbeat`,{cache:'no-store',credentials:'omit',keepalive:true,
+      // Page travels as a query parameter (not a custom header) so the request stays preflight-free
+      // and works against older backends that don't know about it yet.
+      const r=await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}`,{cache:'no-store',credentials:'omit',keepalive:true,
         headers:{'X-Visitor-Token':visitorToken,'X-User-Id':uid}});
       if(r.status===403){visitorToken='';visitorTokenExpiresAt=0}
       else if(r.ok)updateCount(await r.json());
     }catch(_){}finally{inFlight=false;timer=setTimeout(beat,INTERVAL)}
   };
+  /* Anonymous usage counters for the admin dashboard (feed picked, page opened, fullscreen,
+     player ready/slow, livery). Same signed token as the heartbeat, fire-and-forget, never blocks UI. */
+  const queue=[];let draining=false;
+  const drain=async()=>{
+    if(draining)return;draining=true;
+    try{
+      while(queue.length){
+        if(!visitorToken||visitorTokenExpiresAt-Date.now()<60000)await refreshVisitorToken();
+        const ev=queue.shift();
+        const r=await fetchWithTimeout(`${API}/api/visitors/event`,{method:'POST',cache:'no-store',credentials:'omit',keepalive:true,
+          headers:{'Content-Type':'application/json','X-Visitor-Token':visitorToken,'X-User-Id':uid},body:JSON.stringify(ev)});
+        if(r.status===403){visitorToken='';visitorTokenExpiresAt=0;queue.unshift(ev);break}
+        if(r.status===429){queue.length=0;break}
+      }
+    }catch(_){queue.length=0}finally{draining=false}
+  };
+  trackEvent=(type,value)=>{if(queue.length<12){queue.push(value===undefined?{type}:{type,value});setTimeout(drain,0)}};
+  earlyEvents.splice(0).forEach(([type,value])=>trackEvent(type,value));// anything fired before init (e.g. the first load())
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)beat()},{passive:true});
   beat();
 }
+const earlyEvents=[];let trackEvent=(type,value)=>{if(earlyEvents.length<12)earlyEvents.push([type,value])};
+document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement&&playerEl.contains(document.fullscreenElement))trackEvent('fullscreen')});
+document.addEventListener('webkitfullscreenchange',()=>{if(document.webkitFullscreenElement&&playerEl.contains(document.webkitFullscreenElement))trackEvent('fullscreen')});
 
 /* ═══════════ LIVE SITE STATE + STREAM OVERRIDE (SSE) ═══════════ */
 const PUBLIC_API=PREVIEW_HOST?location.origin:'https://f1free.onrender.com';
@@ -669,7 +695,7 @@ function showView(route,{push=true,scroll=true}={}){
   document.title=route==='home'?currentEvent.name+" — APEX F1":VIEW_TITLES[route];
   setActiveNav(route);closeNav();
   if(!changed){if(scroll)scrollTo({top:0,behavior:'smooth'});return}
-  activeView=route;clearTimeout(viewSwapTimer);
+  activeView=route;clearTimeout(viewSwapTimer);trackEvent('view',route==='home'?'/':'/'+route);
   document.body.classList.add('view-swapping');
   prev.classList.add('is-leaving');prev.classList.remove('is-active');
   viewSwapTimer=setTimeout(()=>{
@@ -1020,7 +1046,7 @@ function renderTeamGrid(){
     c.style.setProperty('--tc',t.color);
     c.innerHTML=`${teamBadge(t)}<div class="tname">${t.name}</div><div class="tick">✓</div>`;
     c.querySelector('.tbadge img')?.addEventListener('error',event=>{const badge=event.target.parentElement;badge.classList.remove('has-logo');event.target.remove()},{once:true});
-    const choose=()=>{applyTeamTheme(t.id);store.set('freef1_team',t.id)};
+    const choose=()=>{applyTeamTheme(t.id);store.set('freef1_team',t.id);trackEvent('team',t.id)};
     c.addEventListener('click',choose);
     c.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();choose()}});
     tGrid.appendChild(c);
