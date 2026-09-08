@@ -109,7 +109,7 @@ const _def=pickDefault();
 let currentEvent=_def.event;
 let currentSession=_def.session;
 let currentSource=0;
-let activeView='home';// which view (home/news/info) is on screen — see VIEWS / ROUTER
+let activeView='home';// which view (home/news/info/discord) is on screen — see VIEWS / ROUTER
 
 /* ── selectors ── */
 function populate(){
@@ -670,12 +670,12 @@ document.querySelectorAll('.foot-links button[data-panel]').forEach(b=>b.addEven
 }));
 
 /* ═══════════ VIEWS / ROUTER ═══════════
-   Home, News and Info are three "views" in one document. Switching views cross-fades
+   Home, News, Info and Discord are "views" in one document. Switching views cross-fades
    in place (no reload), header + footer stay put, the URL updates (/news, /info) and
    the browser back button works. Netlify serves index.html for those paths via _redirects,
    so a direct load of /info opens straight onto the Info view. */
-const VIEWS={home:'viewHome',news:'viewNews',info:'viewInfo'};
-const VIEW_TITLES={news:'News — APEX F1',info:'Terms, Privacy & FAQ — APEX F1'};
+const VIEWS={home:'viewHome',news:'viewNews',info:'viewInfo',discord:'viewDiscord'};
+const VIEW_TITLES={news:'News — APEX F1',info:'Terms, Privacy & FAQ — APEX F1',discord:'Discord — APEX F1'};
 const VIEW_SWAP_MS=reduceMotion?0:260;
 let viewSwapTimer=null;
 function routeFromPath(path){const seg=(path||'/').replace(/^\/+|\/+$/g,'').toLowerCase();return seg in VIEWS?seg:'home'}

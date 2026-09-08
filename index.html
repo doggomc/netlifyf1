@@ -35,7 +35,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <link rel="preconnect" href="https://f1free.onrender.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260908-radiorc1">
+<link rel="stylesheet" href="/app.css?v=20260908-discord1">
 </head>
 <body>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
@@ -69,6 +69,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
     <a href="#standings">Standings</a>
     <a href="/news" data-route="news">News</a>
     <a href="/info" data-route="info">Info</a>
+    <a href="/discord" data-route="discord">Discord</a>
   </div>
   <div class="nav-right">
     <div class="pill live" id="badge"><span class="dot"></span>Live</div>
@@ -356,6 +357,40 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </section>
 </div><!-- /viewInfo -->
 
+<!-- ══ VIEW: DISCORD ══ -->
+<div class="view" id="viewDiscord" data-view="discord" hidden>
+<section class="sec sub-sec" id="discord">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
+        <span class="eyebrow">Paddock Chat</span>
+        <h2>Join the <span class="accent">Community</span></h2>
+        <div class="rule" style="width:120px"></div>
+      </div>
+    </div>
+    <div class="card rv d1 discord-card">
+      <div class="discord-glow" aria-hidden="true"></div>
+      <div class="discord-badge" aria-hidden="true">
+        <svg class="discord-mark" viewBox="0 0 127.14 96.36" fill="currentColor"><path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/></svg>
+        <span class="discord-brand">
+          <svg class="discord-favicon" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#e10600"/><path d="M10 45 24 17h13l-5 10h12l-4 8H27l-4 10H10Z" fill="#fff"/><path d="M42 17h13l-4 8H38l4-8Z" fill="#fff" opacity=".72"/></svg>
+          <b>FreeF1</b>
+        </span>
+      </div>
+      <h3 class="discord-title">The FreeF1 Discord</h3>
+      <p class="discord-text">Race-day chat, stream announcements, and a direct line to <b>doggo</b> when a feed drops. Free to join — one click and you're in.</p>
+      <a class="btn primary discord-join" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 127.14 96.36" fill="currentColor" width="20" height="16" aria-hidden="true"><path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/></svg>
+        Join the Discord
+      </a>
+      <span class="discord-url mono">discord.gg/KYXHCAzhN4</span>
+    </div>
+  </div>
+</section>
+
+</div><!-- /viewDiscord -->
+
 <!-- ══ MODALS ══ -->
 <div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
   <div class="sheet">
@@ -413,7 +448,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <h4>Navigate</h4>
         <div class="foot-links">
           <a href="#watch">Cockpit</a><a href="#grid">The Grid</a>
-          <a href="#standings">Standings</a><a href="/news" data-route="news">News</a><a href="/info" data-route="info">Information</a>
+          <a href="#standings">Standings</a><a href="/news" data-route="news">News</a><a href="/info" data-route="info">Information</a><a href="/discord" data-route="discord">Discord</a>
         </div>
       </div>
       <div>
@@ -434,6 +469,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260908-radiorc1" defer></script>
+<script src="/app.js?v=20260908-discord1" defer></script>
 </body>
 </html>
