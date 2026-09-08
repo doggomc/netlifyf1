@@ -35,7 +35,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <link rel="preconnect" href="https://f1free.onrender.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260906-analytics1">
+<link rel="stylesheet" href="/app.css?v=20260908-radiorc1">
 </head>
 <body>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
@@ -157,6 +157,42 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
       <button class="btn sm" id="sessionsBtn">Session Results</button>
       <button class="btn sm" id="teamSelectBtn">Team Livery</button>
       <button class="btn sm" id="raceTimesBtn">Race Times</button>
+      <button class="btn sm" id="radioRcBtn" aria-expanded="false" aria-controls="radioRc">Radio &amp; Race Control</button>
+    </div>
+
+    <!-- ══ RADIO & RACE CONTROL (OpenF1) ══ -->
+    <div class="radio-rc" id="radioRc" hidden>
+      <div class="card radio-rc-card">
+        <div class="radio-rc-head">
+          <div>
+            <span class="eyebrow">Pit Wall</span>
+            <h3>Team Radio <span class="accent">&amp;</span> Race Control</h3>
+          </div>
+          <div class="radio-rc-status mono" id="radioRcStatus">Loading sessions…</div>
+          <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control">✕</button>
+        </div>
+        <div class="selects radio-rc-selects">
+          <div class="sel"><label for="radioRcEvent">Grand Prix</label><select id="radioRcEvent"><option>Loading…</option></select></div>
+          <div class="sel"><label for="radioRcSession">Session</label><select id="radioRcSession"><option>—</option></select></div>
+        </div>
+        <div class="radio-rc-grid">
+          <section class="radio-rc-col" aria-labelledby="radioRcRadioTitle">
+            <div class="radio-rc-col-head"><h4 id="radioRcRadioTitle">Team Radio</h4><span class="mono" id="radioRcRadioCount"></span></div>
+            <div class="radio-rc-player" id="radioRcPlayer" hidden>
+              <span class="radio-rc-player-code" id="radioRcPlayerCode">—</span>
+              <div class="radio-rc-player-meta"><b id="radioRcPlayerName">—</b><span class="mono" id="radioRcPlayerTime">—</span></div>
+              <span class="radio-rc-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            </div>
+            <audio id="radioRcAudio" preload="none"></audio>
+            <ul class="radio-rc-list" id="radioRcRadioList"><li class="radio-rc-empty">Select a session</li></ul>
+          </section>
+          <section class="radio-rc-col" aria-labelledby="radioRcRcTitle">
+            <div class="radio-rc-col-head"><h4 id="radioRcRcTitle">Race Control</h4><span class="mono" id="radioRcRcCount"></span></div>
+            <ul class="radio-rc-list rc" id="radioRcRcList"><li class="radio-rc-empty">Select a session</li></ul>
+          </section>
+        </div>
+        <div class="radio-rc-foot mono">Timing data via <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a> (unofficial). Radio audio is served by Formula 1's live-timing CDN. Times shown in your local time.</div>
+      </div>
     </div>
   </div>
 </section>
@@ -398,6 +434,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260906-analytics1" defer></script>
+<script src="/app.js?v=20260908-radiorc1" defer></script>
 </body>
 </html>

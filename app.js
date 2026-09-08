@@ -992,6 +992,207 @@ document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach(tab=>tab.addEve
   renderRaceTimes(tab.dataset.raceFilter);
 }));
 
+/* ═══════════ RADIO & RACE CONTROL (OpenF1, free tier) ═══════════
+   Browser → api.openf1.org directly (CORS *, no key). Free tier = sessions that
+   ended ≥30 min ago; a session in progress unlocks once OpenF1 publishes it.
+   Budget: OpenF1 allows 3 req/s · 30 req/min PER IP (shared by everyone behind a
+   carrier NAT), so requests are cached, spaced out and never fired in bursts.
+   Panel state (open/closed + last picked session) is remembered per browser. */
+const OPENF1_API='https://api.openf1.org/v1';
+const RADIO_RC_STORE_KEY='freef1_radio_rc';
+const radioRcEl=$("radioRc"),radioRcBtn=$("radioRcBtn"),radioRcEventSel=$("radioRcEvent"),radioRcSessionSel=$("radioRcSession"),
+  radioRcStatusEl=$("radioRcStatus"),radioRcRadioList=$("radioRcRadioList"),radioRcRcList=$("radioRcRcList"),radioRcAudio=$("radioRcAudio"),
+  radioRcPlayerEl=$("radioRcPlayer");
+const radioRc={meetings:[],sessions:[],drivers:new Map(),sessionKey:null,radio:[],rc:[],playing:null,loadToken:0,refreshTimer:0,retryTimer:0,switchTimer:0,open:false,cache:new Map(),lastRequestAt:0,chain:Promise.resolve()};
+const radioRcTimeFmt=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+function radioRcPrefs(){try{return JSON.parse(store.get(RADIO_RC_STORE_KEY)||'{}')||{}}catch(e){return{}}}
+function radioRcSavePrefs(patch){store.set(RADIO_RC_STORE_KEY,JSON.stringify({...radioRcPrefs(),...patch}))}
+/* Cached, serialised fetch: ≥400 ms between request starts, results reused for `ttlMs`. */
+function openf1(path,params,ttlMs){
+  const url=`${OPENF1_API}/${path}?${new URLSearchParams(params)}`;
+  const hit=radioRc.cache.get(url);
+  if(hit&&(hit.promise||Date.now()-hit.at<ttlMs))return hit.promise||Promise.resolve(hit.data);
+  const run=async()=>{
+    const wait=radioRc.lastRequestAt+400-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));
+    radioRc.lastRequestAt=Date.now();
+    const r=await fetch(url,{cache:'no-store'});
+    if(r.status===429){const e=new Error('OpenF1 is busy (shared rate limit)');e.code='rate';throw e}
+    if(r.status===401||r.status===403){const e=new Error('Live data is locked on the free tier');e.code='live';throw e}
+    if(!r.ok)throw new Error(`OpenF1 error ${r.status}`);
+    return r.json();
+  };
+  const promise=radioRc.chain.then(run,run).then(data=>{radioRc.cache.set(url,{data,at:Date.now()});return data}).catch(err=>{radioRc.cache.delete(url);throw err});
+  radioRc.chain=promise.catch(()=>{});
+  radioRc.cache.set(url,{promise,at:Date.now()});
+  return promise;
+}
+function radioRcSetStatus(text,cls){radioRcStatusEl.textContent=text;radioRcStatusEl.className=`radio-rc-status mono${cls?' '+cls:''}`}
+function radioRcIsLiveWindow(s){if(!s)return false;const start=Date.parse(s.date_start),end=Date.parse(s.date_end);const now=Date.now();return now>=start-30*60e3&&now<=end+30*60e3}
+/* Match an OpenF1 meeting to the site's own schedule (same weekend) so labels read
+   "R16 · Italian Grand Prix" exactly like the rest of the site. */
+function radioRcMeetingLabel(meeting){
+  const t=Date.parse(meeting.date_start);
+  const ev=schedule.find(e=>e.sessions.some(s=>Math.abs(Date.parse(s.start)-t)<3*86400e3));
+  return ev?`R${ev.round} · ${ev.name}`:`${meeting.location} · ${meeting.country_name}`;
+}
+/* ── session list (1 request, cached 10 min) ── */
+async function radioRcLoadSessions(){
+  radioRcSetStatus('Loading sessions…');
+  const sessions=await openf1('sessions',{year:SITE_SEASON},10*60e3);
+  const now=Date.now();
+  radioRc.sessions=sessions.filter(s=>Date.parse(s.date_start)-30*60e3<=now&&!/^Day \d/.test(s.session_name)).sort((a,b)=>Date.parse(a.date_start)-Date.parse(b.date_start));
+  const meetings=new Map();
+  for(const s of radioRc.sessions)if(!meetings.has(s.meeting_key))meetings.set(s.meeting_key,{meeting_key:s.meeting_key,location:s.location,country_name:s.country_name,date_start:s.date_start});
+  radioRc.meetings=[...meetings.values()];
+  if(!radioRc.meetings.length)throw new Error('No sessions published yet this season');
+  const prefs=radioRcPrefs();
+  const live=radioRc.sessions.find(radioRcIsLiveWindow);
+  const latest=radioRc.sessions.at(-1);
+  // Default = the session happening now (or just finished), else the most recent one.
+  // A remembered pick only wins while it is still the latest weekend — a new race
+  // weekend takes over automatically.
+  let target=live||latest;
+  if(!live&&prefs.sessionKey){const remembered=radioRc.sessions.find(s=>s.session_key===prefs.sessionKey);if(remembered&&remembered.meeting_key===latest.meeting_key)target=remembered}
+  radioRcEventSel.replaceChildren(...radioRc.meetings.map(m=>{const o=document.createElement('option');o.value=m.meeting_key;o.textContent=radioRcMeetingLabel(m);return o}));
+  radioRcEventSel.value=String(target.meeting_key);
+  radioRcFillSessions(target.session_key);
+}
+function radioRcFillSessions(preferKey){
+  const mk=Number(radioRcEventSel.value);
+  const list=radioRc.sessions.filter(s=>s.meeting_key===mk);
+  radioRcSessionSel.replaceChildren(...list.map(s=>{const o=document.createElement('option');o.value=s.session_key;o.textContent=s.session_name;return o}));
+  const pick=list.find(s=>s.session_key===preferKey)||list.at(-1);
+  radioRcSessionSel.value=String(pick.session_key);
+  radioRcEventSel._syncCustom?.();radioRcSessionSel._syncCustom?.();
+  radioRcQueueSelect(pick.session_key);
+}
+/* Debounced so flicking through the dropdown doesn't fire a request per step. */
+function radioRcQueueSelect(sessionKey){clearTimeout(radioRc.switchTimer);radioRc.switchTimer=setTimeout(()=>radioRcSelectSession(sessionKey),250)}
+/* ── session data (3 requests, cached) ── */
+async function radioRcSelectSession(sessionKey,{retry=false}={}){
+  const session=radioRc.sessions.find(s=>s.session_key===sessionKey);if(!session)return;
+  const token=++radioRc.loadToken;
+  clearTimeout(radioRc.refreshTimer);clearTimeout(radioRc.retryTimer);
+  radioRc.sessionKey=sessionKey;
+  radioRcSavePrefs({sessionKey,meetingKey:session.meeting_key});
+  radioRcStopAudio();
+  radioRcRadioList.innerHTML='<li class="radio-rc-empty">Loading team radio…</li>';
+  radioRcRcList.innerHTML='<li class="radio-rc-empty">Loading race control…</li>';
+  $("radioRcRadioCount").textContent='';$("radioRcRcCount").textContent='';
+  const live=radioRcIsLiveWindow(session);
+  const ttl=live?45e3:6*3600e3;// live window: refresh while open; finished sessions never change
+  const label=`${session.country_name} · ${session.session_name}`;
+  radioRcSetStatus(live?`${label} · in progress`:label,live?'live':'');
+  let nextRefresh=0;
+  try{
+    const drivers=await openf1('drivers',{session_key:sessionKey},6*3600e3);
+    const radio=await openf1('team_radio',{session_key:sessionKey},ttl);
+    const rc=await openf1('race_control',{session_key:sessionKey},ttl);
+    if(token!==radioRc.loadToken)return;
+    radioRc.drivers=new Map(drivers.map(d=>[d.driver_number,d]));
+    radioRc.radio=radio.map(r=>({...r,ts:Date.parse(r.date)})).filter(r=>r.recording_url).sort((a,b)=>b.ts-a.ts);
+    radioRc.rc=rc.map(r=>({...r,ts:Date.parse(r.date)})).sort((a,b)=>b.ts-a.ts);
+    radioRcRenderRadio();radioRcRenderRc();
+    if(live&&!radio.length&&!rc.length){radioRcSetStatus('In progress · free data unlocks ~30 min after the session','warn');radioRcRadioList.innerHTML='<li class="radio-rc-empty">Radio for this session appears about 30 minutes after it ends.<br>Pick an earlier session above to browse in the meantime.</li>';radioRcRcList.innerHTML='<li class="radio-rc-empty">Race control messages unlock at the same time.</li>';nextRefresh=3*60e3}
+    else if(live)nextRefresh=45e3;
+  }catch(err){
+    if(token!==radioRc.loadToken)return;
+    if(err.code==='live'){
+      radioRcSetStatus('In progress · free data unlocks ~30 min after the session','warn');
+      radioRcRadioList.innerHTML='<li class="radio-rc-empty">Radio for this session appears about 30 minutes after it ends.<br>Pick an earlier session above to browse in the meantime.</li>';
+      radioRcRcList.innerHTML='<li class="radio-rc-empty">Race control messages unlock at the same time.</li>';
+      nextRefresh=3*60e3;
+    }else if(err.code==='rate'&&!retry){
+      radioRcSetStatus('OpenF1 is busy · retrying in 20 s','warn');
+      radioRcRadioList.innerHTML='<li class="radio-rc-empty">OpenF1 is busy right now — retrying automatically…</li>';
+      radioRcRcList.innerHTML='<li class="radio-rc-empty"></li>';
+      radioRc.retryTimer=setTimeout(()=>{if(radioRc.open&&radioRc.sessionKey===sessionKey)radioRcSelectSession(sessionKey,{retry:true})},20e3);
+    }else{
+      const msg=escapeHtml(err.message||'OpenF1 unavailable');
+      radioRcRadioList.innerHTML=`<li class="radio-rc-empty err">${msg}</li>`;
+      radioRcRcList.innerHTML=`<li class="radio-rc-empty err">${msg}</li>`;
+      radioRcSetStatus('OpenF1 unavailable','warn');
+    }
+  }
+  if(nextRefresh&&radioRc.open)radioRc.refreshTimer=setTimeout(()=>{if(!document.hidden&&radioRc.open&&radioRc.sessionKey===sessionKey)radioRcSelectSession(sessionKey)},nextRefresh);
+}
+function radioRcDriver(n){const d=radioRc.drivers.get(n);const hex=/^[0-9a-f]{6}$/i.test(d?.team_colour||'')?`#${d.team_colour}`:'#555';return{code:d?.name_acronym||`#${n}`,name:d?.full_name||d?.broadcast_name||`Car ${n}`,team:d?.team_name||'',colour:hex}}
+function radioRcRenderRadio(){
+  $("radioRcRadioCount").textContent=radioRc.radio.length?`${radioRc.radio.length} clips`:'';
+  if(!radioRc.radio.length){radioRcRadioList.innerHTML='<li class="radio-rc-empty">No team radio published for this session</li>';return}
+  radioRcRadioList.innerHTML=radioRc.radio.map((r,i)=>{const d=radioRcDriver(r.driver_number);
+    return `<li><button type="button" class="radio-rc-clip${radioRc.playing===r.recording_url?' playing':''}" data-idx="${i}" aria-label="Play radio from ${escapeHtml(d.name)} at ${escapeHtml(radioRcTimeFmt.format(r.ts))}">
+      <span class="radio-rc-code" style="background:${d.colour}">${escapeHtml(d.code)}</span>
+      <span class="radio-rc-who"><b>${escapeHtml(d.name)}</b><span>${escapeHtml(d.team)}</span></span>
+      <span class="radio-rc-when">${escapeHtml(radioRcTimeFmt.format(r.ts))}</span>
+      <span class="radio-rc-play" aria-hidden="true"></span></button></li>`}).join('');
+}
+function radioRcTag(r){
+  const m=r.message||'';
+  if(r.category==='SafetyCar')return /VSC|VIRTUAL/.test(m)?'VSC':'SC';
+  if(/^RED FLAG/.test(m)||/ABORTED/.test(m))return 'RED';
+  if(r.flag)return r.flag.replace(/\s+/g,'');
+  if(r.category==='Drs')return 'DRS';
+  if(r.category==='SessionStatus')return 'SESSION';
+  return 'FIA';
+}
+function radioRcRenderRc(){
+  $("radioRcRcCount").textContent=radioRc.rc.length?`${radioRc.rc.length} messages`:'';
+  if(!radioRc.rc.length){radioRcRcList.innerHTML='<li class="radio-rc-empty">No race control messages published for this session</li>';return}
+  radioRcRcList.innerHTML=radioRc.rc.map(r=>{const tag=radioRcTag(r);
+    return `<li class="radio-rc-msg"><time datetime="${escapeHtml(new Date(r.ts).toISOString())}">${escapeHtml(radioRcTimeFmt.format(r.ts).slice(0,5))}</time><span class="radio-rc-tag ${escapeHtml(tag)}">${escapeHtml(tag)}</span><span>${escapeHtml(r.message||'')}${r.lap_number?`<i class="lap">L${escapeHtml(r.lap_number)}</i>`:''}</span></li>`}).join('');
+}
+/* ── audio (click-to-play; clips load straight from F1's CDN in the viewer's browser) ── */
+function radioRcStopAudio(){radioRcAudio.pause();radioRcAudio.removeAttribute('src');radioRcAudio.load();radioRc.playing=null;radioRcPlayerEl.hidden=true;radioRcPlayerEl.classList.remove('paused');radioRcRadioList.querySelectorAll('.playing').forEach(el=>el.classList.remove('playing'))}
+function radioRcPlay(clip){
+  const d=radioRcDriver(clip.driver_number);
+  if(radioRc.playing===clip.recording_url){if(radioRcAudio.paused){radioRcAudio.play().catch(()=>{});radioRcPlayerEl.classList.remove('paused')}else{radioRcAudio.pause();radioRcPlayerEl.classList.add('paused')}return}
+  radioRc.playing=clip.recording_url;
+  radioRcPlayerEl.hidden=false;radioRcPlayerEl.classList.remove('paused');
+  $("radioRcPlayerCode").textContent=d.code;$("radioRcPlayerCode").style.background=d.colour;
+  $("radioRcPlayerName").textContent=`${d.name} · ${d.team}`;$("radioRcPlayerTime").textContent=`${radioRcTimeFmt.format(clip.ts)} · loading…`;
+  radioRcRadioList.querySelectorAll('.radio-rc-clip').forEach(el=>el.classList.toggle('playing',radioRc.radio[Number(el.dataset.idx)]?.recording_url===clip.recording_url));
+  radioRcAudio.src=clip.recording_url;
+  radioRcAudio.play().catch(()=>{});
+}
+radioRcAudio.addEventListener('loadedmetadata',()=>{if(radioRc.playing){const clip=radioRc.radio.find(r=>r.recording_url===radioRc.playing);if(clip)$("radioRcPlayerTime").textContent=`${radioRcTimeFmt.format(clip.ts)} · ${Math.round(radioRcAudio.duration||0)} s`}});
+radioRcAudio.addEventListener('ended',()=>{radioRcPlayerEl.classList.add('paused');radioRcRadioList.querySelectorAll('.playing').forEach(el=>el.classList.remove('playing'))});
+radioRcAudio.addEventListener('error',()=>{
+  if(!radioRc.playing)return;
+  const btn=[...radioRcRadioList.querySelectorAll('.radio-rc-clip')].find(el=>radioRc.radio[Number(el.dataset.idx)]?.recording_url===radioRc.playing);
+  if(btn){btn.classList.remove('playing');btn.classList.add('failed')}
+  $("radioRcPlayerTime").textContent='Could not load this clip from F1\u2019s audio server';
+  radioRcPlayerEl.classList.add('paused');
+  showToast('This radio clip could not be loaded from F1\u2019s audio server.','warning');
+  radioRc.playing=null;
+});
+radioRcRadioList.addEventListener('click',event=>{const btn=event.target.closest('.radio-rc-clip');if(!btn)return;const clip=radioRc.radio[Number(btn.dataset.idx)];if(clip)radioRcPlay(clip)});
+/* ── open / close (remembered per browser) ── */
+function radioRcSetOpen(open,{animate=true,save=true}={}){
+  radioRc.open=open;
+  radioRcBtn.setAttribute('aria-expanded',String(open));radioRcBtn.classList.toggle('active',open);
+  if(save)radioRcSavePrefs({open});
+  if(open){
+    radioRcEl.classList.toggle('no-anim',!animate);
+    radioRcEl.hidden=false;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{radioRcEl.classList.add('open');setTimeout(()=>{if(radioRc.open)radioRcEl.classList.add('settled')},animate?600:0)}));
+    if(!radioRc.meetings.length)radioRcLoadSessions().catch(err=>{radioRcSetStatus(err.code==='rate'?'OpenF1 is busy · try again in a minute':(err.message||'OpenF1 unavailable'),'warn');radioRcRadioList.innerHTML=`<li class="radio-rc-empty err">${escapeHtml(err.message||'OpenF1 unavailable')}</li>`;radioRcRcList.innerHTML='<li class="radio-rc-empty"></li>'});
+    else if(radioRcIsLiveWindow(radioRc.sessions.find(s=>s.session_key===radioRc.sessionKey)))radioRcSelectSession(radioRc.sessionKey);
+  }else{
+    clearTimeout(radioRc.refreshTimer);clearTimeout(radioRc.retryTimer);
+    radioRcEl.classList.remove('open','settled');radioRcStopAudio();
+    const finish=()=>{if(!radioRc.open)radioRcEl.hidden=true};
+    if(animate)setTimeout(finish,560);else finish();
+  }
+}
+radioRcBtn.addEventListener('click',()=>{radioRcSetOpen(!radioRc.open);if(!radioRc.open)return;setTimeout(()=>radioRcEl.scrollIntoView({behavior:'smooth',block:'nearest'}),80)});
+$("radioRcClose").addEventListener('click',()=>{radioRcSetOpen(false);radioRcBtn.focus()});
+radioRcEventSel.addEventListener('change',()=>radioRcFillSessions(null));
+radioRcSessionSel.addEventListener('change',()=>radioRcQueueSelect(Number(radioRcSessionSel.value)));
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(radioRc.refreshTimer)}else if(radioRc.open&&radioRcIsLiveWindow(radioRc.sessions.find(s=>s.session_key===radioRc.sessionKey)))radioRcSelectSession(radioRc.sessionKey)},{passive:true});
+// Restore: if the viewer left it open last time, it opens again (no animation, no scroll).
+if(radioRcPrefs().open)setTimeout(()=>radioRcSetOpen(true,{animate:false,save:false}),900);
+
 /* ═══════════ TEAM LIVERY ═══════════ */
 const teams=[
  {id:'default',name:'Apex Red',color:'#E10600',text:'#fff',abbr:'APX'},
