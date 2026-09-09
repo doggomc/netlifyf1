@@ -87,7 +87,7 @@ img{display:block;max-width:100%}
 body.has-stream .player{z-index:61}
 
 /* Top progress bar */
-.progress{position:fixed;top:0;left:0;height:3px;width:0%;z-index:200;
+.progress{position:fixed;top:0;left:0;height:3px;width:100%;z-index:200;transform:scaleX(0);transform-origin:0 50%;
   background:linear-gradient(90deg,var(--team),#fff);box-shadow:0 0 16px var(--team)}
 
 /* ═══════════════ NAV ═══════════════ */
@@ -792,6 +792,12 @@ footer{position:relative;z-index:2;border-top:1px solid var(--line);margin-top:4
 .sec,footer{content-visibility:auto;contain-intrinsic-size:1px 900px}
 #grid{contain-intrinsic-size:1px 1900px}
 #standings,#news,#info{contain-intrinsic-size:1px 900px}
+/* Paint-skipping for long lists. Rendering hints only — these items carry no
+   entrance animations, so output is pixel-identical with less render work. */
+.rrow{content-visibility:auto;contain-intrinsic-size:auto 58px}
+.news-item{content-visibility:auto;contain-intrinsic-size:auto 170px}
+.race-time-item{content-visibility:auto;contain-intrinsic-size:auto 210px}
+.radio-rc-list>li{content-visibility:auto;contain-intrinsic-size:auto 46px}
 button,a,select{-webkit-tap-highlight-color:transparent}
 button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--team);outline-offset:3px}
 .nav-toggle{display:none;width:42px;height:42px;flex:0 0 42px;border:1px solid var(--line);border-radius:var(--r-sm);background:rgba(10,10,11,.78);color:var(--text);cursor:pointer;place-content:center;gap:4px;padding:0}

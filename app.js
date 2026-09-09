@@ -448,7 +448,7 @@ function applyNewsUpdate(payload,online=true){
   updateNewsStatus(online);
 }
 async function pollNews(force=false){
-  if(!newsFeedEl||document.hidden||newsPollInFlight)return;
+  if(!newsFeedEl||document.hidden||newsPollInFlight||(!force&&streamSseConnected))return;
   newsPollInFlight=true;
   try{
     const response=await fetchWithTimeout(`${PUBLIC_API}/api/news`,{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}});
@@ -618,7 +618,7 @@ function onScroll(){
   if(ticking)return;ticking=true;
   requestAnimationFrame(()=>{
     const y=scrollY,h=document.documentElement.scrollHeight-innerHeight;
-    navEl.classList.toggle('stuck',y>40||activeView!=='home');progressEl.style.width=(h>0?(y/h)*100:0)+'%';
+    navEl.classList.toggle('stuck',y>40||activeView!=='home');progressEl.style.transform='scaleX('+(h>0?y/h:0)+')';
     if(!liteMotion&&heroLayer&&y<innerHeight*1.3)heroLayer.style.transform=`translate3d(0,${y*.38}px,0) scale(1.06)`;
     if(!liteMotion&&breakLayer){const rect=breakLayer.parentElement.getBoundingClientRect();if(rect.bottom>0&&rect.top<innerHeight){
       const p=(innerHeight-rect.top)/(innerHeight+rect.height);breakLayer.style.transform=`translate3d(0,${(p-.5)*90}px,0) scale(1.1)`}}
@@ -756,14 +756,33 @@ function fetchWithTimeout(url,options={},timeoutMs=API_TIMEOUT_MS){
 }
 function apiCacheKey(url){return `freef1_api_cache_${url}`}
 function readApiFallback(url){
+  const key=apiCacheKey(url);
   try{
-    const cached=JSON.parse(store.get(apiCacheKey(url))||'null');
-    if(!cached||Date.now()-Number(cached.savedAt)>API_STALE_FALLBACK_MS)return null;
+    const cached=JSON.parse(store.get(key)||'null');
+    if(!cached||Date.now()-Number(cached.savedAt)>API_STALE_FALLBACK_MS){
+      if(cached){try{localStorage.removeItem(key)}catch(_){}}
+      return null;
+    }
     return cached.data||null;
   }catch(_){return null}
 }
+const API_CACHE_MAX=40,API_CACHE_INDEX='freef1_api_cache_index';
 function saveApiResponse(url,data){
-  try{store.set(apiCacheKey(url),JSON.stringify({savedAt:Date.now(),data}))}catch(_){}
+  try{
+    const key=apiCacheKey(url);
+    try{store.set(key,JSON.stringify({savedAt:Date.now(),data}))}catch(_){return}
+    let idx=null;
+    try{idx=JSON.parse(store.get(API_CACHE_INDEX)||'null')}catch(_){idx=null}
+    if(!Array.isArray(idx)){
+      idx=[];
+      try{
+        for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('freef1_api_cache_')===0)idx.push(k)}
+      }catch(_){}
+    }
+    idx=idx.filter(k=>k!==key);idx.push(key);
+    while(idx.length>API_CACHE_MAX){const old=idx.shift();try{localStorage.removeItem(old)}catch(_){}}
+    try{store.set(API_CACHE_INDEX,JSON.stringify(idx))}catch(_){}
+  }catch(_){}
 }
 function fetchJson(url){
   if(apiPromises.has(url))return apiPromises.get(url);
@@ -1554,7 +1573,7 @@ applyTeamTheme(store.get('freef1_team')||'default');
 populate();updateHeader();renderButtons();load();setupCustomSelects();updateClocks();initVisitorCounter();updateOverridePill(streamOverride);
 const loadChampionshipData=()=>{loadStandings('drivers');loadDriverGrid()};
 if('requestIdleCallback'in window)requestIdleCallback(loadChampionshipData,{timeout:1600});else setTimeout(loadChampionshipData,700);
-setInterval(updateClocks,1000);
+setInterval(()=>{if(!document.hidden)updateClocks()},1000);
 setInterval(()=>{if(!document.hidden)updateCurrentStreamButton()},60000);
 setTimeout(initStreamOverrideSSE,500);
 setTimeout(initStreamPolling,100);
