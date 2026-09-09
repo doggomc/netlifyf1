@@ -838,17 +838,27 @@ const photoFor=id=>DRIVER_PHOTO[DRIVER_KEY[id]||id]||null;
 function renderDriverGrid(list){
   const el=$("driverGrid");
   if(!list||!list.length){el.innerHTML='<div class="state">Grid unavailable right now.</div>';return}
+  driverEntries=list.slice();
+  const renderFollowing=getFollowing();
   const fragment=document.createDocumentFragment();let rendered=0;
   list.forEach((it,i)=>{
     const d=it.Driver||{},team=it.Constructors?.[0]?.name||'',src=photoFor(d.driverId);if(!src)return;
     const a=document.createElement('article');a.className='dcard'+(it.position==='1'?' lead':'');
     a.style.setProperty('--c',hexFor(team));a.style.animationDelay=(i*32)+'ms';
+    const label=`View ${d.givenName||''} ${d.familyName||''} profile`.replace(/\s+/g,' ').trim();
+    a.setAttribute('role','button');a.tabIndex=0;a.setAttribute('aria-label',label);a.title=label;
+    a.dataset.driverId=d.driverId;
     a.innerHTML=`<div class="dshade"></div><div class="dfall">${escapeHtml((d.givenName?.[0]||'')+(d.familyName?.[0]||''))}</div>
       <img src="${src}" alt="${escapeHtml(`${d.givenName||''} ${d.familyName||''}`)}" width="440" height="587" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="no-referrer">
       <div class="dpos">P${escapeHtml(it.position)}</div><div class="dnum">${escapeHtml(d.permanentNumber||'')}</div>
+      <div class="dhint">View profile</div>
+      <div class="fbadge"${renderFollowing.includes(d.driverId)?'':' hidden'}>★ Following</div>
       <div class="dbody"><div class="dname"><small>${escapeHtml(d.givenName||'')}</small>${escapeHtml(d.familyName||'')}</div>
       <div class="dteam"><i></i>${escapeHtml(team)}</div><div class="dpts">${escapeHtml(it.points)} PTS · ${escapeHtml(it.wins)} WIN${it.wins==='1'?'':'S'}</div></div>`;
     a.querySelector('img').addEventListener('error',()=>a.classList.add('noimg'),{once:true});
+    const open=()=>openDriverProfile(d.driverId);
+    a.addEventListener('click',open);
+    a.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}});
     fragment.appendChild(a);rendered++;
   });
   if(rendered)el.replaceChildren(fragment);else el.innerHTML='<div class="state">Grid unavailable right now.</div>';
@@ -857,6 +867,241 @@ function loadDriverGrid(){
   getDriverStandings().then(renderDriverGrid)
     .catch(()=>{$("driverGrid").innerHTML='<div class="state">Grid unavailable right now.</div>'});
 }
+/* ═══════════ DRIVER PROFILE (click a card → modal) ═══════════ */
+const dOverlay=$("driverOverlay"),dSheet=$("driverSheet"),dProfile=$("driverProfile");
+let driverEntries=[],driverProfileToken=0;
+const FOLLOW_KEY='freef1_following';
+/* Follows are private: stored only in this browser, never sent anywhere. */
+function getFollowing(){
+  try{
+    const list=JSON.parse(store.get(FOLLOW_KEY)||'[]');
+    return Array.isArray(list)?list.filter(x=>typeof x==='string'):[];
+  }catch(_){return[]}
+}
+function syncFollowBadges(){
+  const following=getFollowing();
+  document.querySelectorAll('.dcard[data-driver-id]').forEach(card=>{
+    const badge=card.querySelector('.fbadge');
+    if(badge)badge.hidden=!following.includes(card.dataset.driverId);
+  });
+}
+const driverCareerCache=new Map();
+/* Ergast constructor name → livery entry (team logo + theme). */
+const TEAM_ALIAS={'rb f1 team':'racingbulls','racing bulls':'racingbulls','red bull':'redbull',
+ 'red bull racing':'redbull','alpine f1 team':'alpine','haas f1 team':'haas',
+ 'cadillac f1 team':'cadillac','aston martin':'astonmartin','sauber':'audi'};
+function teamEntryForConstructor(name){
+  const n=String(name||'').trim().toLowerCase();
+  if(TEAM_ALIAS[n])return teams.find(t=>t.id===TEAM_ALIAS[n])||teams[0];
+  return teams.find(t=>t.id!=='default'&&(n.includes(t.name.toLowerCase())||t.name.toLowerCase().includes(n)))||teams[0];
+}
+function fmtPts(n){return String(Math.round(Number(n||0)*10)/10)}
+function ageFrom(dob){
+  if(!dob)return null;
+  const b=new Date(dob+'T00:00:00Z');if(isNaN(b))return null;
+  const now=new Date();let age=now.getUTCFullYear()-b.getUTCFullYear();
+  const m=now.getUTCMonth()-b.getUTCMonth();
+  if(m<0||(m===0&&now.getUTCDate()<b.getUTCDate()))age--;
+  return age;
+}
+function fmtDob(dob){
+  if(!dob)return '—';
+  const d=new Date(dob+'T00:00:00Z');if(isNaN(d))return '—';
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+/* Career telemetry, optimised for speed:
+   1. Results are paged (Jolpi caps at 100 rows): page one reveals the total,
+      remaining pages load in parallel beside the poles + seasons calls.
+   2. Titles: champion check per winning season only — a champion always has
+      at least one win, so rookies skip this entirely. Checks run through a
+      small pool, and every career fetch retries with backoff on rate-limiting.
+   All calls flow through fetchJson → deduped + cached 24h. Success is
+   memoised per driver (reopening is instant); failure retries on reopen. */
+async function fetchCareerJson(url,attempts=4){
+  let wait=800;
+  for(let i=0;i<attempts;i++){
+    try{
+      return await fetchJson(url);
+    }catch(err){
+      if(i===attempts-1)throw err;
+      await new Promise(r=>setTimeout(r,wait));
+      wait=Math.min(wait*2,6000);
+    }
+  }
+}
+function mapPool(items,fn,size=4){
+  const out=new Array(items.length);let next=0;
+  const workers=new Array(Math.min(size,items.length)).fill(0).map(async()=>{
+    while(next<items.length){const k=next++;out[k]=await fn(items[k])}
+  });
+  return Promise.all(workers).then(()=>out);
+}
+async function fetchAllResults(driverId){
+  const first=await fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=0`).catch(()=>null);
+  const rows=first?.MRData?.RaceTable?.Races||[];
+  const total=Number(first?.MRData?.total||rows.length);
+  if(!rows.length)return null;
+  if(total<=rows.length)return rows;
+  const offsets=[];
+  for(let off=rows.length;off<total;off+=100)offsets.push(off);
+  const pages=await mapPool(offsets,off=>
+    fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=${off}`).catch(()=>null),3);
+  for(const page of pages){
+    const batch=page?.MRData?.RaceTable?.Races||[];
+    if(!batch.length)return null;
+    rows.push(...batch);
+  }
+  return rows;
+}
+function getDriverCareer(driverId){
+  if(driverCareerCache.has(driverId))return driverCareerCache.get(driverId);
+  const job=(async()=>{
+    try{
+      const [raceRows,poles,seasons]=await Promise.all([
+        fetchAllResults(driverId),
+        fetchCareerJson(`${JOLPI}/drivers/${driverId}/qualifying/1/?limit=1`).catch(()=>null),
+        fetchCareerJson(`${JOLPI}/drivers/${driverId}/seasons/?limit=100`).catch(()=>null)
+      ]);
+      const races=raceRows||[];
+      if(!races.length||!poles)return null;
+      let wins=0,podiums=0,points=0,seasonPodiums=0;
+      const winSeasons=new Set(),allSeasons=new Set();
+      races.forEach(r=>{
+        allSeasons.add(r.season);
+        const res=r.Results?.[0];if(!res)return;
+        points+=parseFloat(res.points)||0;
+        const pos=res.position;
+        if(pos==='1'){wins++;podiums++;winSeasons.add(r.season)}
+        else if(pos==='2'||pos==='3')podiums++;
+        if(String(r.season)===String(SITE_SEASON)&&(pos==='1'||pos==='2'||pos==='3'))seasonPodiums++;
+      });
+      const seasonRows=seasons?.MRData?.SeasonTable?.Seasons||[];
+      const years=seasonRows.length?seasonRows.map(s=>s.season):[...allSeasons].sort();
+      const span=years.length>1?`${years[0]}–${years[years.length-1]}`:(years[0]||String(SITE_SEASON));
+      /* The current season only counts toward titles once its final race is done. */
+      const lastRaceStart=schedule[schedule.length-1]?.sessions?.find(s=>s.slug==='race')?.start;
+      const seasonComplete=lastRaceStart?Date.now()>new Date(lastRaceStart).getTime()+2*36e5:false;
+      const titleSeasons=[...winSeasons].filter(y=>String(y)!==String(SITE_SEASON)||seasonComplete);
+      let titles=0;
+      if(titleSeasons.length){
+        const checkTitle=async y=>{
+          try{
+            const d=await fetchCareerJson(`${JOLPI}/${y}/driverstandings/1/?limit=1`);
+            const champ=d?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings?.[0]?.Driver?.driverId;
+            return champ?champ===driverId:null;
+          }catch(_){return null}
+        };
+        const checks=await mapPool(titleSeasons,checkTitle,2);
+        if(checks.includes(null))return null;
+        titles=checks.filter(Boolean).length;
+      }
+      return {
+        races:races.length,wins,podiums,seasonPodiums,
+        points:fmtPts(points),
+        poles:Number(poles?.MRData?.total||0),
+        seasons:years.length||allSeasons.size,span,titles
+      };
+    }catch(_){return null}
+  })();
+  driverCareerCache.set(driverId,job);
+  job.then(career=>{if(!career)driverCareerCache.delete(driverId)});
+  return job;
+}
+function openDriverProfile(driverId){
+  const entry=driverEntries.find(e=>e.Driver?.driverId===driverId);
+  if(!entry||!dOverlay||!dProfile)return;
+  const token=++driverProfileToken;
+  const d=entry.Driver||{},team=entry.Constructors?.[0]?.name||'';
+  const color=hexFor(team),tEntry=teamEntryForConstructor(team);
+  const photo=photoFor(d.driverId);
+  const code=d.code||((d.givenName?.[0]||'')+(d.familyName?.slice(0,2)||'')).toUpperCase()||'—';
+  const num=d.permanentNumber||'';
+  const age=ageFrom(d.dateOfBirth);
+  const mate=driverEntries.find(e=>e!==entry&&(e.Constructors?.[0]?.name||'')===team)?.Driver;
+  const mateName=mate?`${mate.givenName||''} ${mate.familyName||''}`.trim():'—';
+  dSheet.style.setProperty('--dc',color);
+  const following=getFollowing().includes(d.driverId);
+  dProfile.innerHTML=`
+    <div class="dp-card">
+      <div class="dp-shade"></div>
+      <div class="dp-info">
+        <div class="dp-eyebrow">Driver Profile · ${SITE_SEASON} Season</div>
+        <div class="dp-name"><small>${escapeHtml(d.givenName||'')}</small>${escapeHtml(d.familyName||'')}</div>
+        <div class="dp-team">${tEntry.logo?`<img src="${TEAM_LOGO(tEntry.logo,96)}" alt="" width="30" height="30" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span>${escapeHtml(team||'—')}</span></div>
+        <div class="dp-pills">
+          <span class="dp-pos">P${escapeHtml(entry.position)}</span>
+          ${num?`<span class="dp-pill">#${escapeHtml(num)}</span>`:''}
+          <span class="dp-pill">${escapeHtml(code)}</span>
+        </div>
+      </div>
+      <div class="dp-photo">
+        ${photo?`<img src="${photo}" alt="${escapeHtml(`${d.givenName||''} ${d.familyName||''}`)}" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.dp-photo').classList.add('noimg')">`:''}
+        <div class="dp-fall">${escapeHtml((d.givenName?.[0]||'')+(d.familyName?.[0]||''))}</div>
+      </div>
+    </div>
+    <div class="dp-sec">${SITE_SEASON} Season</div>
+    <div class="dp-tiles">
+      <div class="dp-tile"><b>P${escapeHtml(entry.position)}</b><span>Standing</span></div>
+      <div class="dp-tile"><b>${escapeHtml(entry.points)}</b><span>Points</span></div>
+      <div class="dp-tile"><b>${escapeHtml(entry.wins)}</b><span>Wins</span></div>
+      <div class="dp-tile"><b id="dpSeasonPod">···</b><span>Podiums</span></div>
+    </div>
+    <div class="dp-sec">Career</div>
+    <div id="dpCareer">
+      <div class="dp-tiles skel"><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div></div>
+      <div class="dp-note">Loading career telemetry…</div>
+    </div>
+    <div class="dp-sec">Biography</div>
+    <div class="dp-bio">
+      <div class="dp-fact"><small>Nationality</small><b>${escapeHtml(d.nationality||'—')}</b></div>
+      <div class="dp-fact"><small>Born</small><b>${escapeHtml(fmtDob(d.dateOfBirth))}${age!==null?` · Age ${age}`:''}</b></div>
+      <div class="dp-fact"><small>Driver Code</small><b>${escapeHtml(code)}</b></div>
+      <div class="dp-fact"><small>Race Number</small><b>${escapeHtml(num||'—')}</b></div>
+      <div class="dp-fact"><small>Team</small><b>${escapeHtml(team||'—')}</b></div>
+      <div class="dp-fact"><small>Teammate</small><b>${escapeHtml(mateName)}</b></div>
+    </div>
+    <div class="dp-actions">
+      <button class="btn sm${following?' on':''}" id="dpFollow" type="button" aria-pressed="${following}">${following?'✓ Following':'+ Follow'}</button>
+      ${tEntry.id!=='default'?`<button class="btn sm primary" id="dpLivery" type="button">Apply ${escapeHtml(tEntry.name)} Livery</button>`:''}
+      ${d.url?`<a class="btn sm" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">Biography ↗</a>`:''}
+    </div>`;
+  $("dpFollow")?.addEventListener('click',event=>{
+    const btn=event.currentTarget;
+    const on=btn.getAttribute('aria-pressed')!=='true';
+    const list=getFollowing().filter(x=>x!==d.driverId);
+    if(on)list.push(d.driverId);
+    store.set(FOLLOW_KEY,JSON.stringify(list));
+    btn.classList.toggle('on',on);
+    btn.setAttribute('aria-pressed',String(on));
+    btn.textContent=on?'✓ Following':'+ Follow';
+    syncFollowBadges();
+  });
+  $("dpLivery")?.addEventListener('click',()=>{
+    applyTeamTheme(tEntry.id);store.set('freef1_team',tEntry.id);trackEvent('team',tEntry.id);
+    closeModal(dOverlay);
+  });
+  openModal(dOverlay);
+  getDriverCareer(d.driverId).then(career=>{
+    if(token!==driverProfileToken)return;
+    renderDriverCareer(career);
+  });
+}
+function renderDriverCareer(career){
+  const box=$("dpCareer");if(!box)return;
+  const pod=$("dpSeasonPod");if(pod)pod.textContent=career?career.seasonPodiums:'–';
+  if(!career){box.innerHTML='<div class="state">Career telemetry unavailable right now.</div>';return}
+  box.innerHTML=`
+    <div class="dp-tiles">
+      <div class="dp-tile"><b>${career.races}</b><span>Races</span></div>
+      <div class="dp-tile"><b>${career.wins}</b><span>Wins</span></div>
+      <div class="dp-tile"><b>${career.podiums}</b><span>Podiums</span></div>
+      <div class="dp-tile"><b>${career.poles}</b><span>Poles</span></div>
+      <div class="dp-tile"><b>${escapeHtml(career.points)}</b><span>Points</span></div>
+      <div class="dp-tile hl"><b>${career.titles}</b><span>Title${career.titles===1?'':'s'}</span></div>
+    </div>
+    <div class="dp-note">F1 ${escapeHtml(career.span)} · ${career.seasons} season${career.seasons===1?'':'s'} · Career data via Ergast</div>`;
+}
+$("driverClose").addEventListener('click',()=>closeModal(dOverlay));
 
 document.querySelectorAll('#standings [role="tab"]').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('#standings [role="tab"]').forEach(x=>{
@@ -1258,7 +1503,7 @@ $("teamSelectBtn").addEventListener('click',()=>{
   applyTeamTheme(store.get('freef1_team')||'default');
 });
 $("teamSelectClose").addEventListener('click',()=>closeModal(tOverlay));
-[sOverlay,raceTimesOverlay,tOverlay].forEach(m=>m.addEventListener('click',e=>{
+[sOverlay,raceTimesOverlay,tOverlay,dOverlay].forEach(m=>m.addEventListener('click',e=>{
   if(e.target===m)closeModal(m);
 }));
 addEventListener('keydown',e=>{
