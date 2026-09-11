@@ -27,7 +27,7 @@ a{color:inherit}
 
 /* ── atmosphere ── */
 .glowfield{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.42;mix-blend-mode:screen;animation:drift 18s ease-in-out infinite alternate}
+.orb{position:absolute;border-radius:50%;opacity:.34;animation:drift 18s ease-in-out infinite alternate} /* radial-gradient = free blur; drop filter+blend (per-frame composite cost) */
 .orb-a{width:56vw;height:56vw;left:-18vw;top:-20vw;background:radial-gradient(circle,var(--team),transparent 65%)}
 .orb-b{width:40vw;height:40vw;right:-14vw;bottom:-16vw;background:radial-gradient(circle,var(--red-deep),transparent 65%);animation-delay:-9s}
 @keyframes drift{to{transform:translate3d(6vw,4vh,0) scale(1.08)}}
@@ -85,10 +85,15 @@ h1 em{font-style:italic;color:transparent;-webkit-text-stroke:2px var(--team)}
 /* buttons (identical to app.css .btn) */
 .btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:'Archivo',sans-serif;font-weight:800;
   font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;padding:15px 30px;border-radius:var(--r-sm);cursor:pointer;text-decoration:none;
-  border:1px solid var(--line-2);background:var(--surface);color:var(--text);overflow:hidden;transition:all .38s var(--ease);backdrop-filter:blur(12px)}
-.btn::before{content:'';position:absolute;inset:0;background:var(--team);transform:translateX(-101%) skewX(-14deg) scale(1.3);transition:transform .5s var(--ease);z-index:-1}
-.btn:hover{border-color:var(--team);color:#fff;transform:translateY(-2px);box-shadow:0 14px 34px -12px var(--red-glow)}
+  border:1px solid var(--line-2);background:var(--surface);color:var(--text);overflow:hidden;
+  transition:transform .22s var(--ease),border-color .22s var(--ease),color .22s var(--ease)}
+.btn::before{content:'';position:absolute;inset:0;background:var(--team);transform:translateX(-101%) skewX(-14deg) scale(1.3);transition:transform .45s var(--ease);z-index:-1}
+.btn::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:0 14px 34px -12px var(--red-glow);opacity:0;transition:opacity .28s var(--ease)}
+.btn:hover{border-color:var(--team);color:#fff;transform:translateY(-2px)}
 .btn:hover::before{transform:translateX(0) skewX(-14deg) scale(1.3)}
+.btn:hover::after{opacity:1}
+.btn:active{transform:translateY(0) scale(.985)}
+.btn .btn-ic{width:17px;height:17px;fill:currentColor;flex:none}
 .btn.primary{background:var(--team);border-color:var(--team);color:#fff;box-shadow:0 12px 34px -12px var(--red-glow)}
 .btn.primary::before{background:#fff}
 .btn.primary:hover{color:var(--ink)}
@@ -115,6 +120,13 @@ footer{position:relative;z-index:2;border-top:1px solid var(--line);background:r
 }
 @media(prefers-reduced-motion:reduce){
   .orb,.brand-mark::after,.pill .dot{animation:none}
+  .btn,.btn::before,.btn::after{transition:none}
   h1 .l>span{transform:none;animation:none}
   .code,.sub,.cta,.radio{opacity:1;animation:none}
 }
+
+
+/* ── Content protection: text on this page cannot be selected or called out
+      (long-press on iOS). Pairs with the contextmenu/selectstart/dragstart
+      suppression in the page script. ── */
+html{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}

@@ -78,7 +78,27 @@ const schedule=[
 schedule.forEach(event=>event.sessions.forEach(session=>{session.ts=Date.parse(session.start)}));
 const sources=[
  {label:"F1TV",suffix:""},{label:"F1TV Alt",suffix:"/f1tv"},
+ {label:"AppleTV",suffix:"/apple-tv-f1tv-en-us"},
  {label:"DAZN",suffix:"/dazn-es"},{label:"Sky Sports F1",suffix:"/sky-sport-f1-de"},
+ /* Fixed-URL "channel" sources — 24/7 provider pages that carry the live
+    session whenever it is on air (verified 2026-09-11: reachable, no
+    frame-blocking headers, a real player in the document). Array order is the
+    fallback priority, so the lightest and most reliable come first:
+    - strmfree: JW Player + HLS, clean single-purpose embed.
+    - videocdn: Clappr. The one source that REQUIRES a Referer (403 without
+      one), hence rp: our origin is sent for it only — everything else keeps
+      the default no-referrer.
+    - streame: tiny wrapper nesting its own same-domain Clappr/hls.js player.
+    - epiembeds: JW Player but a large obfuscated bundle, so it sits deep in
+      the chain as a last resort before WikiSport.
+    Deliberately NOT embedded: dlive.sx / dlstreams.st (642KB obfuscated
+    overlay machinery — the same click-hijack class we actively contain),
+    wikisport's inner /strm/30.php (dead provider chain behind it), and
+    epiembeds' DAZN page (duplicates the /dazn-es coverage above). */
+ {label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
+ {label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
+ {label:"Streame",url:"https://streame.center/embed/sh60.php"},
+ {label:"Sky UK 3",url:"https://epiembeds.online/embed/skysportsf1-uk"},
  // Fixed-URL source: wikisport.info serves its own player when framed (the page
  // redirects top-level visits, so it only renders inside an iframe). We embed
  // their entry page, not the inner /strm/NN.php player number: the wrapper
@@ -91,7 +111,7 @@ const sources=[
 const $=id=>document.getElementById(id);
 const eventSelect=$("eventSelect"),sessionSelect=$("sessionSelect"),linksEl=$("links"),
  playerEl=$("player"),loaderEl=$("loader"),noStreamEl=$("noStream"),badgeEl=$("badge"),
- nsActionsEl=$("nsActions"),noStreamTitleEl=$("noStreamTitle"),noStreamTextEl=$("noStreamText"),
+ nsActionsEl=$("nsActions"),nsStayBtn=$("nsStayBtn"),noStreamTitleEl=$("noStreamTitle"),noStreamTextEl=$("noStreamText"),
  clockEl=$("clock"),countdownEl=$("countdown"),newsFeedEl=$("newsFeed"),newsStatusEl=$("newsStatus");
 
 function hoursSince(s){return (Date.now()-s.ts)/3600000}
@@ -303,20 +323,22 @@ document.addEventListener("visibilitychange",()=>nsPaused=document.hidden);
 nsActionsEl.addEventListener("click",e=>{
   if(e.target.id==="nsRetryBtn")load();
   else if(e.target.id==="nsNewTabBtn")window.open(buildUrl(currentSource),"_blank","noopener");
+  else if(e.target.id==="nsStayBtn"){hideNoStream();setStreamOnScreen(true)}
 });
 
 function showNoStream(opts){
-  const blocked=!!(opts&&opts.blocked);
+  const blocked=!!(opts&&opts.blocked),hijack=!!(opts&&opts.hijack);
   loaderEl.classList.add("hidden");noStreamEl.classList.add("visible");
   nsActionsEl.hidden=!blocked;
+  nsStayBtn.hidden=!hijack;
   setStreamOnScreen(false);
-  playerEl.querySelector("iframe")?.remove();playerEl.querySelector("video")?.remove();
+  if(!(opts&&opts.keepFrame)){playerEl.querySelector("iframe")?.remove();playerEl.querySelector("video")?.remove()}
   if(blocked){
     stopNS();
-    noStreamTitleEl.textContent=(opts&&opts.title)||"Feed blocked on this device";
-    noStreamTextEl.textContent=(opts&&opts.text)||BLOCKED_COPY;
+    noStreamTitleEl.textContent=(opts&&opts.title)||(hijack?HIJACK_TITLE:"Feed blocked on this device");
+    noStreamTextEl.textContent=(opts&&opts.text)||(hijack?HIJACK_COPY:BLOCKED_COPY);
   }else startNS()}
-function hideNoStream(){noStreamEl.classList.remove("visible");nsActionsEl.hidden=true;stopNS()}
+function hideNoStream(){noStreamEl.classList.remove("visible");nsActionsEl.hidden=true;nsStayBtn.hidden=true;stopNS()}
 
 /* While a stream element is on screen the player is lifted above the page overlays (see .has-stream in app.css). */
 function setStreamOnScreen(on){document.body.classList.toggle('has-stream',on)}
@@ -331,6 +353,9 @@ const BLOCKED_COPY=IS_IOS
  ?"The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
  :"The stream host never responded on this network — the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
 
+const HIJACK_TITLE="The feed tried to send you to another site";
+const HIJACK_COPY="That was the feed's ad layer tab-swapping the player on your click — not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
+
 function setLoaderText(text){const el=$("loaderText");if(el)el.textContent=text}
 
 /* An iframe whose navigation never committed paints as a blank WHITE about:blank
@@ -344,13 +369,41 @@ function iframeCommitted(f){
   try{const href=f.contentWindow?f.contentWindow.location.href:"";return href!==""&&href!=="about:blank"}
   catch(_){return true}// cross-origin read throws only after a real commit
 }
-function makeStreamIframe(url){
+function makeStreamIframe(url,rp){
   const f=document.createElement("iframe");
   f.src=url;
   f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
-  f.allowFullscreen=true;f.referrerPolicy="no-referrer";
+  /* rp: per-source referrer policy. Default stays no-referrer (privacy +
+     defeats referer-based hotlink blocks); sources that 403 WITHOUT a
+     Referer (videocdn) opt in via their rp field. */
+  f.allowFullscreen=true;f.referrerPolicy=rp||"no-referrer";
   f.title="Live stream";
+  /* Insurance, not the main fix: blocks the frame from ever taking the TOP
+     page (window.open _top, form target=_top), blocks modal loops and
+     drive-by downloads. allow-popups stays ON deliberately — the embeds' ad
+     library probes window.open() and buries the player under a "Notice for
+     webmaster" overlay when the probe returns null. The in-frame ad
+     "tab-swap" redirect is a same-frame navigation, which sandbox cannot
+     (and should not) stop — that one is caught by watchFrameNavigation(). */
+  f.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups");
   return f;
+}
+/* The embeds' ad layer sometimes "tab-swaps": on a click inside the player it
+   clones the stream page into a new tab and navigates the player document to
+   an ad URL. Cross-origin we cannot read where the frame went, but every
+   same-frame navigation fires another load event after the initial commit —
+   so a second load means the viewer is looking at an ad site instead of the
+   race. Surface the recovery overlay (frame kept underneath) instead of
+   leaving them stranded on the advertiser. */
+function watchFrameNavigation(f,token,isSettled){
+  let navs=0;
+  f.addEventListener("load",()=>{
+    if(token!==playerLoadToken||!isSettled())return;
+    navs++;
+    if(navs===1)return;// the initial commit event
+    trackEvent('stream_hijack');
+    showNoStream({blocked:true,hijack:true,keepFrame:true});
+  });
 }
 function showStreamBlocked(){trackEvent('stream_blocked');showNoStream({blocked:true,text:BLOCKED_COPY})}
 
@@ -359,11 +412,12 @@ function attemptSource(token,order,idx,startedAt){
   if(token!==playerLoadToken)return;
   if(idx>=order.length){showStreamBlocked();return}
   setLoaderText(idx===0?"Establishing feed…":"Feed unreachable — switching source…");
-  const f=makeStreamIframe(buildUrl(order[idx]));
+  const f=makeStreamIframe(buildUrl(order[idx]),sources[order[idx]].rp);
   let settled=false;
   const reveal=()=>{settled=true;trackEvent('stream_ready',Math.round(performance.now()-startedAt));
     f.classList.add('loaded');setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
   f.onload=()=>{if(token!==playerLoadToken||settled)return;if(!iframeCommitted(f))return;reveal()};
+  watchFrameNavigation(f,token,()=>settled);
   setTimeout(()=>{/* navigation watchdog: nothing committed => there is no picture to show */
     if(token!==playerLoadToken||!f.isConnected||settled)return;
     if(iframeCommitted(f)){reveal();return}
@@ -392,9 +446,14 @@ function load(){
     }else{
       f.src=streamOverride.url;f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
       f.allowFullscreen=true;f.referrerPolicy="no-referrer";f.title="Live stream";
+      f.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups");
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
       f.onload=()=>{if(token!==playerLoadToken||f.style.opacity==='1')return;if(!iframeCommitted(f))return;
         f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+      {let settled=false,navs=0;const wasSettled=()=>settled;
+       const origLoad=f.onload;f.onload=e=>{origLoad(e);if(f.style.opacity==='1')settled=true};
+       f.addEventListener("load",()=>{if(token!==playerLoadToken||!wasSettled())return;navs++;if(navs===1)return;
+         trackEvent('stream_hijack');showNoStream({blocked:true,hijack:true,keepFrame:true})});}
       setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected||f.style.opacity==='1')return;
         if(iframeCommitted(f)){f.style.opacity='1';loaderEl.classList.add('hidden');return}
         trackEvent('stream_timeout');f.remove();showStreamBlocked();

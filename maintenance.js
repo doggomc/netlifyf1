@@ -1,5 +1,12 @@
 'use strict';
 
+/* Content protection: no right-click menu, no text selection, no image
+   dragging on this page. CSS user-select:none covers modern engines;
+   selectstart/dragstart cover the rest. */
+for (const evt of ['contextmenu', 'selectstart', 'dragstart']) {
+  document.addEventListener(evt, event => event.preventDefault());
+}
+
 const productionApi = 'https://f1free.onrender.com';
 const backendHost = location.hostname === 'localhost' ||
   location.hostname === '127.0.0.1' ||
@@ -8,6 +15,7 @@ const backendHost = location.hostname === 'localhost' ||
 const API = backendHost ? location.origin : productionApi;
 
 const messageEl = document.getElementById('maintenanceMessage');
+const returnEtaEl = document.getElementById('returnEta');
 const garageTimeEl = document.getElementById('garageTime');
 const autoStatusEl = document.getElementById('autoStatus');
 let maintenanceStartedAt = Date.now();
@@ -49,6 +57,7 @@ function applyMaintenanceState(state) {
   if (!state || typeof state.active !== 'boolean') return;
   if (!state.active) return releaseWebsite();
   if (state.message && messageEl) messageEl.textContent = state.message;
+  if (state.eta && returnEtaEl) returnEtaEl.textContent = state.eta;
   if (state.startedAt) maintenanceStartedAt = Number(state.startedAt) || maintenanceStartedAt;
   if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Connected to race control';
 }
