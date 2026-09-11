@@ -38,7 +38,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <link rel="preconnect" href="https://api.openf1.org" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260909-follow1">
+<link rel="stylesheet" href="/app.css?v=20260911-wikisport1">
 </head>
 <body>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
@@ -148,10 +148,14 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <div class="stage-override-pill inactive" id="overridePill">Stream Override · No Current Live Sessions</div>
       </div>
       <div class="player" id="player">
-        <div class="overlay" id="loader"><div class="spinner"></div><span class="lt">Establishing feed…</span></div>
+        <div class="overlay" id="loader"><div class="spinner"></div><span class="lt" id="loaderText">Establishing feed…</span></div>
         <div class="nostream" id="noStream">
           <h3 id="noStreamTitle">Hang tight</h3>
           <p id="noStreamText">We're working on getting this stream up for you. Check back soon!</p>
+          <div class="ns-actions" id="nsActions" hidden>
+            <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
+            <button class="btn sm" id="nsNewTabBtn" type="button">Open feed in new tab</button>
+          </div>
         </div>
       </div>
     </div>
@@ -479,6 +483,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260909-follow1" defer></script>
+<script src="/app.js?v=20260911-wikisport1" defer></script>
 </body>
 </html>

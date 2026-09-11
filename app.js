@@ -78,12 +78,20 @@ const schedule=[
 schedule.forEach(event=>event.sessions.forEach(session=>{session.ts=Date.parse(session.start)}));
 const sources=[
  {label:"F1TV",suffix:""},{label:"F1TV Alt",suffix:"/f1tv"},
- {label:"DAZN",suffix:"/dazn-es"},{label:"Sky Sports F1",suffix:"/sky-sport-f1-de"}
+ {label:"DAZN",suffix:"/dazn-es"},{label:"Sky Sports F1",suffix:"/sky-sport-f1-de"},
+ // Fixed-URL source: wikisport.info serves its own player when framed (the page
+ // redirects top-level visits, so it only renders inside an iframe). We embed
+ // their entry page, not the inner /strm/NN.php player number: the wrapper
+ // self-updates when the provider rotates player pages, and it carries their
+ // Stream 1/2/3 links as an in-player fallback. Touch users can scroll inside
+ // the frame if the provider's layout is taller than the stage.
+ {label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
 const $=id=>document.getElementById(id);
 const eventSelect=$("eventSelect"),sessionSelect=$("sessionSelect"),linksEl=$("links"),
  playerEl=$("player"),loaderEl=$("loader"),noStreamEl=$("noStream"),badgeEl=$("badge"),
+ nsActionsEl=$("nsActions"),noStreamTitleEl=$("noStreamTitle"),noStreamTextEl=$("noStreamText"),
  clockEl=$("clock"),countdownEl=$("countdown"),newsFeedEl=$("newsFeed"),newsStatusEl=$("newsStatus");
 
 function hoursSince(s){return (Date.now()-s.ts)/3600000}
@@ -261,7 +269,7 @@ function renderButtons(){
     linksEl.appendChild(b);
   });
 }
-const buildUrl=i=>`https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix}`;
+const buildUrl=i=>sources[i].url||`https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix||""}`;
 
 /* ── no-stream rotator ── */
 let nsTimer=null,nsPaused=false,nsRunning=false;
@@ -291,18 +299,85 @@ function startNS(){
 noStreamEl.addEventListener("mouseenter",()=>nsPaused=true);
 noStreamEl.addEventListener("mouseleave",()=>nsPaused=false);
 document.addEventListener("visibilitychange",()=>nsPaused=document.hidden);
+/* Recovery actions shown in the "feed blocked" state (see showStreamBlocked). */
+nsActionsEl.addEventListener("click",e=>{
+  if(e.target.id==="nsRetryBtn")load();
+  else if(e.target.id==="nsNewTabBtn")window.open(buildUrl(currentSource),"_blank","noopener");
+});
 
-function showNoStream(){loaderEl.classList.add("hidden");noStreamEl.classList.add("visible");setStreamOnScreen(false);
-  playerEl.querySelector("iframe")?.remove();startNS()}
-function hideNoStream(){noStreamEl.classList.remove("visible");stopNS()}
+function showNoStream(opts){
+  const blocked=!!(opts&&opts.blocked);
+  loaderEl.classList.add("hidden");noStreamEl.classList.add("visible");
+  nsActionsEl.hidden=!blocked;
+  setStreamOnScreen(false);
+  playerEl.querySelector("iframe")?.remove();playerEl.querySelector("video")?.remove();
+  if(blocked){
+    stopNS();
+    noStreamTitleEl.textContent=(opts&&opts.title)||"Feed blocked on this device";
+    noStreamTextEl.textContent=(opts&&opts.text)||BLOCKED_COPY;
+  }else startNS()}
+function hideNoStream(){noStreamEl.classList.remove("visible");nsActionsEl.hidden=true;stopNS()}
 
 /* While a stream element is on screen the player is lifted above the page overlays (see .has-stream in app.css). */
 function setStreamOnScreen(on){document.body.classList.toggle('has-stream',on)}
 
 let playerLoadToken=0;
+/* iOS-class device: only used for user-facing guidance and analytics context. */
+const IS_IOS=/ipad|iphone|ipod/i.test(navigator.userAgent)||(/macintosh/i.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+/* How long an embed attempt may take to commit a document before we treat it
+   as network-blocked and fall over to the next feed source. */
+const NAV_TIMEOUT_MS=9000;
+const BLOCKED_COPY=IS_IOS
+ ?"The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
+ :"The stream host never responded on this network — the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
+
+function setLoaderText(text){const el=$("loaderText");if(el)el.textContent=text}
+
+/* An iframe whose navigation never committed paints as a blank WHITE about:blank
+   tile (the classic "white stream" on iOS, where network-level blocks — content
+   blockers, Private Relay, filtered DNS — silently leave the frame uncommitted).
+   Only reveal a frame once its document committed: before commit the
+   same-origin about:blank location is readable, after a cross-origin commit
+   the read throws. */
+function iframeCommitted(f){
+  if(!f||!f.isConnected)return false;
+  try{const href=f.contentWindow?f.contentWindow.location.href:"";return href!==""&&href!=="about:blank"}
+  catch(_){return true}// cross-origin read throws only after a real commit
+}
+function makeStreamIframe(url){
+  const f=document.createElement("iframe");
+  f.src=url;
+  f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
+  f.allowFullscreen=true;f.referrerPolicy="no-referrer";
+  f.title="Live stream";
+  return f;
+}
+function showStreamBlocked(){trackEvent('stream_blocked');showNoStream({blocked:true,text:BLOCKED_COPY})}
+
+/* Try each feed source in turn (user's pick first) until one commits a document. */
+function attemptSource(token,order,idx,startedAt){
+  if(token!==playerLoadToken)return;
+  if(idx>=order.length){showStreamBlocked();return}
+  setLoaderText(idx===0?"Establishing feed…":"Feed unreachable — switching source…");
+  const f=makeStreamIframe(buildUrl(order[idx]));
+  let settled=false;
+  const reveal=()=>{settled=true;trackEvent('stream_ready',Math.round(performance.now()-startedAt));
+    f.classList.add('loaded');setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+  f.onload=()=>{if(token!==playerLoadToken||settled)return;if(!iframeCommitted(f))return;reveal()};
+  setTimeout(()=>{/* navigation watchdog: nothing committed => there is no picture to show */
+    if(token!==playerLoadToken||!f.isConnected||settled)return;
+    if(iframeCommitted(f)){reveal();return}
+    trackEvent('stream_timeout');
+    f.remove();
+    attemptSource(token,order,idx+1,startedAt);
+  },NAV_TIMEOUT_MS);
+  playerEl.appendChild(f);setStreamOnScreen(true);
+}
+
 function load(){
   const token=++playerLoadToken;
   loaderEl.classList.remove("hidden");hideNoStream();
+  setLoaderText("Establishing feed…");
   playerEl.querySelector("iframe")?.remove();
   playerEl.querySelector("video")?.remove();
   // If override is active, always try to play it regardless of session state.
@@ -313,24 +388,25 @@ function load(){
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
       const s=document.createElement('source');s.src=streamOverride.url;s.type='video/mp4';f.appendChild(s);
       f.oncanplay=()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')};
+      f.onerror=()=>{if(token===playerLoadToken)showStreamBlocked()};
     }else{
       f.src=streamOverride.url;f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
-      f.allowFullscreen=true;f.referrerPolicy='no-referrer';
+      f.allowFullscreen=true;f.referrerPolicy="no-referrer";f.title="Live stream";
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
-      f.onload=()=>{if(token!==playerLoadToken)return;f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+      f.onload=()=>{if(token!==playerLoadToken||f.style.opacity==='1')return;if(!iframeCommitted(f))return;
+        f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+      setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected||f.style.opacity==='1')return;
+        if(iframeCommitted(f)){f.style.opacity='1';loaderEl.classList.add('hidden');return}
+        trackEvent('stream_timeout');f.remove();showStreamBlocked();
+      },NAV_TIMEOUT_MS);
     }
     playerEl.appendChild(f);setStreamOnScreen(true);
-    setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;if(!f.style.opacity||f.style.opacity==='0')f.style.opacity='1';loaderEl.classList.add('hidden')},3000);
     return;
   }
   if(!isStreamAvailable(currentSession)){showNoStream();trackEvent('nostream');return}
-  const f=document.createElement("iframe"),startedAt=performance.now();let settled=false;
-  f.src=buildUrl(currentSource);
-  f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
-  f.allowFullscreen=true;f.referrerPolicy="no-referrer";
-  f.onload=()=>{if(token!==playerLoadToken)return;f.classList.add('loaded');if(!settled){settled=true;trackEvent('stream_ready',Math.round(performance.now()-startedAt))}setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
-  setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;f.classList.add('loaded');loaderEl.classList.add('hidden');if(!settled){settled=true;trackEvent('stream_timeout')}},5000);
-  playerEl.appendChild(f);setStreamOnScreen(true);
+  const order=[currentSource];
+  for(let i=0;i<sources.length;i++)if(i!==currentSource)order.push(i);
+  attemptSource(token,order,0,performance.now());
 }
 
 /* ── clocks ── */
@@ -1262,7 +1338,11 @@ document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach(tab=>tab.addEve
    Budget: OpenF1 allows 3 req/s · 30 req/min PER IP (shared by everyone behind a
    carrier NAT), so requests are cached, spaced out and never fired in bursts.
    Panel state (open/closed + last picked session) is remembered per browser. */
-const OPENF1_API='https://api.openf1.org/v1';
+/* OpenF1 is reached through our own backend proxy: the free tier answers live
+   windows with a CORS-less 401 that browsers report as an opaque
+   "Failed to fetch", and the per-IP rate limit is shared by every visitor.
+   The proxy caches, coalesces and serves last-known-good snapshots instead. */
+const OPENF1_API=PREVIEW_HOST?`${location.origin}/api/openf1`:'https://f1free.onrender.com/api/openf1';
 const RADIO_RC_STORE_KEY='freef1_radio_rc';
 const radioRcEl=$("radioRc"),radioRcBtn=$("radioRcBtn"),radioRcEventSel=$("radioRcEvent"),radioRcSessionSel=$("radioRcSession"),
   radioRcStatusEl=$("radioRcStatus"),radioRcRadioList=$("radioRcRadioList"),radioRcRcList=$("radioRcRcList"),radioRcAudio=$("radioRcAudio"),
@@ -1279,10 +1359,18 @@ function openf1(path,params,ttlMs){
   const run=async()=>{
     const wait=radioRc.lastRequestAt+400-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));
     radioRc.lastRequestAt=Date.now();
-    const r=await fetch(url,{cache:'no-store'});
-    if(r.status===429){const e=new Error('OpenF1 is busy (shared rate limit)');e.code='rate';throw e}
-    if(r.status===401||r.status===403){const e=new Error('Live data is locked on the free tier');e.code='live';throw e}
-    if(!r.ok)throw new Error(`OpenF1 error ${r.status}`);
+    let r;
+    try{r=await fetch(url,{cache:'no-store'})}
+    catch(_){const e=new Error('Cannot reach our data server — check your connection');e.code='net';throw e}
+    if(r.status===503||r.status===429){
+      let code=r.status===429?'rate':'upstream';
+      try{const d=await r.json();if(d&&d.code)code=d.code}catch(_){}
+      const e=new Error(code==='live'
+        ?'Live data is locked on OpenF1’s free tier until the session ends — try again after the flag'
+        :code==='rate'?'OpenF1 is busy (shared rate limit)':'OpenF1 is unreachable right now');
+      e.code=code==='rate'?'rate':code==='live'?'live':'up';throw e
+    }
+    if(!r.ok){const e=new Error(`Data server error ${r.status}`);e.code='up';throw e}
     return r.json();
   };
   const promise=radioRc.chain.then(run,run).then(data=>{radioRc.cache.set(url,{data,at:Date.now()});return data}).catch(err=>{radioRc.cache.delete(url);throw err});
@@ -1375,7 +1463,7 @@ async function radioRcSelectSession(sessionKey,{retry=false}={}){
       const msg=escapeHtml(err.message||'OpenF1 unavailable');
       radioRcRadioList.innerHTML=`<li class="radio-rc-empty err">${msg}</li>`;
       radioRcRcList.innerHTML=`<li class="radio-rc-empty err">${msg}</li>`;
-      radioRcSetStatus('OpenF1 unavailable','warn');
+      radioRcSetStatus(err.code==='live'?'OpenF1 free tier locked while a session is live':err.code==='rate'?'OpenF1 is busy · retrying':'OpenF1 unavailable','warn');
     }
   }
   if(nextRefresh&&radioRc.open)radioRc.refreshTimer=setTimeout(()=>{if(!document.hidden&&radioRc.open&&radioRc.sessionKey===sessionKey)radioRcSelectSession(sessionKey)},nextRefresh);
@@ -1440,7 +1528,7 @@ function radioRcSetOpen(open,{animate=true,save=true}={}){
     radioRcEl.classList.toggle('no-anim',!animate);
     radioRcEl.hidden=false;
     requestAnimationFrame(()=>requestAnimationFrame(()=>{radioRcEl.classList.add('open');setTimeout(()=>{if(radioRc.open)radioRcEl.classList.add('settled')},animate?600:0)}));
-    if(!radioRc.meetings.length)radioRcLoadSessions().catch(err=>{radioRcSetStatus(err.code==='rate'?'OpenF1 is busy · try again in a minute':(err.message||'OpenF1 unavailable'),'warn');radioRcRadioList.innerHTML=`<li class="radio-rc-empty err">${escapeHtml(err.message||'OpenF1 unavailable')}</li>`;radioRcRcList.innerHTML='<li class="radio-rc-empty"></li>'});
+    if(!radioRc.meetings.length)radioRcLoadSessions().catch(err=>{radioRcSetStatus(err.code==='rate'?'OpenF1 is busy · try again in a minute':err.code==='live'?'OpenF1 free tier locked while a session is live':(err.message||'OpenF1 unavailable'),'warn');radioRcRadioList.innerHTML=`<li class="radio-rc-empty err">${escapeHtml(err.message||'OpenF1 unavailable')}</li>`;radioRcRcList.innerHTML='<li class="radio-rc-empty"></li>'});
     else if(radioRcIsLiveWindow(radioRc.sessions.find(s=>s.session_key===radioRc.sessionKey)))radioRcSelectSession(radioRc.sessionKey);
   }else{
     clearTimeout(radioRc.refreshTimer);clearTimeout(radioRc.retryTimer);

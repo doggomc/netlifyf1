@@ -367,6 +367,8 @@ select option:disabled{color:#4A4F57}
   font-size:1.5rem;letter-spacing:-.03em;transition:opacity 1.1s ease,transform 1.1s ease}
 .nostream p{font-size:.9rem;color:var(--muted);max-width:400px;line-height:1.75;
   transition:opacity 1.1s ease,transform 1.1s ease}
+.ns-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:6px}
+.ns-actions[hidden]{display:none}
 .stage-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
 
 /* ═══════════════ TELEMETRY STRIP ═══════════════ */
@@ -838,6 +840,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
   .deck-box{padding:17px}.sel{min-width:100%}
   select{font-size:16px;min-height:48px}
   .chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.chip{min-height:46px;padding:10px 8px}
+  .chips .chip:last-child:nth-child(odd){grid-column:1/-1}
   .news-feed{grid-template-columns:1fr;padding:12px}.news-item:first-child{grid-column:auto}
   .player{min-height:0}.nostream{padding:22px}.nostream h3{font-size:1.2rem}.nostream p{font-size:.82rem}
   .stage-actions{display:grid;grid-template-columns:1fr 1fr}.stage-actions .btn{width:100%;padding-inline:10px}
