@@ -33,9 +33,12 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://f1free.onrender.com" crossorigin>
+<link rel="preconnect" href="https://api.jolpi.ca" crossorigin>
+<link rel="preconnect" href="https://media.formula1.com">
+<link rel="preconnect" href="https://api.openf1.org" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260827-dropdown1">
+<link rel="stylesheet" href="/app.css?v=20260911-wikisport1">
 </head>
 <body>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
@@ -67,8 +70,9 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
     <a href="#watch">Watch</a>
     <a href="#grid">The Grid</a>
     <a href="#standings">Standings</a>
-    <a href="#news">News</a>
-    <a href="#info">Info</a>
+    <a href="/news" data-route="news">News</a>
+    <a href="/info" data-route="info">Info</a>
+    <a href="/discord" data-route="discord">Discord</a>
   </div>
   <div class="nav-right">
     <div class="pill live" id="badge"><span class="dot"></span>Live</div>
@@ -78,6 +82,8 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </nav>
 
+<!-- ══ VIEW: HOME ══ -->
+<div class="view is-active" id="viewHome" data-view="home">
 <!-- ══ HERO ══ -->
 <header class="hero" id="top">
   <div class="hero-flag"></div>
@@ -142,10 +148,14 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <div class="stage-override-pill inactive" id="overridePill">Stream Override · No Current Live Sessions</div>
       </div>
       <div class="player" id="player">
-        <div class="overlay" id="loader"><div class="spinner"></div><span class="lt">Establishing feed…</span></div>
+        <div class="overlay" id="loader"><div class="spinner"></div><span class="lt" id="loaderText">Establishing feed…</span></div>
         <div class="nostream" id="noStream">
           <h3 id="noStreamTitle">Hang tight</h3>
           <p id="noStreamText">We're working on getting this stream up for you. Check back soon!</p>
+          <div class="ns-actions" id="nsActions" hidden>
+            <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
+            <button class="btn sm" id="nsNewTabBtn" type="button">Open feed in new tab</button>
+          </div>
         </div>
       </div>
     </div>
@@ -154,6 +164,43 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
       <button class="btn sm" id="championshipBtn">Championship</button>
       <button class="btn sm" id="sessionsBtn">Session Results</button>
       <button class="btn sm" id="teamSelectBtn">Team Livery</button>
+      <button class="btn sm" id="raceTimesBtn">Race Times</button>
+      <button class="btn sm" id="radioRcBtn" aria-expanded="false" aria-controls="radioRc">Radio &amp; Race Control</button>
+    </div>
+
+    <!-- ══ RADIO & RACE CONTROL (OpenF1) ══ -->
+    <div class="radio-rc" id="radioRc" hidden>
+      <div class="card radio-rc-card">
+        <div class="radio-rc-head">
+          <div>
+            <span class="eyebrow">Pit Wall</span>
+            <h3>Team Radio <span class="accent">&amp;</span> Race Control</h3>
+          </div>
+          <div class="radio-rc-status mono" id="radioRcStatus">Loading sessions…</div>
+          <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control">✕</button>
+        </div>
+        <div class="selects radio-rc-selects">
+          <div class="sel"><label for="radioRcEvent">Grand Prix</label><select id="radioRcEvent"><option>Loading…</option></select></div>
+          <div class="sel"><label for="radioRcSession">Session</label><select id="radioRcSession"><option>—</option></select></div>
+        </div>
+        <div class="radio-rc-grid">
+          <section class="radio-rc-col" aria-labelledby="radioRcRadioTitle">
+            <div class="radio-rc-col-head"><h4 id="radioRcRadioTitle">Team Radio</h4><span class="mono" id="radioRcRadioCount"></span></div>
+            <div class="radio-rc-player" id="radioRcPlayer" hidden>
+              <span class="radio-rc-player-code" id="radioRcPlayerCode">—</span>
+              <div class="radio-rc-player-meta"><b id="radioRcPlayerName">—</b><span class="mono" id="radioRcPlayerTime">—</span></div>
+              <span class="radio-rc-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            </div>
+            <audio id="radioRcAudio" preload="none"></audio>
+            <ul class="radio-rc-list" id="radioRcRadioList"><li class="radio-rc-empty">Select a session</li></ul>
+          </section>
+          <section class="radio-rc-col" aria-labelledby="radioRcRcTitle">
+            <div class="radio-rc-col-head"><h4 id="radioRcRcTitle">Race Control</h4><span class="mono" id="radioRcRcCount"></span></div>
+            <ul class="radio-rc-list rc" id="radioRcRcList"><li class="radio-rc-empty">Select a session</li></ul>
+          </section>
+        </div>
+        <div class="radio-rc-foot mono">Timing data via <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a> (unofficial). Radio audio is served by Formula 1's live-timing CDN. Times shown in your local time.</div>
+      </div>
     </div>
   </div>
 </section>
@@ -167,7 +214,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <h2>The <span class="accent">Grid</span></h2>
         <div class="rule" style="width:120px"></div>
       </div>
-      <p style="color:var(--muted);font-size:.85rem;max-width:340px">All 22 drivers, ordered by live championship position. Driver imagery © Formula 1, served from the official F1 media CDN.</p>
+      <p style="color:var(--muted);font-size:.85rem;max-width:340px">All 22 drivers, ordered by live championship position. Select a driver for the full profile. Driver imagery © Formula 1, served from the official F1 media CDN.</p>
     </div>
     <div class="drivers" id="driverGrid">
       <div class="state">Loading the grid…</div>
@@ -209,11 +256,15 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </section>
 
-<!-- ══ NEWS ══ -->
-<section class="sec" id="news">
+</div><!-- /viewHome -->
+
+<!-- ══ VIEW: NEWS ══ -->
+<div class="view" id="viewNews" data-view="news" hidden>
+<section class="sec sub-sec" id="news">
   <div class="wrap">
     <div class="sec-head rv">
       <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
         <span class="eyebrow">Race Control</span>
         <h2>Latest <span class="accent">News</span></h2>
         <div class="rule" style="width:120px"></div>
@@ -228,11 +279,15 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </section>
 
-<!-- ══ INFO / LEGAL ══ -->
-<section class="sec" id="info">
+</div><!-- /viewNews -->
+
+<!-- ══ VIEW: INFO ══ -->
+<div class="view" id="viewInfo" data-view="info" hidden>
+<section class="sec sub-sec" id="info">
   <div class="wrap">
     <div class="sec-head rv">
       <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
         <span class="eyebrow">Small Print</span>
         <h2>Terms, Privacy &amp; <span class="accent">FAQ</span></h2>
         <div class="rule" style="width:120px"></div>
@@ -298,7 +353,7 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
           <div class="acc-item"><button class="acc-q">Where do the streams come from?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>Streams are sourced from publicly available embedded content providers. We do not create, produce, or verify the content of these streams. We simply provide links to content that is publicly accessible on the internet. We are not responsible for the availability, quality, or legality of any third-party content.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Is this website legal?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We operate within the boundaries of applicable law by not hosting any copyrighted content ourselves and by providing only links to publicly available content. However, the legality of streaming sports content varies by jurisdiction. You are responsible for complying with the laws in your country or region.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Do you have any advertising on the website?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>No. We do not display any advertisements on this website. There are no banner ads, pop-ups, video ads, or any other form of advertising.</p></div></div></div>
-          <div class="acc-item"><button class="acc-q">Where do the photographs come from?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>All photography on this site is sourced from Wikimedia Commons and used under Creative Commons licences, with attribution shown on each image. We do not use official Formula 1 or team logos, since those are protected trademarks.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">Where do the photographs come from?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>All photography on this site is sourced from Wikimedia Commons and used under Creative Commons licences, with attribution shown on each image. Driver imagery and team marks are © Formula 1 and the respective teams, loaded directly from the official F1 media CDN and used for identification only; we claim no rights in them.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Why do you not provide official F1 timing or race data?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>Official Formula 1 timing and race data are proprietary and are exclusively provided by Formula One Licensing B.V. through official channels. Standings and results shown here come from the public Ergast/Jolpica community API and should not be relied upon for absolute accuracy.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">How can I contact you?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>You can reach us through the contact methods provided on this website. For urgent matters related to copyright or legal issues, please use the subject line "URGENT" in your communication.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Can I use this website commercially?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>No. This website is provided for personal, non-commercial use only. You may not use this website or its content for any commercial purpose without our express written permission.</p></div></div></div>
@@ -307,6 +362,41 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
     </div>
   </div>
 </section>
+</div><!-- /viewInfo -->
+
+<!-- ══ VIEW: DISCORD ══ -->
+<div class="view" id="viewDiscord" data-view="discord" hidden>
+<section class="sec sub-sec" id="discord">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
+        <span class="eyebrow">Paddock Chat</span>
+        <h2>Join the <span class="accent">Community</span></h2>
+        <div class="rule" style="width:120px"></div>
+      </div>
+    </div>
+    <div class="card rv d1 discord-card">
+      <div class="discord-glow" aria-hidden="true"></div>
+      <div class="discord-badge" aria-hidden="true">
+        <svg class="discord-mark" viewBox="0 0 127.14 96.36" fill="currentColor"><path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/></svg>
+        <span class="discord-brand">
+          <svg class="discord-favicon" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#e10600"/><path d="M10 45 24 17h13l-5 10h12l-4 8H27l-4 10H10Z" fill="#fff"/><path d="M42 17h13l-4 8H38l4-8Z" fill="#fff" opacity=".72"/></svg>
+          <b>FreeF1</b>
+        </span>
+      </div>
+      <h3 class="discord-title">The FreeF1 Discord</h3>
+      <p class="discord-text">Race-day chat, stream announcements, and a direct line to <b>doggo</b> when a feed drops. Free to join — one click and you're in.</p>
+      <a class="btn primary discord-join" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 127.14 96.36" fill="currentColor" width="20" height="16" aria-hidden="true"><path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/></svg>
+        Join the Discord
+      </a>
+      <span class="discord-url mono">discord.gg/KYXHCAzhN4</span>
+    </div>
+  </div>
+</section>
+
+</div><!-- /viewDiscord -->
 
 <!-- ══ MODALS ══ -->
 <div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
@@ -323,11 +413,37 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
   </div>
 </div>
 
+<div class="modal" id="raceTimesOverlay" role="dialog" aria-modal="true" aria-labelledby="raceTimesTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="raceTimesTitle">Race Times</h2><button class="x" id="raceTimesClose" type="button" aria-label="Close race times">&times;</button></div>
+    <div class="race-times-toolbar">
+      <div class="tabs" id="raceTimesTabs" role="tablist" aria-label="Race time filter">
+        <button class="tab active" type="button" role="tab" aria-selected="true" data-race-filter="all">All</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-race-filter="finished">Finished</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-race-filter="current">Current</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-race-filter="upcoming">Upcoming</button>
+      </div>
+      <div class="pill mono" id="raceTimesSeason">SEASON 2026</div>
+    </div>
+    <div class="race-times-note" id="raceTimesTimezone" role="status">Times are shown in your local timezone.</div>
+    <div class="race-times-list" id="raceTimesList" role="tabpanel" aria-live="polite">
+      <div class="state">Loading race times…</div>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="teamSelectOverlay" role="dialog" aria-modal="true" aria-labelledby="teamSelectTitle">
   <div class="sheet" style="max-width:620px">
     <div class="sheet-head"><h2 id="teamSelectTitle">Choose Your Livery</h2><button class="x" id="teamSelectClose" type="button" aria-label="Close team selector">&times;</button></div>
-    <p style="color:var(--muted);font-size:.82rem;margin-bottom:18px">Team colours are authentic; official logos are trademarked and intentionally not reproduced.</p>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:18px">Pick a team and the whole cockpit takes its colours. Team marks © Formula 1 and their respective teams, served from the official F1 media CDN.</p>
     <div class="teams" id="teamGrid"></div>
+  </div>
+</div>
+
+<div class="modal" id="driverOverlay" role="dialog" aria-modal="true" aria-labelledby="driverTitle">
+  <div class="sheet driver-sheet" id="driverSheet">
+    <div class="sheet-head"><h2 id="driverTitle">Driver Profile</h2><button class="x" id="driverClose" type="button" aria-label="Close driver profile">&times;</button></div>
+    <div id="driverProfile" aria-live="polite"></div>
   </div>
 </div>
 
@@ -346,15 +462,15 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
         <h4>Navigate</h4>
         <div class="foot-links">
           <a href="#watch">Cockpit</a><a href="#grid">The Grid</a>
-          <a href="#standings">Standings</a><a href="#news">News</a><a href="#info">Information</a>
+          <a href="#standings">Standings</a><a href="/news" data-route="news">News</a><a href="/info" data-route="info">Information</a><a href="/discord" data-route="discord">Discord</a>
         </div>
       </div>
       <div>
         <h4>Legal</h4>
         <div class="foot-links">
-          <button data-panel="termsPanel">Terms of Service</button>
-          <button data-panel="privacyPanel">Privacy Policy</button>
-          <button data-panel="faqPanel">FAQ</button>
+          <button data-panel="termsPanel" data-route="info">Terms of Service</button>
+          <button data-panel="privacyPanel" data-route="info">Privacy Policy</button>
+          <button data-panel="faqPanel" data-route="info">FAQ</button>
         </div>
       </div>
     </div>
@@ -367,6 +483,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260826-hardening2" defer></script>
+<script src="/app.js?v=20260911-wikisport1" defer></script>
 </body>
 </html>

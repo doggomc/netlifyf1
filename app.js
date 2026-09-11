@@ -11,8 +11,26 @@ const AUTHORIZED_DOMAIN='freef1.netlify.app';
 const PREVIEW_HOST=location.hostname==='localhost'||location.hostname==='127.0.0.1'||location.hostname.endsWith('.e2b.app');
 const AUTH_API_URL=PREVIEW_HOST?`${location.origin}/api/auth/verify`:'https://f1free.onrender.com/api/auth/verify';
 
-/* This is a friendly domain check, not a security boundary. The API and
-   admin routes enforce their own access rules on the server. */
+/* Lightweight browser-copy deterrence. This cannot provide real source-code
+   security because browsers must receive the page to render it. */
+(function installCopyProtection(){
+  const editableSelector='input,textarea,select,[contenteditable="true"]';
+  const isEditable=target=>target instanceof Element&&Boolean(target.closest(editableSelector));
+  const blockSelection=event=>{if(!isEditable(event.target))event.preventDefault()};
+  document.addEventListener('contextmenu',event=>{if(!isEditable(event.target))event.preventDefault()});
+  document.addEventListener('selectstart',blockSelection);
+  document.addEventListener('dragstart',blockSelection);
+  document.addEventListener('copy',event=>{if(!isEditable(event.target))event.preventDefault()});
+  document.addEventListener('cut',event=>{if(!isEditable(event.target))event.preventDefault()});
+  document.addEventListener('keydown',event=>{
+    const key=(event.key||'').toLowerCase();
+    const modifier=event.ctrlKey||event.metaKey;
+    const blocked=key==='f12'||
+      (modifier&&['u','s','p'].includes(key))||
+      (modifier&&event.shiftKey&&['i','j','c','k'].includes(key));
+    if(blocked&&!isEditable(event.target)){event.preventDefault();event.stopPropagation()}
+  });
+})();
 function checkAuth(){
   if(!AUTH_PROTECTION_ENABLED)return;
   const host=location.hostname.toLowerCase();
@@ -60,12 +78,20 @@ const schedule=[
 schedule.forEach(event=>event.sessions.forEach(session=>{session.ts=Date.parse(session.start)}));
 const sources=[
  {label:"F1TV",suffix:""},{label:"F1TV Alt",suffix:"/f1tv"},
- {label:"DAZN",suffix:"/dazn-es"},{label:"Sky Sports F1",suffix:"/sky-sport-f1-de"}
+ {label:"DAZN",suffix:"/dazn-es"},{label:"Sky Sports F1",suffix:"/sky-sport-f1-de"},
+ // Fixed-URL source: wikisport.info serves its own player when framed (the page
+ // redirects top-level visits, so it only renders inside an iframe). We embed
+ // their entry page, not the inner /strm/NN.php player number: the wrapper
+ // self-updates when the provider rotates player pages, and it carries their
+ // Stream 1/2/3 links as an in-player fallback. Touch users can scroll inside
+ // the frame if the provider's layout is taller than the stage.
+ {label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
 const $=id=>document.getElementById(id);
 const eventSelect=$("eventSelect"),sessionSelect=$("sessionSelect"),linksEl=$("links"),
  playerEl=$("player"),loaderEl=$("loader"),noStreamEl=$("noStream"),badgeEl=$("badge"),
+ nsActionsEl=$("nsActions"),noStreamTitleEl=$("noStreamTitle"),noStreamTextEl=$("noStreamText"),
  clockEl=$("clock"),countdownEl=$("countdown"),newsFeedEl=$("newsFeed"),newsStatusEl=$("newsStatus");
 
 function hoursSince(s){return (Date.now()-s.ts)/3600000}
@@ -91,6 +117,7 @@ const _def=pickDefault();
 let currentEvent=_def.event;
 let currentSession=_def.session;
 let currentSource=0;
+let activeView='home';// which view (home/news/info/discord) is on screen — see VIEWS / ROUTER
 
 /* ── selectors ── */
 function populate(){
@@ -98,6 +125,7 @@ function populate(){
   schedule.forEach(ev=>{
     const o=document.createElement("option");o.value=ev.slug;
     const done=ev.sessions.every(isSessionEnded);
+    o.disabled=done;
     o.textContent=`R${ev.round} · ${ev.name}`+(done?" (finished)":"");
     if(ev.slug===currentEvent.slug)o.selected=true;eventSelect.appendChild(o);
   });
@@ -223,7 +251,7 @@ function updateHeader(){
   const last=parts.slice(-2).join(" ");const first=parts.slice(0,-2).join(" ")||parts[0];
   $("heroTitle").textContent=first;
   $("heroTitle2").textContent=last;
-  document.title=currentEvent.name+" — APEX F1";
+  if(activeView==='home')document.title=currentEvent.name+" — APEX F1";
   $("heroSession").textContent=currentSession.name+" · "+SITE_SEASON;
   const done=currentEvent.sessions.every(isSessionEnded);
   $("heroRound").textContent=`Round ${currentEvent.round} · ${currentEvent.locality}, ${currentEvent.country}`
@@ -237,11 +265,11 @@ function renderButtons(){
   sources.forEach((s,i)=>{
     const b=document.createElement("button");b.className="chip"+(i===currentSource?" active":"");
     b.textContent=s.label;
-    b.onclick=()=>{currentSource=i;renderButtons();updateHeader();load()};
+    b.onclick=()=>{currentSource=i;renderButtons();updateHeader();load();trackEvent('source',s.label)};
     linksEl.appendChild(b);
   });
 }
-const buildUrl=i=>`https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix}`;
+const buildUrl=i=>sources[i].url||`https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix||""}`;
 
 /* ── no-stream rotator ── */
 let nsTimer=null,nsPaused=false,nsRunning=false;
@@ -271,15 +299,85 @@ function startNS(){
 noStreamEl.addEventListener("mouseenter",()=>nsPaused=true);
 noStreamEl.addEventListener("mouseleave",()=>nsPaused=false);
 document.addEventListener("visibilitychange",()=>nsPaused=document.hidden);
+/* Recovery actions shown in the "feed blocked" state (see showStreamBlocked). */
+nsActionsEl.addEventListener("click",e=>{
+  if(e.target.id==="nsRetryBtn")load();
+  else if(e.target.id==="nsNewTabBtn")window.open(buildUrl(currentSource),"_blank","noopener");
+});
 
-function showNoStream(){loaderEl.classList.add("hidden");noStreamEl.classList.add("visible");
-  playerEl.querySelector("iframe")?.remove();startNS()}
-function hideNoStream(){noStreamEl.classList.remove("visible");stopNS()}
+function showNoStream(opts){
+  const blocked=!!(opts&&opts.blocked);
+  loaderEl.classList.add("hidden");noStreamEl.classList.add("visible");
+  nsActionsEl.hidden=!blocked;
+  setStreamOnScreen(false);
+  playerEl.querySelector("iframe")?.remove();playerEl.querySelector("video")?.remove();
+  if(blocked){
+    stopNS();
+    noStreamTitleEl.textContent=(opts&&opts.title)||"Feed blocked on this device";
+    noStreamTextEl.textContent=(opts&&opts.text)||BLOCKED_COPY;
+  }else startNS()}
+function hideNoStream(){noStreamEl.classList.remove("visible");nsActionsEl.hidden=true;stopNS()}
+
+/* While a stream element is on screen the player is lifted above the page overlays (see .has-stream in app.css). */
+function setStreamOnScreen(on){document.body.classList.toggle('has-stream',on)}
 
 let playerLoadToken=0;
+/* iOS-class device: only used for user-facing guidance and analytics context. */
+const IS_IOS=/ipad|iphone|ipod/i.test(navigator.userAgent)||(/macintosh/i.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+/* How long an embed attempt may take to commit a document before we treat it
+   as network-blocked and fall over to the next feed source. */
+const NAV_TIMEOUT_MS=9000;
+const BLOCKED_COPY=IS_IOS
+ ?"The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
+ :"The stream host never responded on this network — the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
+
+function setLoaderText(text){const el=$("loaderText");if(el)el.textContent=text}
+
+/* An iframe whose navigation never committed paints as a blank WHITE about:blank
+   tile (the classic "white stream" on iOS, where network-level blocks — content
+   blockers, Private Relay, filtered DNS — silently leave the frame uncommitted).
+   Only reveal a frame once its document committed: before commit the
+   same-origin about:blank location is readable, after a cross-origin commit
+   the read throws. */
+function iframeCommitted(f){
+  if(!f||!f.isConnected)return false;
+  try{const href=f.contentWindow?f.contentWindow.location.href:"";return href!==""&&href!=="about:blank"}
+  catch(_){return true}// cross-origin read throws only after a real commit
+}
+function makeStreamIframe(url){
+  const f=document.createElement("iframe");
+  f.src=url;
+  f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
+  f.allowFullscreen=true;f.referrerPolicy="no-referrer";
+  f.title="Live stream";
+  return f;
+}
+function showStreamBlocked(){trackEvent('stream_blocked');showNoStream({blocked:true,text:BLOCKED_COPY})}
+
+/* Try each feed source in turn (user's pick first) until one commits a document. */
+function attemptSource(token,order,idx,startedAt){
+  if(token!==playerLoadToken)return;
+  if(idx>=order.length){showStreamBlocked();return}
+  setLoaderText(idx===0?"Establishing feed…":"Feed unreachable — switching source…");
+  const f=makeStreamIframe(buildUrl(order[idx]));
+  let settled=false;
+  const reveal=()=>{settled=true;trackEvent('stream_ready',Math.round(performance.now()-startedAt));
+    f.classList.add('loaded');setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+  f.onload=()=>{if(token!==playerLoadToken||settled)return;if(!iframeCommitted(f))return;reveal()};
+  setTimeout(()=>{/* navigation watchdog: nothing committed => there is no picture to show */
+    if(token!==playerLoadToken||!f.isConnected||settled)return;
+    if(iframeCommitted(f)){reveal();return}
+    trackEvent('stream_timeout');
+    f.remove();
+    attemptSource(token,order,idx+1,startedAt);
+  },NAV_TIMEOUT_MS);
+  playerEl.appendChild(f);setStreamOnScreen(true);
+}
+
 function load(){
   const token=++playerLoadToken;
   loaderEl.classList.remove("hidden");hideNoStream();
+  setLoaderText("Establishing feed…");
   playerEl.querySelector("iframe")?.remove();
   playerEl.querySelector("video")?.remove();
   // If override is active, always try to play it regardless of session state.
@@ -290,24 +388,25 @@ function load(){
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
       const s=document.createElement('source');s.src=streamOverride.url;s.type='video/mp4';f.appendChild(s);
       f.oncanplay=()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')};
+      f.onerror=()=>{if(token===playerLoadToken)showStreamBlocked()};
     }else{
       f.src=streamOverride.url;f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
-      f.allowFullscreen=true;f.referrerPolicy='no-referrer';
+      f.allowFullscreen=true;f.referrerPolicy="no-referrer";f.title="Live stream";
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
-      f.onload=()=>{if(token!==playerLoadToken)return;f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+      f.onload=()=>{if(token!==playerLoadToken||f.style.opacity==='1')return;if(!iframeCommitted(f))return;
+        f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+      setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected||f.style.opacity==='1')return;
+        if(iframeCommitted(f)){f.style.opacity='1';loaderEl.classList.add('hidden');return}
+        trackEvent('stream_timeout');f.remove();showStreamBlocked();
+      },NAV_TIMEOUT_MS);
     }
-    playerEl.appendChild(f);
-    setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;if(!f.style.opacity||f.style.opacity==='0')f.style.opacity='1';loaderEl.classList.add('hidden')},3000);
+    playerEl.appendChild(f);setStreamOnScreen(true);
     return;
   }
-  if(!isStreamAvailable(currentSession)){showNoStream();return}
-  const f=document.createElement("iframe");
-  f.src=buildUrl(currentSource);
-  f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
-  f.allowFullscreen=true;f.referrerPolicy="no-referrer";
-  f.onload=()=>{if(token!==playerLoadToken)return;f.classList.add('loaded');setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
-  setTimeout(()=>{if(token!==playerLoadToken||!f.isConnected)return;f.classList.add('loaded');loaderEl.classList.add('hidden')},5000);
-  playerEl.appendChild(f);
+  if(!isStreamAvailable(currentSession)){showNoStream();trackEvent('nostream');return}
+  const order=[currentSource];
+  for(let i=0;i<sources.length;i++)if(i!==currentSource)order.push(i);
+  attemptSource(token,order,0,performance.now());
 }
 
 /* ── clocks ── */
@@ -350,15 +449,38 @@ function initVisitorCounter(){
     inFlight=true;
     try{
       if(!visitorToken||visitorTokenExpiresAt-Date.now()<60000)await refreshVisitorToken();
-      const r=await fetchWithTimeout(`${API}/api/visitors/heartbeat`,{cache:'no-store',credentials:'omit',keepalive:true,
+      // Page travels as a query parameter (not a custom header) so the request stays preflight-free
+      // and works against older backends that don't know about it yet.
+      const r=await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}`,{cache:'no-store',credentials:'omit',keepalive:true,
         headers:{'X-Visitor-Token':visitorToken,'X-User-Id':uid}});
       if(r.status===403){visitorToken='';visitorTokenExpiresAt=0}
       else if(r.ok)updateCount(await r.json());
     }catch(_){}finally{inFlight=false;timer=setTimeout(beat,INTERVAL)}
   };
+  /* Anonymous usage counters for the admin dashboard (feed picked, page opened, fullscreen,
+     player ready/slow, livery). Same signed token as the heartbeat, fire-and-forget, never blocks UI. */
+  const queue=[];let draining=false;
+  const drain=async()=>{
+    if(draining)return;draining=true;
+    try{
+      while(queue.length){
+        if(!visitorToken||visitorTokenExpiresAt-Date.now()<60000)await refreshVisitorToken();
+        const ev=queue.shift();
+        const r=await fetchWithTimeout(`${API}/api/visitors/event`,{method:'POST',cache:'no-store',credentials:'omit',keepalive:true,
+          headers:{'Content-Type':'application/json','X-Visitor-Token':visitorToken,'X-User-Id':uid},body:JSON.stringify(ev)});
+        if(r.status===403){visitorToken='';visitorTokenExpiresAt=0;queue.unshift(ev);break}
+        if(r.status===429){queue.length=0;break}
+      }
+    }catch(_){queue.length=0}finally{draining=false}
+  };
+  trackEvent=(type,value)=>{if(queue.length<12){queue.push(value===undefined?{type}:{type,value});setTimeout(drain,0)}};
+  earlyEvents.splice(0).forEach(([type,value])=>trackEvent(type,value));// anything fired before init (e.g. the first load())
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)beat()},{passive:true});
   beat();
 }
+const earlyEvents=[];let trackEvent=(type,value)=>{if(earlyEvents.length<12)earlyEvents.push([type,value])};
+document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement&&playerEl.contains(document.fullscreenElement))trackEvent('fullscreen')});
+document.addEventListener('webkitfullscreenchange',()=>{if(document.webkitFullscreenElement&&playerEl.contains(document.webkitFullscreenElement))trackEvent('fullscreen')});
 
 /* ═══════════ LIVE SITE STATE + STREAM OVERRIDE (SSE) ═══════════ */
 const PUBLIC_API=PREVIEW_HOST?location.origin:'https://f1free.onrender.com';
@@ -402,7 +524,7 @@ function applyNewsUpdate(payload,online=true){
   updateNewsStatus(online);
 }
 async function pollNews(force=false){
-  if(!newsFeedEl||document.hidden||newsPollInFlight)return;
+  if(!newsFeedEl||document.hidden||newsPollInFlight||(!force&&streamSseConnected))return;
   newsPollInFlight=true;
   try{
     const response=await fetchWithTimeout(`${PUBLIC_API}/api/news`,{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}});
@@ -528,7 +650,7 @@ $("currentStreamBtn").addEventListener("click",()=>{
   document.getElementById('watch').scrollIntoView({behavior:'smooth'});
 });
 eventSelect.addEventListener("change",()=>{
-  const ev=schedule.find(e=>e.slug===eventSelect.value);if(!ev)return;
+  const ev=schedule.find(e=>e.slug===eventSelect.value);if(!ev||ev.sessions.every(isSessionEnded))return;
   currentEvent=ev;currentSession=ev.sessions.find(s=>!isSessionEnded(s))||ev.sessions[0];
   currentSource=0;updateSessions();updateHeader();renderButtons();load();updateCurrentStreamButton();
 });
@@ -572,7 +694,7 @@ function onScroll(){
   if(ticking)return;ticking=true;
   requestAnimationFrame(()=>{
     const y=scrollY,h=document.documentElement.scrollHeight-innerHeight;
-    navEl.classList.toggle('stuck',y>40);progressEl.style.width=(h>0?(y/h)*100:0)+'%';
+    navEl.classList.toggle('stuck',y>40||activeView!=='home');progressEl.style.transform='scaleX('+(h>0?y/h:0)+')';
     if(!liteMotion&&heroLayer&&y<innerHeight*1.3)heroLayer.style.transform=`translate3d(0,${y*.38}px,0) scale(1.06)`;
     if(!liteMotion&&breakLayer){const rect=breakLayer.parentElement.getBoundingClientRect();if(rect.bottom>0&&rect.top<innerHeight){
       const p=(innerHeight-rect.top)/(innerHeight+rect.height);breakLayer.style.transform=`translate3d(0,${(p-.5)*90}px,0) scale(1.1)`}}
@@ -620,8 +742,77 @@ document.querySelectorAll('[role="tablist"]').forEach(tabList=>tabList.addEventL
 }));
 document.querySelectorAll('.foot-links button[data-panel]').forEach(b=>b.addEventListener('click',()=>{
   openPanel(b.dataset.panel);
-  document.getElementById('info').scrollIntoView({behavior:'smooth'});
+  navigate('info');
 }));
+
+/* ═══════════ VIEWS / ROUTER ═══════════
+   Home, News, Info and Discord are "views" in one document. Switching views cross-fades
+   in place (no reload), header + footer stay put, the URL updates (/news, /info) and
+   the browser back button works. Netlify serves index.html for those paths via _redirects,
+   so a direct load of /info opens straight onto the Info view. */
+const VIEWS={home:'viewHome',news:'viewNews',info:'viewInfo',discord:'viewDiscord'};
+const VIEW_TITLES={news:'News — APEX F1',info:'Terms, Privacy & FAQ — APEX F1',discord:'Discord — APEX F1'};
+const VIEW_SWAP_MS=reduceMotion?0:260;
+let viewSwapTimer=null;
+function routeFromPath(path){const seg=(path||'/').replace(/^\/+|\/+$/g,'').toLowerCase();return seg in VIEWS?seg:'home'}
+function revealNow(root){root.querySelectorAll('.rv').forEach(el=>el.classList.add('in'))}
+function setActiveNav(route){
+  document.querySelectorAll('.nav-links a[data-route]').forEach(a=>a.classList.toggle('current',a.dataset.route===route));
+  document.body.dataset.view=route;
+}
+function showView(route,{push=true,scroll=true}={}){
+  const next=$(VIEWS[route]),prev=$(VIEWS[activeView]);
+  if(!next)return;
+  const changed=route!==activeView;
+  if(push){
+    const url=route==='home'?'/':'/'+route;
+    if(location.pathname!==url)history.pushState({view:route},'',url);
+  }
+  document.title=route==='home'?currentEvent.name+" — APEX F1":VIEW_TITLES[route];
+  setActiveNav(route);closeNav();
+  if(!changed){if(scroll)scrollTo({top:0,behavior:'smooth'});return}
+  activeView=route;clearTimeout(viewSwapTimer);trackEvent('view',route==='home'?'/':'/'+route);
+  document.body.classList.add('view-swapping');
+  prev.classList.add('is-leaving');prev.classList.remove('is-active');
+  viewSwapTimer=setTimeout(()=>{
+    prev.hidden=true;prev.classList.remove('is-leaving');
+    next.hidden=false;
+    if(scroll)scrollTo({top:0,behavior:'instant'});
+    // Force a frame so the enter transition actually plays after un-hiding.
+    void next.offsetWidth;
+    next.classList.add('is-active');
+    if(route!=='home')revealNow(next);// sub pages are short: reveal everything immediately
+    document.body.classList.remove('view-swapping');
+    onScroll();
+    if(route==='news')pollNews(true);// refresh the feed the moment the page opens
+  },VIEW_SWAP_MS);
+}
+function navigate(route){showView(route,{push:true,scroll:true})}
+/* Intercept in-page route links (nav, footer, back buttons). Plain hrefs remain as a no-JS fallback. */
+document.addEventListener('click',event=>{
+  const a=event.target.closest('a[data-route]');if(!a)return;
+  if(event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button!==0)return;
+  event.preventDefault();navigate(a.dataset.route);
+});
+/* Anchor links (#watch, #grid, #standings, #top) only make sense on the home view. */
+document.addEventListener('click',event=>{
+  const a=event.target.closest('a[href^="#"]');if(!a||activeView==='home')return;
+  const id=a.getAttribute('href').slice(1);const target=document.getElementById(id);if(!target)return;
+  event.preventDefault();
+  showView('home',{push:true,scroll:false});
+  setTimeout(()=>target.scrollIntoView({behavior:reduceMotion?'instant':'smooth'}),VIEW_SWAP_MS+40);
+});
+addEventListener('popstate',()=>showView(routeFromPath(location.pathname),{push:false,scroll:true}));
+/* Initial route: /news or /info opens directly onto that view (no flash of the home page). */
+(function initView(){
+  const route=routeFromPath(location.pathname);
+  history.replaceState({view:route},'',location.pathname+location.search+location.hash);
+  if(route==='home'){setActiveNav('home');return}
+  const next=$(VIEWS[route]),home=$(VIEWS.home);
+  home.hidden=true;home.classList.remove('is-active');
+  next.hidden=false;next.classList.add('is-active');activeView=route;
+  revealNow(next);setActiveNav(route);document.title=VIEW_TITLES[route];
+})();
 
 /* ═══════════ STANDINGS ═══════════ */
 const JOLPI='https://api.jolpi.ca/ergast/f1';
@@ -641,14 +832,33 @@ function fetchWithTimeout(url,options={},timeoutMs=API_TIMEOUT_MS){
 }
 function apiCacheKey(url){return `freef1_api_cache_${url}`}
 function readApiFallback(url){
+  const key=apiCacheKey(url);
   try{
-    const cached=JSON.parse(store.get(apiCacheKey(url))||'null');
-    if(!cached||Date.now()-Number(cached.savedAt)>API_STALE_FALLBACK_MS)return null;
+    const cached=JSON.parse(store.get(key)||'null');
+    if(!cached||Date.now()-Number(cached.savedAt)>API_STALE_FALLBACK_MS){
+      if(cached){try{localStorage.removeItem(key)}catch(_){}}
+      return null;
+    }
     return cached.data||null;
   }catch(_){return null}
 }
+const API_CACHE_MAX=40,API_CACHE_INDEX='freef1_api_cache_index';
 function saveApiResponse(url,data){
-  try{store.set(apiCacheKey(url),JSON.stringify({savedAt:Date.now(),data}))}catch(_){}
+  try{
+    const key=apiCacheKey(url);
+    try{store.set(key,JSON.stringify({savedAt:Date.now(),data}))}catch(_){return}
+    let idx=null;
+    try{idx=JSON.parse(store.get(API_CACHE_INDEX)||'null')}catch(_){idx=null}
+    if(!Array.isArray(idx)){
+      idx=[];
+      try{
+        for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('freef1_api_cache_')===0)idx.push(k)}
+      }catch(_){}
+    }
+    idx=idx.filter(k=>k!==key);idx.push(key);
+    while(idx.length>API_CACHE_MAX){const old=idx.shift();try{localStorage.removeItem(old)}catch(_){}}
+    try{store.set(API_CACHE_INDEX,JSON.stringify(idx))}catch(_){}
+  }catch(_){}
 }
 function fetchJson(url){
   if(apiPromises.has(url))return apiPromises.get(url);
@@ -723,17 +933,27 @@ const photoFor=id=>DRIVER_PHOTO[DRIVER_KEY[id]||id]||null;
 function renderDriverGrid(list){
   const el=$("driverGrid");
   if(!list||!list.length){el.innerHTML='<div class="state">Grid unavailable right now.</div>';return}
+  driverEntries=list.slice();
+  const renderFollowing=getFollowing();
   const fragment=document.createDocumentFragment();let rendered=0;
   list.forEach((it,i)=>{
     const d=it.Driver||{},team=it.Constructors?.[0]?.name||'',src=photoFor(d.driverId);if(!src)return;
     const a=document.createElement('article');a.className='dcard'+(it.position==='1'?' lead':'');
     a.style.setProperty('--c',hexFor(team));a.style.animationDelay=(i*32)+'ms';
+    const label=`View ${d.givenName||''} ${d.familyName||''} profile`.replace(/\s+/g,' ').trim();
+    a.setAttribute('role','button');a.tabIndex=0;a.setAttribute('aria-label',label);a.title=label;
+    a.dataset.driverId=d.driverId;
     a.innerHTML=`<div class="dshade"></div><div class="dfall">${escapeHtml((d.givenName?.[0]||'')+(d.familyName?.[0]||''))}</div>
       <img src="${src}" alt="${escapeHtml(`${d.givenName||''} ${d.familyName||''}`)}" width="440" height="587" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="no-referrer">
       <div class="dpos">P${escapeHtml(it.position)}</div><div class="dnum">${escapeHtml(d.permanentNumber||'')}</div>
+      <div class="dhint">View profile</div>
+      <div class="fbadge"${renderFollowing.includes(d.driverId)?'':' hidden'}>★ Following</div>
       <div class="dbody"><div class="dname"><small>${escapeHtml(d.givenName||'')}</small>${escapeHtml(d.familyName||'')}</div>
       <div class="dteam"><i></i>${escapeHtml(team)}</div><div class="dpts">${escapeHtml(it.points)} PTS · ${escapeHtml(it.wins)} WIN${it.wins==='1'?'':'S'}</div></div>`;
     a.querySelector('img').addEventListener('error',()=>a.classList.add('noimg'),{once:true});
+    const open=()=>openDriverProfile(d.driverId);
+    a.addEventListener('click',open);
+    a.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}});
     fragment.appendChild(a);rendered++;
   });
   if(rendered)el.replaceChildren(fragment);else el.innerHTML='<div class="state">Grid unavailable right now.</div>';
@@ -742,6 +962,241 @@ function loadDriverGrid(){
   getDriverStandings().then(renderDriverGrid)
     .catch(()=>{$("driverGrid").innerHTML='<div class="state">Grid unavailable right now.</div>'});
 }
+/* ═══════════ DRIVER PROFILE (click a card → modal) ═══════════ */
+const dOverlay=$("driverOverlay"),dSheet=$("driverSheet"),dProfile=$("driverProfile");
+let driverEntries=[],driverProfileToken=0;
+const FOLLOW_KEY='freef1_following';
+/* Follows are private: stored only in this browser, never sent anywhere. */
+function getFollowing(){
+  try{
+    const list=JSON.parse(store.get(FOLLOW_KEY)||'[]');
+    return Array.isArray(list)?list.filter(x=>typeof x==='string'):[];
+  }catch(_){return[]}
+}
+function syncFollowBadges(){
+  const following=getFollowing();
+  document.querySelectorAll('.dcard[data-driver-id]').forEach(card=>{
+    const badge=card.querySelector('.fbadge');
+    if(badge)badge.hidden=!following.includes(card.dataset.driverId);
+  });
+}
+const driverCareerCache=new Map();
+/* Ergast constructor name → livery entry (team logo + theme). */
+const TEAM_ALIAS={'rb f1 team':'racingbulls','racing bulls':'racingbulls','red bull':'redbull',
+ 'red bull racing':'redbull','alpine f1 team':'alpine','haas f1 team':'haas',
+ 'cadillac f1 team':'cadillac','aston martin':'astonmartin','sauber':'audi'};
+function teamEntryForConstructor(name){
+  const n=String(name||'').trim().toLowerCase();
+  if(TEAM_ALIAS[n])return teams.find(t=>t.id===TEAM_ALIAS[n])||teams[0];
+  return teams.find(t=>t.id!=='default'&&(n.includes(t.name.toLowerCase())||t.name.toLowerCase().includes(n)))||teams[0];
+}
+function fmtPts(n){return String(Math.round(Number(n||0)*10)/10)}
+function ageFrom(dob){
+  if(!dob)return null;
+  const b=new Date(dob+'T00:00:00Z');if(isNaN(b))return null;
+  const now=new Date();let age=now.getUTCFullYear()-b.getUTCFullYear();
+  const m=now.getUTCMonth()-b.getUTCMonth();
+  if(m<0||(m===0&&now.getUTCDate()<b.getUTCDate()))age--;
+  return age;
+}
+function fmtDob(dob){
+  if(!dob)return '—';
+  const d=new Date(dob+'T00:00:00Z');if(isNaN(d))return '—';
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+/* Career telemetry, optimised for speed:
+   1. Results are paged (Jolpi caps at 100 rows): page one reveals the total,
+      remaining pages load in parallel beside the poles + seasons calls.
+   2. Titles: champion check per winning season only — a champion always has
+      at least one win, so rookies skip this entirely. Checks run through a
+      small pool, and every career fetch retries with backoff on rate-limiting.
+   All calls flow through fetchJson → deduped + cached 24h. Success is
+   memoised per driver (reopening is instant); failure retries on reopen. */
+async function fetchCareerJson(url,attempts=4){
+  let wait=800;
+  for(let i=0;i<attempts;i++){
+    try{
+      return await fetchJson(url);
+    }catch(err){
+      if(i===attempts-1)throw err;
+      await new Promise(r=>setTimeout(r,wait));
+      wait=Math.min(wait*2,6000);
+    }
+  }
+}
+function mapPool(items,fn,size=4){
+  const out=new Array(items.length);let next=0;
+  const workers=new Array(Math.min(size,items.length)).fill(0).map(async()=>{
+    while(next<items.length){const k=next++;out[k]=await fn(items[k])}
+  });
+  return Promise.all(workers).then(()=>out);
+}
+async function fetchAllResults(driverId){
+  const first=await fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=0`).catch(()=>null);
+  const rows=first?.MRData?.RaceTable?.Races||[];
+  const total=Number(first?.MRData?.total||rows.length);
+  if(!rows.length)return null;
+  if(total<=rows.length)return rows;
+  const offsets=[];
+  for(let off=rows.length;off<total;off+=100)offsets.push(off);
+  const pages=await mapPool(offsets,off=>
+    fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=${off}`).catch(()=>null),3);
+  for(const page of pages){
+    const batch=page?.MRData?.RaceTable?.Races||[];
+    if(!batch.length)return null;
+    rows.push(...batch);
+  }
+  return rows;
+}
+function getDriverCareer(driverId){
+  if(driverCareerCache.has(driverId))return driverCareerCache.get(driverId);
+  const job=(async()=>{
+    try{
+      const [raceRows,poles,seasons]=await Promise.all([
+        fetchAllResults(driverId),
+        fetchCareerJson(`${JOLPI}/drivers/${driverId}/qualifying/1/?limit=1`).catch(()=>null),
+        fetchCareerJson(`${JOLPI}/drivers/${driverId}/seasons/?limit=100`).catch(()=>null)
+      ]);
+      const races=raceRows||[];
+      if(!races.length||!poles)return null;
+      let wins=0,podiums=0,points=0,seasonPodiums=0;
+      const winSeasons=new Set(),allSeasons=new Set();
+      races.forEach(r=>{
+        allSeasons.add(r.season);
+        const res=r.Results?.[0];if(!res)return;
+        points+=parseFloat(res.points)||0;
+        const pos=res.position;
+        if(pos==='1'){wins++;podiums++;winSeasons.add(r.season)}
+        else if(pos==='2'||pos==='3')podiums++;
+        if(String(r.season)===String(SITE_SEASON)&&(pos==='1'||pos==='2'||pos==='3'))seasonPodiums++;
+      });
+      const seasonRows=seasons?.MRData?.SeasonTable?.Seasons||[];
+      const years=seasonRows.length?seasonRows.map(s=>s.season):[...allSeasons].sort();
+      const span=years.length>1?`${years[0]}–${years[years.length-1]}`:(years[0]||String(SITE_SEASON));
+      /* The current season only counts toward titles once its final race is done. */
+      const lastRaceStart=schedule[schedule.length-1]?.sessions?.find(s=>s.slug==='race')?.start;
+      const seasonComplete=lastRaceStart?Date.now()>new Date(lastRaceStart).getTime()+2*36e5:false;
+      const titleSeasons=[...winSeasons].filter(y=>String(y)!==String(SITE_SEASON)||seasonComplete);
+      let titles=0;
+      if(titleSeasons.length){
+        const checkTitle=async y=>{
+          try{
+            const d=await fetchCareerJson(`${JOLPI}/${y}/driverstandings/1/?limit=1`);
+            const champ=d?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings?.[0]?.Driver?.driverId;
+            return champ?champ===driverId:null;
+          }catch(_){return null}
+        };
+        const checks=await mapPool(titleSeasons,checkTitle,2);
+        if(checks.includes(null))return null;
+        titles=checks.filter(Boolean).length;
+      }
+      return {
+        races:races.length,wins,podiums,seasonPodiums,
+        points:fmtPts(points),
+        poles:Number(poles?.MRData?.total||0),
+        seasons:years.length||allSeasons.size,span,titles
+      };
+    }catch(_){return null}
+  })();
+  driverCareerCache.set(driverId,job);
+  job.then(career=>{if(!career)driverCareerCache.delete(driverId)});
+  return job;
+}
+function openDriverProfile(driverId){
+  const entry=driverEntries.find(e=>e.Driver?.driverId===driverId);
+  if(!entry||!dOverlay||!dProfile)return;
+  const token=++driverProfileToken;
+  const d=entry.Driver||{},team=entry.Constructors?.[0]?.name||'';
+  const color=hexFor(team),tEntry=teamEntryForConstructor(team);
+  const photo=photoFor(d.driverId);
+  const code=d.code||((d.givenName?.[0]||'')+(d.familyName?.slice(0,2)||'')).toUpperCase()||'—';
+  const num=d.permanentNumber||'';
+  const age=ageFrom(d.dateOfBirth);
+  const mate=driverEntries.find(e=>e!==entry&&(e.Constructors?.[0]?.name||'')===team)?.Driver;
+  const mateName=mate?`${mate.givenName||''} ${mate.familyName||''}`.trim():'—';
+  dSheet.style.setProperty('--dc',color);
+  const following=getFollowing().includes(d.driverId);
+  dProfile.innerHTML=`
+    <div class="dp-card">
+      <div class="dp-shade"></div>
+      <div class="dp-info">
+        <div class="dp-eyebrow">Driver Profile · ${SITE_SEASON} Season</div>
+        <div class="dp-name"><small>${escapeHtml(d.givenName||'')}</small>${escapeHtml(d.familyName||'')}</div>
+        <div class="dp-team">${tEntry.logo?`<img src="${TEAM_LOGO(tEntry.logo,96)}" alt="" width="30" height="30" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span>${escapeHtml(team||'—')}</span></div>
+        <div class="dp-pills">
+          <span class="dp-pos">P${escapeHtml(entry.position)}</span>
+          ${num?`<span class="dp-pill">#${escapeHtml(num)}</span>`:''}
+          <span class="dp-pill">${escapeHtml(code)}</span>
+        </div>
+      </div>
+      <div class="dp-photo">
+        ${photo?`<img src="${photo}" alt="${escapeHtml(`${d.givenName||''} ${d.familyName||''}`)}" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.dp-photo').classList.add('noimg')">`:''}
+        <div class="dp-fall">${escapeHtml((d.givenName?.[0]||'')+(d.familyName?.[0]||''))}</div>
+      </div>
+    </div>
+    <div class="dp-sec">${SITE_SEASON} Season</div>
+    <div class="dp-tiles">
+      <div class="dp-tile"><b>P${escapeHtml(entry.position)}</b><span>Standing</span></div>
+      <div class="dp-tile"><b>${escapeHtml(entry.points)}</b><span>Points</span></div>
+      <div class="dp-tile"><b>${escapeHtml(entry.wins)}</b><span>Wins</span></div>
+      <div class="dp-tile"><b id="dpSeasonPod">···</b><span>Podiums</span></div>
+    </div>
+    <div class="dp-sec">Career</div>
+    <div id="dpCareer">
+      <div class="dp-tiles skel"><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div></div>
+      <div class="dp-note">Loading career telemetry…</div>
+    </div>
+    <div class="dp-sec">Biography</div>
+    <div class="dp-bio">
+      <div class="dp-fact"><small>Nationality</small><b>${escapeHtml(d.nationality||'—')}</b></div>
+      <div class="dp-fact"><small>Born</small><b>${escapeHtml(fmtDob(d.dateOfBirth))}${age!==null?` · Age ${age}`:''}</b></div>
+      <div class="dp-fact"><small>Driver Code</small><b>${escapeHtml(code)}</b></div>
+      <div class="dp-fact"><small>Race Number</small><b>${escapeHtml(num||'—')}</b></div>
+      <div class="dp-fact"><small>Team</small><b>${escapeHtml(team||'—')}</b></div>
+      <div class="dp-fact"><small>Teammate</small><b>${escapeHtml(mateName)}</b></div>
+    </div>
+    <div class="dp-actions">
+      <button class="btn sm${following?' on':''}" id="dpFollow" type="button" aria-pressed="${following}">${following?'✓ Following':'+ Follow'}</button>
+      ${tEntry.id!=='default'?`<button class="btn sm primary" id="dpLivery" type="button">Apply ${escapeHtml(tEntry.name)} Livery</button>`:''}
+      ${d.url?`<a class="btn sm" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">Biography ↗</a>`:''}
+    </div>`;
+  $("dpFollow")?.addEventListener('click',event=>{
+    const btn=event.currentTarget;
+    const on=btn.getAttribute('aria-pressed')!=='true';
+    const list=getFollowing().filter(x=>x!==d.driverId);
+    if(on)list.push(d.driverId);
+    store.set(FOLLOW_KEY,JSON.stringify(list));
+    btn.classList.toggle('on',on);
+    btn.setAttribute('aria-pressed',String(on));
+    btn.textContent=on?'✓ Following':'+ Follow';
+    syncFollowBadges();
+  });
+  $("dpLivery")?.addEventListener('click',()=>{
+    applyTeamTheme(tEntry.id);store.set('freef1_team',tEntry.id);trackEvent('team',tEntry.id);
+    closeModal(dOverlay);
+  });
+  openModal(dOverlay);
+  getDriverCareer(d.driverId).then(career=>{
+    if(token!==driverProfileToken)return;
+    renderDriverCareer(career);
+  });
+}
+function renderDriverCareer(career){
+  const box=$("dpCareer");if(!box)return;
+  const pod=$("dpSeasonPod");if(pod)pod.textContent=career?career.seasonPodiums:'–';
+  if(!career){box.innerHTML='<div class="state">Career telemetry unavailable right now.</div>';return}
+  box.innerHTML=`
+    <div class="dp-tiles">
+      <div class="dp-tile"><b>${career.races}</b><span>Races</span></div>
+      <div class="dp-tile"><b>${career.wins}</b><span>Wins</span></div>
+      <div class="dp-tile"><b>${career.podiums}</b><span>Podiums</span></div>
+      <div class="dp-tile"><b>${career.poles}</b><span>Poles</span></div>
+      <div class="dp-tile"><b>${escapeHtml(career.points)}</b><span>Points</span></div>
+      <div class="dp-tile hl"><b>${career.titles}</b><span>Title${career.titles===1?'':'s'}</span></div>
+    </div>
+    <div class="dp-note">F1 ${escapeHtml(career.span)} · ${career.seasons} season${career.seasons===1?'':'s'} · Career data via Ergast</div>`;
+}
+$("driverClose").addEventListener('click',()=>closeModal(dOverlay));
 
 document.querySelectorAll('#standings [role="tab"]').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('#standings [role="tab"]').forEach(x=>{
@@ -816,6 +1271,7 @@ async function loadSessionResults(){
     const fragment=document.createDocumentFragment();
     results.forEach((result,index)=>{
       const element=document.createElement('div');element.className='rrow';element.style.animation=`rowIn .5s var(--ease) ${index*24}ms both`;
+      element.style.setProperty('--race-team',hexFor(result.Constructor?.name||''));
       const time=type==='qualifying'?([result.Q3,result.Q2,result.Q1].filter(Boolean)[0]||'—'):(result.Time?.time||result.status||'—');
       element.innerHTML=`<div class="pos">${escapeHtml(result.position)}</div><div class="who"><b>${escapeHtml(`${result.Driver?.givenName||''} ${result.Driver?.familyName||''}`)}</b><small>${escapeHtml(result.Constructor?.name||'')}</small></div><div class="rtime">${escapeHtml(time)}</div>`;
       fragment.appendChild(element);
@@ -829,20 +1285,280 @@ sRace.addEventListener('change',()=>{updateSessionTypeOptions();loadSessionResul
 sType.addEventListener('change',loadSessionResults);
 $("championshipBtn").addEventListener('click',()=>document.getElementById('standings').scrollIntoView({behavior:'smooth'}));
 
+/* ═══════════ RACE TIMES ═══════════ */
+const raceTimesOverlay=$("raceTimesOverlay"),raceTimesList=$("raceTimesList"),raceTimesSeason=$("raceTimesSeason"),raceTimesTimezone=$("raceTimesTimezone");
+let raceTimesFilter='all';
+const localTimeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'local timezone';
+const localTimeZoneLabel=(()=>{
+  const parts=new Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(new Date());
+  return parts.find(part=>part.type==='timeZoneName')?.value||localTimeZone;
+})();
+const raceDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const raceClockFormat=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZoneName:'short'});
+function raceStatus(event,now=Date.now()){
+  const race=event.sessions.find(session=>session.slug==='race')||event.sessions.at(-1);
+  const starts=event.sessions.map(session=>session.ts).filter(Number.isFinite);
+  const first=Math.min(...starts),last=Math.max(...starts);
+  if(race&&now>race.ts+4*60*60*1000)return'finished';
+  if(now>=first-60*60*1000&&now<=last+4*60*60*1000)return'current';
+  return'upcoming';
+}
+function formatRaceDateTime(timestamp){
+  const date=new Date(Number(timestamp));
+  if(Number.isNaN(date.getTime()))return'—';
+  return `${raceDateFormat.format(date)} · ${raceClockFormat.format(date)}`;
+}
+function renderRaceTimes(filter=raceTimesFilter){
+  if(!raceTimesList)return;
+  raceTimesFilter=filter;
+  if(raceTimesSeason)raceTimesSeason.textContent=`SEASON ${SITE_SEASON} · LOCAL`;
+  if(raceTimesTimezone)raceTimesTimezone.textContent=`Times shown in your local timezone · ${localTimeZone} (${localTimeZoneLabel})`;
+  const items=schedule.map(event=>({event,status:raceStatus(event),race:event.sessions.find(session=>session.slug==='race')||event.sessions.at(-1)}))
+    .filter(item=>filter==='all'||item.status===filter);
+  if(!items.length){raceTimesList.innerHTML='<div class="state">No races match this filter.</div>';return}
+  raceTimesList.innerHTML=items.map(({event,status,race})=>`<article class="race-time-item ${status}">
+    <div class="race-time-top"><div class="race-time-title">R${escapeHtml(event.round)} · ${escapeHtml(event.name)}<small>${escapeHtml(event.locality)}, ${escapeHtml(event.country)}</small></div>
+      <span class="race-time-status ${status}">${status}</span></div>
+    <div class="race-time-race"><span>Race · ${escapeHtml(formatRaceDateTime(race?.ts))}</span></div>
+    <div class="race-time-sessions">${event.sessions.map(session=>`<div class="race-time-session"><b>${escapeHtml(session.name)}</b><time datetime="${escapeHtml(new Date(session.ts).toISOString())}">${escapeHtml(formatRaceDateTime(session.ts))}</time></div>`).join('')}</div>
+  </article>`).join('');
+}
+$("raceTimesBtn").addEventListener('click',()=>{openModal(raceTimesOverlay);renderRaceTimes('all')});
+$("raceTimesClose").addEventListener('click',()=>closeModal(raceTimesOverlay));
+document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach(tab=>tab.addEventListener('click',()=>{
+  document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach(item=>{
+    const active=item===tab;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));
+  });
+  renderRaceTimes(tab.dataset.raceFilter);
+}));
+
+/* ═══════════ RADIO & RACE CONTROL (OpenF1, free tier) ═══════════
+   Browser → api.openf1.org directly (CORS *, no key). Free tier = sessions that
+   ended ≥30 min ago; a session in progress unlocks once OpenF1 publishes it.
+   Budget: OpenF1 allows 3 req/s · 30 req/min PER IP (shared by everyone behind a
+   carrier NAT), so requests are cached, spaced out and never fired in bursts.
+   Panel state (open/closed + last picked session) is remembered per browser. */
+/* OpenF1 is reached through our own backend proxy: the free tier answers live
+   windows with a CORS-less 401 that browsers report as an opaque
+   "Failed to fetch", and the per-IP rate limit is shared by every visitor.
+   The proxy caches, coalesces and serves last-known-good snapshots instead. */
+const OPENF1_API=PREVIEW_HOST?`${location.origin}/api/openf1`:'https://f1free.onrender.com/api/openf1';
+const RADIO_RC_STORE_KEY='freef1_radio_rc';
+const radioRcEl=$("radioRc"),radioRcBtn=$("radioRcBtn"),radioRcEventSel=$("radioRcEvent"),radioRcSessionSel=$("radioRcSession"),
+  radioRcStatusEl=$("radioRcStatus"),radioRcRadioList=$("radioRcRadioList"),radioRcRcList=$("radioRcRcList"),radioRcAudio=$("radioRcAudio"),
+  radioRcPlayerEl=$("radioRcPlayer");
+const radioRc={meetings:[],sessions:[],drivers:new Map(),sessionKey:null,radio:[],rc:[],playing:null,loadToken:0,refreshTimer:0,retryTimer:0,switchTimer:0,open:false,cache:new Map(),lastRequestAt:0,chain:Promise.resolve()};
+const radioRcTimeFmt=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+function radioRcPrefs(){try{return JSON.parse(store.get(RADIO_RC_STORE_KEY)||'{}')||{}}catch(e){return{}}}
+function radioRcSavePrefs(patch){store.set(RADIO_RC_STORE_KEY,JSON.stringify({...radioRcPrefs(),...patch}))}
+/* Cached, serialised fetch: ≥400 ms between request starts, results reused for `ttlMs`. */
+function openf1(path,params,ttlMs){
+  const url=`${OPENF1_API}/${path}?${new URLSearchParams(params)}`;
+  const hit=radioRc.cache.get(url);
+  if(hit&&(hit.promise||Date.now()-hit.at<ttlMs))return hit.promise||Promise.resolve(hit.data);
+  const run=async()=>{
+    const wait=radioRc.lastRequestAt+400-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));
+    radioRc.lastRequestAt=Date.now();
+    let r;
+    try{r=await fetch(url,{cache:'no-store'})}
+    catch(_){const e=new Error('Cannot reach our data server — check your connection');e.code='net';throw e}
+    if(r.status===503||r.status===429){
+      let code=r.status===429?'rate':'upstream';
+      try{const d=await r.json();if(d&&d.code)code=d.code}catch(_){}
+      const e=new Error(code==='live'
+        ?'Live data is locked on OpenF1’s free tier until the session ends — try again after the flag'
+        :code==='rate'?'OpenF1 is busy (shared rate limit)':'OpenF1 is unreachable right now');
+      e.code=code==='rate'?'rate':code==='live'?'live':'up';throw e
+    }
+    if(!r.ok){const e=new Error(`Data server error ${r.status}`);e.code='up';throw e}
+    return r.json();
+  };
+  const promise=radioRc.chain.then(run,run).then(data=>{radioRc.cache.set(url,{data,at:Date.now()});return data}).catch(err=>{radioRc.cache.delete(url);throw err});
+  radioRc.chain=promise.catch(()=>{});
+  radioRc.cache.set(url,{promise,at:Date.now()});
+  return promise;
+}
+function radioRcSetStatus(text,cls){radioRcStatusEl.textContent=text;radioRcStatusEl.className=`radio-rc-status mono${cls?' '+cls:''}`}
+function radioRcIsLiveWindow(s){if(!s)return false;const start=Date.parse(s.date_start),end=Date.parse(s.date_end);const now=Date.now();return now>=start-30*60e3&&now<=end+30*60e3}
+/* Match an OpenF1 meeting to the site's own schedule (same weekend) so labels read
+   "R16 · Italian Grand Prix" exactly like the rest of the site. */
+function radioRcMeetingLabel(meeting){
+  const t=Date.parse(meeting.date_start);
+  const ev=schedule.find(e=>e.sessions.some(s=>Math.abs(Date.parse(s.start)-t)<3*86400e3));
+  return ev?`R${ev.round} · ${ev.name}`:`${meeting.location} · ${meeting.country_name}`;
+}
+/* ── session list (1 request, cached 10 min) ── */
+async function radioRcLoadSessions(){
+  radioRcSetStatus('Loading sessions…');
+  const sessions=await openf1('sessions',{year:SITE_SEASON},10*60e3);
+  const now=Date.now();
+  radioRc.sessions=sessions.filter(s=>Date.parse(s.date_start)-30*60e3<=now&&!/^Day \d/.test(s.session_name)).sort((a,b)=>Date.parse(a.date_start)-Date.parse(b.date_start));
+  const meetings=new Map();
+  for(const s of radioRc.sessions)if(!meetings.has(s.meeting_key))meetings.set(s.meeting_key,{meeting_key:s.meeting_key,location:s.location,country_name:s.country_name,date_start:s.date_start});
+  radioRc.meetings=[...meetings.values()];
+  if(!radioRc.meetings.length)throw new Error('No sessions published yet this season');
+  const prefs=radioRcPrefs();
+  const live=radioRc.sessions.find(radioRcIsLiveWindow);
+  const latest=radioRc.sessions.at(-1);
+  // Default = the session happening now (or just finished), else the most recent one.
+  // A remembered pick only wins while it is still the latest weekend — a new race
+  // weekend takes over automatically.
+  let target=live||latest;
+  if(!live&&prefs.sessionKey){const remembered=radioRc.sessions.find(s=>s.session_key===prefs.sessionKey);if(remembered&&remembered.meeting_key===latest.meeting_key)target=remembered}
+  radioRcEventSel.replaceChildren(...radioRc.meetings.map(m=>{const o=document.createElement('option');o.value=m.meeting_key;o.textContent=radioRcMeetingLabel(m);return o}));
+  radioRcEventSel.value=String(target.meeting_key);
+  radioRcFillSessions(target.session_key);
+}
+function radioRcFillSessions(preferKey){
+  const mk=Number(radioRcEventSel.value);
+  const list=radioRc.sessions.filter(s=>s.meeting_key===mk);
+  radioRcSessionSel.replaceChildren(...list.map(s=>{const o=document.createElement('option');o.value=s.session_key;o.textContent=s.session_name;return o}));
+  const pick=list.find(s=>s.session_key===preferKey)||list.at(-1);
+  radioRcSessionSel.value=String(pick.session_key);
+  radioRcEventSel._syncCustom?.();radioRcSessionSel._syncCustom?.();
+  radioRcQueueSelect(pick.session_key);
+}
+/* Debounced so flicking through the dropdown doesn't fire a request per step. */
+function radioRcQueueSelect(sessionKey){clearTimeout(radioRc.switchTimer);radioRc.switchTimer=setTimeout(()=>radioRcSelectSession(sessionKey),250)}
+/* ── session data (3 requests, cached) ── */
+async function radioRcSelectSession(sessionKey,{retry=false}={}){
+  const session=radioRc.sessions.find(s=>s.session_key===sessionKey);if(!session)return;
+  const token=++radioRc.loadToken;
+  clearTimeout(radioRc.refreshTimer);clearTimeout(radioRc.retryTimer);
+  radioRc.sessionKey=sessionKey;
+  radioRcSavePrefs({sessionKey,meetingKey:session.meeting_key});
+  radioRcStopAudio();
+  radioRcRadioList.innerHTML='<li class="radio-rc-empty">Loading team radio…</li>';
+  radioRcRcList.innerHTML='<li class="radio-rc-empty">Loading race control…</li>';
+  $("radioRcRadioCount").textContent='';$("radioRcRcCount").textContent='';
+  const live=radioRcIsLiveWindow(session);
+  const ttl=live?45e3:6*3600e3;// live window: refresh while open; finished sessions never change
+  const label=`${session.country_name} · ${session.session_name}`;
+  radioRcSetStatus(live?`${label} · in progress`:label,live?'live':'');
+  let nextRefresh=0;
+  try{
+    const drivers=await openf1('drivers',{session_key:sessionKey},6*3600e3);
+    const radio=await openf1('team_radio',{session_key:sessionKey},ttl);
+    const rc=await openf1('race_control',{session_key:sessionKey},ttl);
+    if(token!==radioRc.loadToken)return;
+    radioRc.drivers=new Map(drivers.map(d=>[d.driver_number,d]));
+    radioRc.radio=radio.map(r=>({...r,ts:Date.parse(r.date)})).filter(r=>r.recording_url).sort((a,b)=>b.ts-a.ts);
+    radioRc.rc=rc.map(r=>({...r,ts:Date.parse(r.date)})).sort((a,b)=>b.ts-a.ts);
+    radioRcRenderRadio();radioRcRenderRc();
+    if(live&&!radio.length&&!rc.length){radioRcSetStatus('In progress · free data unlocks ~30 min after the session','warn');radioRcRadioList.innerHTML='<li class="radio-rc-empty">Radio for this session appears about 30 minutes after it ends.<br>Pick an earlier session above to browse in the meantime.</li>';radioRcRcList.innerHTML='<li class="radio-rc-empty">Race control messages unlock at the same time.</li>';nextRefresh=3*60e3}
+    else if(live)nextRefresh=45e3;
+  }catch(err){
+    if(token!==radioRc.loadToken)return;
+    if(err.code==='live'){
+      radioRcSetStatus('In progress · free data unlocks ~30 min after the session','warn');
+      radioRcRadioList.innerHTML='<li class="radio-rc-empty">Radio for this session appears about 30 minutes after it ends.<br>Pick an earlier session above to browse in the meantime.</li>';
+      radioRcRcList.innerHTML='<li class="radio-rc-empty">Race control messages unlock at the same time.</li>';
+      nextRefresh=3*60e3;
+    }else if(err.code==='rate'&&!retry){
+      radioRcSetStatus('OpenF1 is busy · retrying in 20 s','warn');
+      radioRcRadioList.innerHTML='<li class="radio-rc-empty">OpenF1 is busy right now — retrying automatically…</li>';
+      radioRcRcList.innerHTML='<li class="radio-rc-empty"></li>';
+      radioRc.retryTimer=setTimeout(()=>{if(radioRc.open&&radioRc.sessionKey===sessionKey)radioRcSelectSession(sessionKey,{retry:true})},20e3);
+    }else{
+      const msg=escapeHtml(err.message||'OpenF1 unavailable');
+      radioRcRadioList.innerHTML=`<li class="radio-rc-empty err">${msg}</li>`;
+      radioRcRcList.innerHTML=`<li class="radio-rc-empty err">${msg}</li>`;
+      radioRcSetStatus(err.code==='live'?'OpenF1 free tier locked while a session is live':err.code==='rate'?'OpenF1 is busy · retrying':'OpenF1 unavailable','warn');
+    }
+  }
+  if(nextRefresh&&radioRc.open)radioRc.refreshTimer=setTimeout(()=>{if(!document.hidden&&radioRc.open&&radioRc.sessionKey===sessionKey)radioRcSelectSession(sessionKey)},nextRefresh);
+}
+function radioRcDriver(n){const d=radioRc.drivers.get(n);const hex=/^[0-9a-f]{6}$/i.test(d?.team_colour||'')?`#${d.team_colour}`:'#555';return{code:d?.name_acronym||`#${n}`,name:d?.full_name||d?.broadcast_name||`Car ${n}`,team:d?.team_name||'',colour:hex}}
+function radioRcRenderRadio(){
+  $("radioRcRadioCount").textContent=radioRc.radio.length?`${radioRc.radio.length} clips`:'';
+  if(!radioRc.radio.length){radioRcRadioList.innerHTML='<li class="radio-rc-empty">No team radio published for this session</li>';return}
+  radioRcRadioList.innerHTML=radioRc.radio.map((r,i)=>{const d=radioRcDriver(r.driver_number);
+    return `<li><button type="button" class="radio-rc-clip${radioRc.playing===r.recording_url?' playing':''}" data-idx="${i}" aria-label="Play radio from ${escapeHtml(d.name)} at ${escapeHtml(radioRcTimeFmt.format(r.ts))}">
+      <span class="radio-rc-code" style="background:${d.colour}">${escapeHtml(d.code)}</span>
+      <span class="radio-rc-who"><b>${escapeHtml(d.name)}</b><span>${escapeHtml(d.team)}</span></span>
+      <span class="radio-rc-when">${escapeHtml(radioRcTimeFmt.format(r.ts))}</span>
+      <span class="radio-rc-play" aria-hidden="true"></span></button></li>`}).join('');
+}
+function radioRcTag(r){
+  const m=r.message||'';
+  if(r.category==='SafetyCar')return /VSC|VIRTUAL/.test(m)?'VSC':'SC';
+  if(/^RED FLAG/.test(m)||/ABORTED/.test(m))return 'RED';
+  if(r.flag)return r.flag.replace(/\s+/g,'');
+  if(r.category==='Drs')return 'DRS';
+  if(r.category==='SessionStatus')return 'SESSION';
+  return 'FIA';
+}
+function radioRcRenderRc(){
+  $("radioRcRcCount").textContent=radioRc.rc.length?`${radioRc.rc.length} messages`:'';
+  if(!radioRc.rc.length){radioRcRcList.innerHTML='<li class="radio-rc-empty">No race control messages published for this session</li>';return}
+  radioRcRcList.innerHTML=radioRc.rc.map(r=>{const tag=radioRcTag(r);
+    return `<li class="radio-rc-msg"><time datetime="${escapeHtml(new Date(r.ts).toISOString())}">${escapeHtml(radioRcTimeFmt.format(r.ts).slice(0,5))}</time><span class="radio-rc-tag ${escapeHtml(tag)}">${escapeHtml(tag)}</span><span>${escapeHtml(r.message||'')}${r.lap_number?`<i class="lap">L${escapeHtml(r.lap_number)}</i>`:''}</span></li>`}).join('');
+}
+/* ── audio (click-to-play; clips load straight from F1's CDN in the viewer's browser) ── */
+function radioRcStopAudio(){radioRcAudio.pause();radioRcAudio.removeAttribute('src');radioRcAudio.load();radioRc.playing=null;radioRcPlayerEl.hidden=true;radioRcPlayerEl.classList.remove('paused');radioRcRadioList.querySelectorAll('.playing').forEach(el=>el.classList.remove('playing'))}
+function radioRcPlay(clip){
+  const d=radioRcDriver(clip.driver_number);
+  if(radioRc.playing===clip.recording_url){if(radioRcAudio.paused){radioRcAudio.play().catch(()=>{});radioRcPlayerEl.classList.remove('paused')}else{radioRcAudio.pause();radioRcPlayerEl.classList.add('paused')}return}
+  radioRc.playing=clip.recording_url;
+  radioRcPlayerEl.hidden=false;radioRcPlayerEl.classList.remove('paused');
+  $("radioRcPlayerCode").textContent=d.code;$("radioRcPlayerCode").style.background=d.colour;
+  $("radioRcPlayerName").textContent=`${d.name} · ${d.team}`;$("radioRcPlayerTime").textContent=`${radioRcTimeFmt.format(clip.ts)} · loading…`;
+  radioRcRadioList.querySelectorAll('.radio-rc-clip').forEach(el=>el.classList.toggle('playing',radioRc.radio[Number(el.dataset.idx)]?.recording_url===clip.recording_url));
+  radioRcAudio.src=clip.recording_url;
+  radioRcAudio.play().catch(()=>{});
+}
+radioRcAudio.addEventListener('loadedmetadata',()=>{if(radioRc.playing){const clip=radioRc.radio.find(r=>r.recording_url===radioRc.playing);if(clip)$("radioRcPlayerTime").textContent=`${radioRcTimeFmt.format(clip.ts)} · ${Math.round(radioRcAudio.duration||0)} s`}});
+radioRcAudio.addEventListener('ended',()=>{radioRcPlayerEl.classList.add('paused');radioRcRadioList.querySelectorAll('.playing').forEach(el=>el.classList.remove('playing'))});
+radioRcAudio.addEventListener('error',()=>{
+  if(!radioRc.playing)return;
+  const btn=[...radioRcRadioList.querySelectorAll('.radio-rc-clip')].find(el=>radioRc.radio[Number(el.dataset.idx)]?.recording_url===radioRc.playing);
+  if(btn){btn.classList.remove('playing');btn.classList.add('failed')}
+  $("radioRcPlayerTime").textContent='Could not load this clip from F1\u2019s audio server';
+  radioRcPlayerEl.classList.add('paused');
+  showToast('This radio clip could not be loaded from F1\u2019s audio server.','warning');
+  radioRc.playing=null;
+});
+radioRcRadioList.addEventListener('click',event=>{const btn=event.target.closest('.radio-rc-clip');if(!btn)return;const clip=radioRc.radio[Number(btn.dataset.idx)];if(clip)radioRcPlay(clip)});
+/* ── open / close (remembered per browser) ── */
+function radioRcSetOpen(open,{animate=true,save=true}={}){
+  radioRc.open=open;
+  radioRcBtn.setAttribute('aria-expanded',String(open));radioRcBtn.classList.toggle('active',open);
+  if(save)radioRcSavePrefs({open});
+  if(open){
+    radioRcEl.classList.toggle('no-anim',!animate);
+    radioRcEl.hidden=false;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{radioRcEl.classList.add('open');setTimeout(()=>{if(radioRc.open)radioRcEl.classList.add('settled')},animate?600:0)}));
+    if(!radioRc.meetings.length)radioRcLoadSessions().catch(err=>{radioRcSetStatus(err.code==='rate'?'OpenF1 is busy · try again in a minute':err.code==='live'?'OpenF1 free tier locked while a session is live':(err.message||'OpenF1 unavailable'),'warn');radioRcRadioList.innerHTML=`<li class="radio-rc-empty err">${escapeHtml(err.message||'OpenF1 unavailable')}</li>`;radioRcRcList.innerHTML='<li class="radio-rc-empty"></li>'});
+    else if(radioRcIsLiveWindow(radioRc.sessions.find(s=>s.session_key===radioRc.sessionKey)))radioRcSelectSession(radioRc.sessionKey);
+  }else{
+    clearTimeout(radioRc.refreshTimer);clearTimeout(radioRc.retryTimer);
+    radioRcEl.classList.remove('open','settled');radioRcStopAudio();
+    const finish=()=>{if(!radioRc.open)radioRcEl.hidden=true};
+    if(animate)setTimeout(finish,560);else finish();
+  }
+}
+radioRcBtn.addEventListener('click',()=>{radioRcSetOpen(!radioRc.open);if(!radioRc.open)return;setTimeout(()=>radioRcEl.scrollIntoView({behavior:'smooth',block:'nearest'}),80)});
+$("radioRcClose").addEventListener('click',()=>{radioRcSetOpen(false);radioRcBtn.focus()});
+radioRcEventSel.addEventListener('change',()=>radioRcFillSessions(null));
+radioRcSessionSel.addEventListener('change',()=>radioRcQueueSelect(Number(radioRcSessionSel.value)));
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(radioRc.refreshTimer)}else if(radioRc.open&&radioRcIsLiveWindow(radioRc.sessions.find(s=>s.session_key===radioRc.sessionKey)))radioRcSelectSession(radioRc.sessionKey)},{passive:true});
+// Restore: if the viewer left it open last time, it opens again (no animation, no scroll).
+if(radioRcPrefs().open)setTimeout(()=>radioRcSetOpen(true,{animate:false,save:false}),900);
+
 /* ═══════════ TEAM LIVERY ═══════════ */
 const teams=[
  {id:'default',name:'Apex Red',color:'#E10600',text:'#fff',abbr:'APX'},
- {id:'mclaren',name:'McLaren',color:'#FF8000',text:'#000',abbr:'MCL'},
- {id:'ferrari',name:'Ferrari',color:'#DC0000',text:'#fff',abbr:'FER'},
- {id:'redbull',name:'Red Bull Racing',color:'#1E41FF',text:'#fff',abbr:'RBR'},
- {id:'mercedes',name:'Mercedes',color:'#00D2BE',text:'#000',abbr:'MER'},
- {id:'williams',name:'Williams',color:'#005AFF',text:'#fff',abbr:'WIL'},
- {id:'astonmartin',name:'Aston Martin',color:'#006F62',text:'#fff',abbr:'AMR'},
- {id:'alpine',name:'Alpine',color:'#FF0080',text:'#fff',abbr:'ALP'},
- {id:'haas',name:'Haas',color:'#E6E6E6',text:'#000',abbr:'HAA'},
- {id:'audi',name:'Audi',color:'#E62213',text:'#fff',abbr:'AUD'},
- {id:'cadillac',name:'Cadillac',color:'#B4A07A',text:'#000',abbr:'CAD'},
- {id:'racingbulls',name:'Racing Bulls',color:'#6692FF',text:'#000',abbr:'RB'}
+ {id:'mclaren',name:'McLaren',color:'#FF8000',text:'#000',abbr:'MCL',logo:'mclaren'},
+ {id:'ferrari',name:'Ferrari',color:'#DC0000',text:'#fff',abbr:'FER',logo:'ferrari'},
+ {id:'redbull',name:'Red Bull Racing',color:'#1E41FF',text:'#fff',abbr:'RBR',logo:'redbullracing'},
+ {id:'mercedes',name:'Mercedes',color:'#00D2BE',text:'#000',abbr:'MER',logo:'mercedes'},
+ {id:'williams',name:'Williams',color:'#005AFF',text:'#fff',abbr:'WIL',logo:'williams'},
+ {id:'astonmartin',name:'Aston Martin',color:'#006F62',text:'#fff',abbr:'AMR',logo:'astonmartin'},
+ {id:'alpine',name:'Alpine',color:'#FF0080',text:'#fff',abbr:'ALP',logo:'alpine'},
+ {id:'haas',name:'Haas',color:'#E6E6E6',text:'#000',abbr:'HAA',logo:'haasf1team'},
+ {id:'audi',name:'Audi',color:'#E62213',text:'#fff',abbr:'AUD',logo:'audi'},
+ {id:'cadillac',name:'Cadillac',color:'#B4A07A',text:'#000',abbr:'CAD',logo:'cadillac'},
+ {id:'racingbulls',name:'Racing Bulls',color:'#6692FF',text:'#000',abbr:'RB',logo:'racingbulls'}
 ];
 const tOverlay=$("teamSelectOverlay"),tGrid=$("teamGrid");
 function shade(hex,p){
@@ -859,15 +1575,31 @@ function applyTeamTheme(id){
   document.querySelectorAll('.tcard').forEach(c=>c.classList.toggle('on',c.dataset.team===id));
   dispatchEvent(new CustomEvent('apexthemechange',{detail:{color:t.color}}));
 }
+/* Team logos: official white marks from the F1 media CDN (same host as the driver imagery,
+   already allowed by img-src). Light liveries (Haas) get a dark badge with a coloured ring so
+   the white logo stays legible. If a logo fails to load we fall back to the abbreviation. */
+const TEAM_LOGO=(slug,w)=>`https://media.formula1.com/image/upload/c_lfill,w_${w}/q_auto/v1740000001/common/f1/2026/${slug}/2026${slug}logowhite.webp`;
+const APEX_MARK='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg>';
+function luma(hex){const n=parseInt(hex.slice(1),16);return (.2126*(n>>16)+.7152*(n>>8&255)+.0722*(n&255))/255}
+function teamBadge(t){
+  const light=luma(t.color)>.7;
+  const fill=light?'linear-gradient(140deg,#1c1e24,#0b0c0f)':`linear-gradient(140deg,${t.color},${shade(t.color,-50)})`;
+  const ring=light?`box-shadow:inset 0 0 0 1.5px ${t.color},0 8px 20px -8px rgba(0,0,0,.8);`:'';
+  if(!t.logo)return `<div class="tbadge mark" style="background:${fill};${ring}color:${t.text}">${APEX_MARK}</div>`;
+  const s1=TEAM_LOGO(t.logo,48),s2=TEAM_LOGO(t.logo,96);
+  return `<div class="tbadge has-logo" style="background:${fill};${ring}color:${light?'#fff':t.text}">
+    <img src="${s1}" srcset="${s1} 1x, ${s2} 2x" width="48" height="48" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+    <span class="tabbr" aria-hidden="true">${t.abbr}</span></div>`;
+}
 function renderTeamGrid(){
   tGrid.innerHTML='';
   teams.forEach(t=>{
     const c=document.createElement('div');c.className='tcard';c.dataset.team=t.id;
     c.setAttribute('role','button');c.tabIndex=0;c.setAttribute('aria-label',`Choose ${t.name} livery`);
     c.style.setProperty('--tc',t.color);
-    c.innerHTML=`<div class="tbadge" style="background:linear-gradient(140deg,${t.color},${shade(t.color,-50)});color:${t.text}">${t.abbr}</div>
-      <div class="tname">${t.name}</div><div class="tick">✓</div>`;
-    const choose=()=>{applyTeamTheme(t.id);store.set('freef1_team',t.id)};
+    c.innerHTML=`${teamBadge(t)}<div class="tname">${t.name}</div><div class="tick">✓</div>`;
+    c.querySelector('.tbadge img')?.addEventListener('error',event=>{const badge=event.target.parentElement;badge.classList.remove('has-logo');event.target.remove()},{once:true});
+    const choose=()=>{applyTeamTheme(t.id);store.set('freef1_team',t.id);trackEvent('team',t.id)};
     c.addEventListener('click',choose);
     c.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();choose()}});
     tGrid.appendChild(c);
@@ -878,7 +1610,7 @@ $("teamSelectBtn").addEventListener('click',()=>{
   applyTeamTheme(store.get('freef1_team')||'default');
 });
 $("teamSelectClose").addEventListener('click',()=>closeModal(tOverlay));
-[sOverlay,tOverlay].forEach(m=>m.addEventListener('click',e=>{
+[sOverlay,raceTimesOverlay,tOverlay,dOverlay].forEach(m=>m.addEventListener('click',e=>{
   if(e.target===m)closeModal(m);
 }));
 addEventListener('keydown',e=>{
@@ -929,7 +1661,7 @@ applyTeamTheme(store.get('freef1_team')||'default');
 populate();updateHeader();renderButtons();load();setupCustomSelects();updateClocks();initVisitorCounter();updateOverridePill(streamOverride);
 const loadChampionshipData=()=>{loadStandings('drivers');loadDriverGrid()};
 if('requestIdleCallback'in window)requestIdleCallback(loadChampionshipData,{timeout:1600});else setTimeout(loadChampionshipData,700);
-setInterval(updateClocks,1000);
+setInterval(()=>{if(!document.hidden)updateClocks()},1000);
 setInterval(()=>{if(!document.hidden)updateCurrentStreamButton()},60000);
 setTimeout(initStreamOverrideSSE,500);
 setTimeout(initStreamPolling,100);
