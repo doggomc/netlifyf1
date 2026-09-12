@@ -16,6 +16,7 @@
   --amber:#FFB020;
   --team:#E10600;         /* dynamic team accent */
   --team-2:#FF2A22;
+  --team-ink:#fff;        /* legible text/icons ON --team; dark liveries flip this to near-black */
   --r:18px; --r-sm:10px; --r-xs:6px;
   --blur:22px;
   --ease:cubic-bezier(.22,1,.36,1);
@@ -33,7 +34,7 @@ body{
   -webkit-user-select:none; user-select:none;
 }
 input,textarea,select,[contenteditable="true"]{-webkit-user-select:text;user-select:text}
-::selection{background:var(--team);color:#fff}
+::selection{background:var(--team);color:var(--team-ink)}
 img{display:block;max-width:100%}
 
 /* Racing-stripe scrollbar */
@@ -111,6 +112,11 @@ body.has-stream .player{z-index:61}
   display:grid;place-items:center;box-shadow:0 6px 22px -6px var(--red-glow);
 }
 .brand-mark svg{width:22px;height:22px}
+/* The mark is a white glyph. On a light livery (Haas) the team-coloured end of
+   the gradient is near-white and the mark disappeared into it, so inherit the
+   contrast-safe ink rather than hard-coding #fff in the SVG. */
+.brand-mark{color:var(--team-ink)}
+.brand-mark svg path{fill:currentColor}
 .brand-mark::after{content:'';position:absolute;inset:0;
   background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.55) 50%,transparent 60%);
   transform:translateX(-120%);animation:sheen 4.5s var(--ease) infinite}
@@ -209,7 +215,7 @@ body.has-stream .player{z-index:61}
 .btn:hover::after{opacity:1}
 .btn:active{transform:translateY(0) scale(.985)}
 .btn .btn-ic{width:17px;height:17px;fill:currentColor;flex:none}
-.btn.primary{background:var(--team);border-color:var(--team);color:#fff;
+.btn.primary{background:var(--team);border-color:var(--team);color:var(--team-ink);
   box-shadow:0 12px 34px -12px var(--red-glow)}
 .btn.primary::before{background:#fff}
 .btn.primary:hover{color:var(--ink)}
@@ -451,7 +457,7 @@ select option:disabled{color:#4A4F57}
   font-family:'JetBrains Mono';font-size:.58rem;font-weight:700;letter-spacing:.1em;
   background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.16);
   padding:3px 7px;border-radius:5px}
-.dcard.lead .dpos{background:var(--c,var(--team));border-color:transparent;color:#fff}
+.dcard.lead .dpos{background:var(--c,var(--team));border-color:transparent;color:var(--c-ink,var(--team-ink))}
 .dcard:focus-visible{outline:2px solid var(--c,var(--team));outline-offset:3px}
 .dhint{position:absolute;top:64px;left:50%;transform:translate(-50%,-6px);z-index:3;
   font-family:'JetBrains Mono';font-size:.52rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
@@ -508,7 +514,7 @@ select option:disabled{color:#4A4F57}
   font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
   transition:background-color .22s var(--ease),border-color .22s var(--ease),color .22s var(--ease)}
 .tab:hover{color:var(--text);border-color:var(--line-2)}
-.tab.active{background:var(--team);border-color:var(--team);color:#fff;
+.tab.active{background:var(--team);border-color:var(--team);color:var(--team-ink);
   box-shadow:0 8px 26px -10px var(--red-glow)}
 .rows{display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
 .row{
@@ -666,7 +672,7 @@ select option:disabled{color:#4A4F57}
   filter:drop-shadow(0 2px 5px rgba(0,0,0,.5))}
 .dp-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
 .dp-pos{font-family:'JetBrains Mono';font-size:.6rem;font-weight:700;letter-spacing:.1em;
-  background:var(--dc,var(--team));color:#fff;padding:4px 9px;border-radius:5px}
+  background:var(--dc,var(--team));color:var(--dc-ink,var(--team-ink));padding:4px 9px;border-radius:5px}
 .dp-pill{font-family:'JetBrains Mono';font-size:.6rem;font-weight:700;letter-spacing:.1em;color:var(--text);
   background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.16);padding:4px 9px;border-radius:5px}
 .dp-photo{position:relative;z-index:1;min-height:215px;
@@ -959,7 +965,7 @@ body.view-swapping{overflow-x:hidden}
   transition:border-color .2s var(--ease),color .2s var(--ease),background-color .2s var(--ease)}
 .radio-rc-play::before{content:'';display:block;width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;border-color:transparent transparent transparent currentColor;margin-left:2px}
 .radio-rc-clip:hover .radio-rc-play{border-color:var(--team);color:#fff}
-.radio-rc-clip.playing .radio-rc-play{background:var(--team);border-color:var(--team);color:#fff}
+.radio-rc-clip.playing .radio-rc-play{background:var(--team);border-color:var(--team);color:var(--team-ink)}
 .radio-rc-clip.playing .radio-rc-play::before{width:8px;height:9px;border:0;margin:0;background:linear-gradient(90deg,currentColor 0 35%,transparent 35% 65%,currentColor 65%)}
 .radio-rc-clip.failed .radio-rc-play::before{content:'!';width:auto;height:auto;border:0;margin:0;background:none;font-family:'JetBrains Mono';font-weight:800;font-size:.7rem;color:var(--amber)}
 /* now playing strip */
@@ -1020,4 +1026,26 @@ body.view-swapping{overflow-x:hidden}
 @media(max-width:520px){
   .discord-badge{flex-direction:column;gap:14px}
   .discord-card{padding:34px 18px}
+}
+
+/* ── Cross-browser playback unlock ──────────────────────────────────────
+   Chrome, Edge, Firefox and iOS Safari all block autoplay with sound until
+   the page has been interacted with. A cross-origin stream frame cannot be
+   muted or probed from here, so the only reliable unlock is to (re)load the
+   frame inside a real user gesture. Shown only while the page has never been
+   activated; tapping reloads the feed under that gesture. */
+.stream-start{
+  position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;
+  display:flex;flex-direction:column;align-items:center;gap:9px;
+  padding:13px 17px;border-radius:var(--r-sm);
+  background:rgba(10,10,11,.86);backdrop-filter:blur(12px);
+  border:1px solid var(--line-2);box-shadow:var(--shadow);
+  max-width:min(92%,430px);text-align:center;
+}
+.stream-start[hidden]{display:none}
+.stream-start-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.stream-start-hint{font-size:.68rem;line-height:1.5;color:var(--muted)}
+@media(max-width:520px){
+  .stream-start{bottom:12px;padding:11px 13px}
+  .stream-start-hint{font-size:.64rem}
 }

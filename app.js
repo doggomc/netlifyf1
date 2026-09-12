@@ -349,6 +349,10 @@ nsActionsEl.addEventListener("click",e=>{
   else if(e.target.id==="nsNewTabBtn")window.open(buildUrl(currentSource),"_blank","noopener");
   else if(e.target.id==="nsStayBtn"){hideNoStream();setStreamOnScreen(true)}
 });
+/* Tapping "Start stream" reloads the feed inside the click gesture, which is
+   what actually unblocks sound on iOS and on Chrome/Edge/Firefox. */
+$("streamStartBtn")?.addEventListener("click",()=>{updateStreamStartAffordance(false);load()});
+$("streamStartNewTabBtn")?.addEventListener("click",()=>{const s=sources[currentSource];if(s)window.open(buildUrl(currentSource),"_blank","noopener")});
 
 function showNoStream(opts){
   const blocked=!!(opts&&opts.blocked),hijack=!!(opts&&opts.hijack);
@@ -356,6 +360,7 @@ function showNoStream(opts){
   nsActionsEl.hidden=!blocked;
   nsStayBtn.hidden=!hijack;
   setStreamOnScreen(false);
+  updateStreamStartAffordance(false);
   if(!(opts&&opts.keepFrame)){playerEl.querySelector("iframe")?.remove();playerEl.querySelector("video")?.remove()}
   if(blocked){
     stopNS();
@@ -373,6 +378,23 @@ const IS_IOS=/ipad|iphone|ipod/i.test(navigator.userAgent)||(/macintosh/i.test(n
 /* How long an embed attempt may take to commit a document before we treat it
    as network-blocked and fall over to the next feed source. */
 const NAV_TIMEOUT_MS=9000;
+
+/* Autoplay with sound is blocked until the page has been interacted with
+   (Chrome, Edge, Firefox) or effectively always (iOS Safari). A cross-origin
+   stream frame cannot be muted or probed from here, so the only reliable
+   unlock is to (re)load the frame inside a real user gesture.
+   True = the browser will let sound play; false = offer the one-tap start. */
+function pageHasActivation(){
+  try{const ua=navigator.userActivation;return !ua||ua.hasBeenActive===true}
+  catch(_){return true}// API unavailable: assume the browser is permissive
+}
+/* Offer the start affordance only while playback is likely to be blocked and
+   a feed is actually on screen. Re-checked on every call, so once the viewer
+   has tapped anything the prompt stops appearing. */
+function updateStreamStartAffordance(feedIsUp){
+  const el=$("streamStart");if(!el)return;
+  el.hidden=!(feedIsUp&&!pageHasActivation());
+}
 const BLOCKED_COPY=IS_IOS
  ?"The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
  :"The stream host never responded on this network — the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
@@ -393,10 +415,18 @@ function iframeCommitted(f){
   try{const href=f.contentWindow?f.contentWindow.location.href:"";return href!==""&&href!=="about:blank"}
   catch(_){return true}// cross-origin read throws only after a real commit
 }
+/* The "*" origin matters: the providers nest their player inside another
+   cross-origin iframe, and a nested frame only inherits the permission if the
+   parent delegates it to every origin. Without it the inner player is denied
+   autoplay/fullscreen/EME even though the outer frame has them. */
+const IFRAME_ALLOW="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *";
 function makeStreamIframe(url,rp){
   const f=document.createElement("iframe");
   f.src=url;
-  f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
+  // Set both the IDL property and the attribute: browsers reflect `allow`
+  // onto the attribute, but setting it explicitly keeps the policy intact if
+  // the property is ever reassigned or the frame is cloned/serialised.
+  f.allow=IFRAME_ALLOW;f.setAttribute('allow',IFRAME_ALLOW);
   /* rp: per-source referrer policy. Default stays no-referrer (privacy +
      defeats referer-based hotlink blocks); sources that 403 WITHOUT a
      Referer (videocdn) opt in via their rp field. */
@@ -438,7 +468,7 @@ function attemptSource(token,order,idx,startedAt){
   setLoaderText(idx===0?"Establishing feed…":"Feed unreachable — switching source…");
   const f=makeStreamIframe(buildUrl(order[idx]),sources[order[idx]].rp);
   let settled=false;
-  const reveal=()=>{settled=true;trackEvent('stream_ready',Math.round(performance.now()-startedAt));
+  const reveal=()=>{settled=true;updateStreamStartAffordance(true);trackEvent('stream_ready',Math.round(performance.now()-startedAt));
     f.classList.add('loaded');setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
   f.onload=()=>{if(token!==playerLoadToken||settled)return;if(!iframeCommitted(f))return;reveal()};
   watchFrameNavigation(f,token,()=>settled);
@@ -456,6 +486,7 @@ function load(){
   const token=++playerLoadToken;
   loaderEl.classList.remove("hidden");hideNoStream();
   setLoaderText("Establishing feed…");
+  updateStreamStartAffordance(false);
   playerEl.querySelector("iframe")?.remove();
   playerEl.querySelector("video")?.remove();
   // If override is active, always try to play it regardless of session state.
@@ -463,16 +494,19 @@ function load(){
     const f=document.createElement(streamOverride.type==='mp4'?'video':'iframe');
     if(streamOverride.type==='mp4'){
       f.controls=true;f.autoplay=true;f.playsInline=true;f.preload='metadata';
+      /* iOS Safari plays a <video> full-screen unless playsinline is set, and
+         older WebKit/Android webviews only honour the prefixed forms. */
+      f.setAttribute('playsinline','');f.setAttribute('webkit-playsinline','');f.setAttribute('x5-playsinline','');
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
       const s=document.createElement('source');s.src=streamOverride.url;s.type='video/mp4';f.appendChild(s);
-      f.oncanplay=()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')};
+      f.oncanplay=()=>{if(token===playerLoadToken){loaderEl.classList.add('hidden');updateStreamStartAffordance(true)}};
       f.onerror=()=>{if(token===playerLoadToken)showStreamBlocked()};
     }else{
-      f.src=streamOverride.url;f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
+      f.src=streamOverride.url;f.allow=IFRAME_ALLOW;f.setAttribute('allow',IFRAME_ALLOW);
       f.allowFullscreen=true;f.referrerPolicy="no-referrer";f.title="Live stream";
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
       f.onload=()=>{if(token!==playerLoadToken||f.style.opacity==='1')return;if(!iframeCommitted(f))return;
-        f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
+        f.style.opacity='1';updateStreamStartAffordance(true);setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
       {let settled=false,navs=0;const wasSettled=()=>settled;
        const origLoad=f.onload;f.onload=e=>{origLoad(e);if(f.style.opacity==='1')settled=true};
        f.addEventListener("load",()=>{if(token!==playerLoadToken||!wasSettled())return;navs++;if(navs===1)return;
@@ -1000,7 +1034,7 @@ function renderStandings(data,type){
   st.forEach((it,i)=>{
     const row=document.createElement('div');row.className='row p'+it.position;row.style.animationDelay=(i*24)+'ms';
     const team=type==='drivers'?(it.Constructors?.[0]?.name||''):(it.Constructor?.name||'');
-    row.style.setProperty('--c',hexFor(team));
+    const accent=hexFor(team);row.style.setProperty('--c',accent);row.style.setProperty('--c-ink',inkOn(accent));
     const name=type==='drivers'?`${it.Driver?.givenName||''} ${it.Driver?.familyName||''}`:(it.Constructor?.name||'');
     const sub=type==='drivers'?`${it.Driver?.permanentNumber?'#'+it.Driver.permanentNumber+' · ':''}${team}`:`${it.wins||0} wins`;
     row.innerHTML=`<div class="pos">${escapeHtml(it.position)}</div><div class="who"><b>${escapeHtml(name)}</b><small>${escapeHtml(sub)}</small></div><div class="pts">${escapeHtml(it.points)}<small>PTS</small></div>`;
@@ -1055,7 +1089,7 @@ function renderDriverGrid(list){
   list.forEach((it,i)=>{
     const d=it.Driver||{},team=it.Constructors?.[0]?.name||'',src=photoFor(d.driverId);if(!src)return;
     const a=document.createElement('article');a.className='dcard'+(it.position==='1'?' lead':'');
-    a.style.setProperty('--c',hexFor(team));a.style.animationDelay=(i*32)+'ms';
+    const accent=hexFor(team);a.style.setProperty('--c',accent);a.style.setProperty('--c-ink',inkOn(accent));a.style.animationDelay=(i*32)+'ms';
     const label=`View ${d.givenName||''} ${d.familyName||''} profile`.replace(/\s+/g,' ').trim();
     a.setAttribute('role','button');a.tabIndex=0;a.setAttribute('aria-label',label);a.title=label;
     a.dataset.driverId=d.driverId;
@@ -1230,7 +1264,7 @@ function openDriverProfile(driverId){
   const age=ageFrom(d.dateOfBirth);
   const mate=driverEntries.find(e=>e!==entry&&(e.Constructors?.[0]?.name||'')===team)?.Driver;
   const mateName=mate?`${mate.givenName||''} ${mate.familyName||''}`.trim():'—';
-  dSheet.style.setProperty('--dc',color);
+  dSheet.style.setProperty('--dc',color);dSheet.style.setProperty('--dc-ink',inkOn(color));
   const following=getFollowing().includes(d.driverId);
   dProfile.innerHTML=`
     <div class="dp-card">
@@ -1387,7 +1421,7 @@ async function loadSessionResults(){
     const fragment=document.createDocumentFragment();
     results.forEach((result,index)=>{
       const element=document.createElement('div');element.className='rrow';element.style.animation=`rowIn .5s var(--ease) ${index*24}ms both`;
-      element.style.setProperty('--race-team',hexFor(result.Constructor?.name||''));
+      const rtColor=hexFor(result.Constructor?.name||'');element.style.setProperty('--race-team',rtColor);element.style.setProperty('--race-team-ink',inkOn(rtColor));
       const time=type==='qualifying'?([result.Q3,result.Q2,result.Q1].filter(Boolean)[0]||'—'):(result.Time?.time||result.status||'—');
       element.innerHTML=`<div class="pos">${escapeHtml(result.position)}</div><div class="who"><b>${escapeHtml(`${result.Driver?.givenName||''} ${result.Driver?.familyName||''}`)}</b><small>${escapeHtml(result.Constructor?.name||'')}</small></div><div class="rtime">${escapeHtml(time)}</div>`;
       fragment.appendChild(element);
@@ -1687,6 +1721,7 @@ function applyTeamTheme(id){
   const rs=document.documentElement.style;
   rs.setProperty('--team',t.color);
   rs.setProperty('--team-2',shade(t.color,36));
+  rs.setProperty('--team-ink',inkOn(t.color));
   rs.setProperty('--red-glow',t.color+'70');
   document.querySelectorAll('.tcard').forEach(c=>c.classList.toggle('on',c.dataset.team===id));
   dispatchEvent(new CustomEvent('apexthemechange',{detail:{color:t.color}}));
@@ -1697,6 +1732,35 @@ function applyTeamTheme(id){
 const TEAM_LOGO=(slug,w)=>`https://media.formula1.com/image/upload/c_lfill,w_${w}/q_auto/v1740000001/common/f1/2026/${slug}/2026${slug}logowhite.webp`;
 const APEX_MARK='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg>';
 function luma(hex){const n=parseInt(hex.slice(1),16);return (.2126*(n>>16)+.7152*(n>>8&255)+.0722*(n&255))/255}
+
+/* Ink (text + icons) guaranteed to stay legible on top of an accent colour.
+   Light liveries — Haas #E6E6E6, Cadillac, Racing Bulls — need dark ink; dark
+   ones need white. Rather than hard-coding "white on team colour" in the CSS
+   (which is what made white text vanish on Haas), pick whichever of the two
+   has the higher WCAG contrast ratio against the accent. That reproduces the
+   hand-picked `text` values in the teams table for every 2026 livery while
+   also covering the per-driver colours that table does not describe. */
+const INK_LIGHT='#fff',INK_DARK='#000';
+function srgbChan(c){c/=255;return c<=.03928?c/12.92:Math.pow((c+.055)/1.055,2.4)}
+function relLuminance(r,g,b){return .2126*srgbChan(r)+.7152*srgbChan(g)+.0722*srgbChan(b)}
+function contrastRatio(l1,l2){const hi=Math.max(l1,l2),lo=Math.min(l1,l2);return (hi+.05)/(lo+.05)}
+function inkOn(color){
+  const c=String(color||'').trim();
+  let r,g,b;
+  if(c[0]==='#'){
+    const h=c.slice(1);
+    const full=h.length===3?h.split('').map(x=>x+x).join(''):h;
+    if(!/^[0-9a-fA-F]{6}$/.test(full))return 'var(--team-ink)';
+    const n=parseInt(full,16);r=(n>>16)&255;g=(n>>8)&255;b=n&255;
+  }else{
+    const nums=c.match(/-?\d+(\.\d+)?/g);
+    // Not a literal colour (e.g. "var(--team)"): defer to the livery ink.
+    if(!nums||nums.length<3)return 'var(--team-ink)';
+    r=Number(nums[0]);g=Number(nums[1]);b=Number(nums[2]);
+  }
+  const L=relLuminance(r,g,b);
+  return contrastRatio(L,0)>=contrastRatio(L,1)?INK_DARK:INK_LIGHT;
+}
 function teamBadge(t){
   const light=luma(t.color)>.7;
   const fill=light?'linear-gradient(140deg,#1c1e24,#0b0c0f)':`linear-gradient(140deg,${t.color},${shade(t.color,-50)})`;
