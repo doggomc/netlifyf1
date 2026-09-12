@@ -76,37 +76,57 @@ const schedule=[
 ];
 // Parse session timestamps once instead of constructing hundreds of Date objects every minute.
 schedule.forEach(event=>event.sessions.forEach(session=>{session.ts=Date.parse(session.start)}));
+/* Feed sources, in fallback priority order (index 0 is tried first and is the
+   default pick). Every entry carries a stable `id`: the admin dashboard can
+   switch a feed off at /admin without a redeploy, and it addresses them by
+   that id (see /api/stream/sources).
+
+   The suffix entries are per-session pages on embedindia; the `url` entries are
+   fixed 24/7 provider pages that carry the live session whenever it is on air
+   (verified 2026-09-11: reachable, no frame-blocking headers, a real player in
+   the document).
+     - videocdn: Clappr. The one source that REQUIRES a Referer (403 without
+       one), hence rp: our origin is sent for it only — everything else keeps
+       the default no-referrer.
+     - epiembeds: JW Player inside a large obfuscated bundle.
+     - strmfree: JW Player + HLS, clean single-purpose embed.
+     - streame: tiny wrapper nesting its own same-domain Clappr/hls.js player.
+   Deliberately NOT embedded: dlive.sx / dlstreams.st (642KB obfuscated overlay
+   machinery — the same click-hijack class we actively contain), wikisport's
+   inner /strm/30.php (dead provider chain behind it), and epiembeds' DAZN page
+   (duplicates the /dazn-es coverage below). */
 const sources=[
- {label:"F1TV",suffix:""},{label:"F1TV Alt",suffix:"/f1tv"},
- {label:"AppleTV",suffix:"/apple-tv-f1tv-en-us"},
- {label:"DAZN",suffix:"/dazn-es"},{label:"Sky Sports F1",suffix:"/sky-sport-f1-de"},
- /* Fixed-URL "channel" sources — 24/7 provider pages that carry the live
-    session whenever it is on air (verified 2026-09-11: reachable, no
-    frame-blocking headers, a real player in the document). Array order is the
-    fallback priority, so the lightest and most reliable come first:
-    - strmfree: JW Player + HLS, clean single-purpose embed.
-    - videocdn: Clappr. The one source that REQUIRES a Referer (403 without
-      one), hence rp: our origin is sent for it only — everything else keeps
-      the default no-referrer.
-    - streame: tiny wrapper nesting its own same-domain Clappr/hls.js player.
-    - epiembeds: JW Player but a large obfuscated bundle, so it sits deep in
-      the chain as a last resort before WikiSport.
-    Deliberately NOT embedded: dlive.sx / dlstreams.st (642KB obfuscated
-    overlay machinery — the same click-hijack class we actively contain),
-    wikisport's inner /strm/30.php (dead provider chain behind it), and
-    epiembeds' DAZN page (duplicates the /dazn-es coverage above). */
- {label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
- {label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
- {label:"Streame",url:"https://streame.center/embed/sh60.php"},
- {label:"Sky UK 3",url:"https://epiembeds.online/embed/skysportsf1-uk"},
- // Fixed-URL source: wikisport.info serves its own player when framed (the page
- // redirects top-level visits, so it only renders inside an iframe). We embed
- // their entry page, not the inner /strm/NN.php player number: the wrapper
- // self-updates when the provider rotates player pages, and it carries their
- // Stream 1/2/3 links as an in-player fallback. Touch users can scroll inside
- // the frame if the provider's layout is taller than the stage.
- {label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
+ {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
+ {id:"sky-uk-3",label:"Sky UK 3",url:"https://epiembeds.online/embed/skysportsf1-uk"},
+ {id:"f1tv",label:"F1TV",suffix:""},
+ {id:"appletv",label:"AppleTV",suffix:"/apple-tv-f1tv-en-us"},
+ {id:"sky-uk",label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
+ {id:"streame",label:"Streame",url:"https://streame.center/embed/sh60.php"},
+ // ── the rest, in their original relative order ──
+ {id:"f1tv-alt",label:"F1TV Alt",suffix:"/f1tv"},
+ {id:"dazn",label:"DAZN",suffix:"/dazn-es"},
+ {id:"sky-sports-f1",label:"Sky Sports F1",suffix:"/sky-sport-f1-de"},
+ // wikisport.info serves its own player when framed (the page redirects
+ // top-level visits, so it only renders inside an iframe). We embed their entry
+ // page, not the inner /strm/NN.php player number: the wrapper self-updates
+ // when the provider rotates player pages, and it carries their Stream 1/2/3
+ // links as an in-player fallback. Touch users can scroll inside the frame if
+ // the provider's layout is taller than the stage.
+ {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
+
+/* Server-controlled availability. A disabled feed is hidden from the source
+   chips and skipped by the automatic fallback chain. The array above stays the
+   fallback for when the backend is unreachable, so the player still works. */
+let disabledSources=new Set();
+const sourceEnabled=s=>!disabledSources.has(s.id);
+/* Keep currentSource pointing at a feed that is actually enabled; call before
+   anything that reads sources[currentSource]. */
+function normalizeCurrentSource(){
+  if(currentSource>=0&&currentSource<sources.length&&sourceEnabled(sources[currentSource]))return;
+  const first=sources.findIndex(sourceEnabled);
+  if(first>=0)currentSource=first;
+}
 
 const $=id=>document.getElementById(id);
 const eventSelect=$("eventSelect"),sessionSelect=$("sessionSelect"),linksEl=$("links"),
@@ -276,13 +296,17 @@ function updateHeader(){
   const done=currentEvent.sessions.every(isSessionEnded);
   $("heroRound").textContent=`Round ${currentEvent.round} · ${currentEvent.locality}, ${currentEvent.country}`
     +(currentEvent.sprint?" · Sprint Weekend":"")+(done?" · Completed":"");
-  $("stageLabel").textContent="apex://live/"+currentEvent.slug+"/"+currentSession.slug+(sources[currentSource].suffix||"");
-  $("sourceLabel").textContent="SOURCE · "+sources[currentSource].label.toUpperCase();
+  normalizeCurrentSource();
+  const src=sources[currentSource]||{label:"—",suffix:""};
+  $("stageLabel").textContent="apex://live/"+currentEvent.slug+"/"+currentSession.slug+(src.suffix||"");
+  $("sourceLabel").textContent="SOURCE · "+src.label.toUpperCase();
   badgeEl.style.display=isStreamAvailable(currentSession)?"inline-flex":"none";
 }
 function renderButtons(){
   linksEl.innerHTML="";
+  normalizeCurrentSource();
   sources.forEach((s,i)=>{
+    if(!sourceEnabled(s))return;
     const b=document.createElement("button");b.className="chip"+(i===currentSource?" active":"");
     b.textContent=s.label;
     b.onclick=()=>{currentSource=i;renderButtons();updateHeader();load();trackEvent('source',s.label)};
@@ -462,16 +486,25 @@ function load(){
     return;
   }
   if(!isStreamAvailable(currentSession)){showNoStream();trackEvent('nostream');return}
-  const order=[currentSource];
-  for(let i=0;i<sources.length;i++)if(i!==currentSource)order.push(i);
+  normalizeCurrentSource();
+  const order=[];
+  if(sourceEnabled(sources[currentSource]))order.push(currentSource);
+  for(let i=0;i<sources.length;i++)if(i!==currentSource&&sourceEnabled(sources[i]))order.push(i);
+  if(!order.length){trackEvent('nostream');showNoStream({blocked:true,title:"Every feed is switched off",text:"Race control has disabled all stream sources. Nothing to play until one is re-enabled."});return}
   attemptSource(token,order,0,performance.now());
 }
 
 /* ── clocks ── */
+/* The countdown re-renders once a second, so the 22x5 session scan is cached:
+   the result is only stale once the chosen session has actually started. */
+let cachedNextSession=null;
 function getNextSession(){
-  const now=Date.now();let next=null,min=Infinity;
+  const now=Date.now();
+  if(cachedNextSession&&cachedNextSession.session.ts>now)return cachedNextSession;
+  let next=null,min=Infinity;
   for(const ev of schedule)for(const s of ev.sessions){
     const d=s.ts-now;if(d>0&&d<min){min=d;next={event:ev,session:s}}}
+  cachedNextSession=next;
   return next;
 }
 function updateCountdown(){
@@ -610,7 +643,7 @@ function updateOverridePill(override) {
   } else {
     const live = getCurrentLiveSession();
     pill.className = 'stage-override-pill inactive';
-    pill.textContent = live ? 'Normal Stream' : 'Stream Override · No Current Live Sessions';
+    pill.textContent = live ? 'Normal Stream' : 'No Live Session';
   }
 }
 
@@ -641,6 +674,7 @@ function initStreamOverrideSSE(){
     es.addEventListener('stream_update',onState);
     es.addEventListener('maintenance_update',event=>{try{applyMaintenanceMode(JSON.parse(event.data))}catch(_){}});
     es.addEventListener('news_update',event=>{try{applyNewsUpdate(JSON.parse(event.data),true)}catch(_){}});
+    es.addEventListener('sources_update',event=>{try{applySourceConfig(JSON.parse(event.data))}catch(_){}});
     es.addEventListener('error',()=>{
       streamSseConnected=false;es.close();if(streamEvents===es)streamEvents=null;
       clearTimeout(streamReconnectTimer);
@@ -651,7 +685,7 @@ function initStreamOverrideSSE(){
 }
 
 // Low-frequency polling is active only while SSE is unavailable.
-let streamPollTimer=0,streamPollInFlight=false,sitePollInFlight=false;
+let streamPollTimer=0,streamPollInFlight=false,sitePollInFlight=false,sourcePollInFlight=false;
 async function pollSiteStatus(force=false){
   if(document.hidden||sitePollInFlight||(!force&&streamSseConnected))return;
   sitePollInFlight=true;
@@ -668,12 +702,36 @@ async function pollStreamStatus(force=false){
     if(r.ok)applyStreamOverride(await r.json());
   }catch(_){}finally{streamPollInFlight=false}
 }
+/* Feed availability is owned by the admin dashboard. A feed can be switched
+   off mid-session; when that happens the chips drop it, the fallback chain
+   skips it, and if the feed currently on screen was the one disabled we
+   restart the player on the next available source. */
+function applySourceConfig(payload){
+  const disabled=Array.isArray(payload&&payload.disabled)?payload.disabled:[];
+  const next=new Set(disabled.map(String));
+  if(next.size===disabledSources.size&&[...next].every(id=>disabledSources.has(id)))return;
+  const previous=sources[currentSource];
+  const wasUsable=Boolean(previous)&&sourceEnabled(previous);
+  disabledSources=next;
+  if(!wasUsable)normalizeCurrentSource();
+  renderButtons();updateHeader();
+  if(!wasUsable)load();
+}
+async function pollSourceConfig(force=false){
+  if(document.hidden||sourcePollInFlight||(!force&&streamSseConnected))return;
+  sourcePollInFlight=true;
+  try{
+    const r=await fetchWithTimeout(`${PUBLIC_API}/api/stream/sources`,{cache:'no-store',credentials:'omit'});
+    if(r.ok)applySourceConfig(await r.json());
+  }catch(_){}finally{sourcePollInFlight=false}
+}
+
 function initStreamPolling(){
-  clearInterval(streamPollTimer);pollStreamStatus(true);pollSiteStatus(true);pollNews(true);
-  streamPollTimer=setInterval(()=>{pollStreamStatus();pollSiteStatus();pollNews()},30000);
+  clearInterval(streamPollTimer);pollStreamStatus(true);pollSiteStatus(true);pollNews(true);pollSourceConfig(true);
+  streamPollTimer=setInterval(()=>{pollStreamStatus();pollSiteStatus();pollNews();pollSourceConfig()},30000);
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){streamEvents?.close();streamEvents=null;streamSseConnected=false}
-    else{pollStreamStatus(true);pollSiteStatus(true);pollNews(true);initStreamOverrideSSE()}
+    else{pollStreamStatus(true);pollSiteStatus(true);pollNews(true);pollSourceConfig(true);initStreamOverrideSSE()}
   },{passive:true});
 }
 
@@ -879,7 +937,7 @@ const TEAM_HEX={'McLaren':'#FF8000','Ferrari':'#DC0000','Red Bull':'#1E41FF','Me
  'Williams':'#005AFF','Aston Martin':'#006F62','Alpine F1 Team':'#FF0080','Alpine':'#FF0080',
  'Haas F1 Team':'#B6BABD','Haas':'#B6BABD','Audi':'#E62213','Sauber':'#00E701','RB F1 Team':'#6692FF','Racing Bulls':'#6692FF','Cadillac F1 Team':'#B4A07A','Cadillac':'#B4A07A'};
 function hexFor(n){for(const k in TEAM_HEX)if((n||'').includes(k))return TEAM_HEX[k];return 'var(--team)'}
-function escapeHtml(value){return String(value??'').replace(/[&<>\"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[char]))}
+function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 const apiPromises=new Map();
 const API_TIMEOUT_MS=10000;
 const API_STALE_FALLBACK_MS=24*60*60*1000;
