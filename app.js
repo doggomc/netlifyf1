@@ -378,14 +378,14 @@ function makeStreamIframe(url,rp){
      Referer (videocdn) opt in via their rp field. */
   f.allowFullscreen=true;f.referrerPolicy=rp||"no-referrer";
   f.title="Live stream";
-  /* Insurance, not the main fix: blocks the frame from ever taking the TOP
-     page (window.open _top, form target=_top), blocks modal loops and
-     drive-by downloads. allow-popups stays ON deliberately — the embeds' ad
-     library probes window.open() and buries the player under a "Notice for
-     webmaster" overlay when the probe returns null. The in-frame ad
-     "tab-swap" redirect is a same-frame navigation, which sandbox cannot
-     (and should not) stop — that one is caught by watchFrameNavigation(). */
-  f.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups");
+  /* NO sandbox attribute — deliberately. The providers' anti-sandbox
+     detectors (the aclib "Notice for webmaster / remove sandbox" overlay on
+     the embedindia family, Streame's "Stream blocked on this site" wall)
+     fire on sandboxed frames even with allow-popups (Chrome 153 consumer
+     reports, 2026-09-11) and bury the player beneath them. Containment
+     therefore relies on watchFrameNavigation(): the in-frame ad "tab-swap"
+     redirect is a same-frame navigation, which sandbox could never stop
+     anyway — it is detected, reported and recovered from instead. */
   return f;
 }
 /* The embeds' ad layer sometimes "tab-swaps": on a click inside the player it
@@ -446,7 +446,6 @@ function load(){
     }else{
       f.src=streamOverride.url;f.allow="autoplay; fullscreen; encrypted-media; picture-in-picture";
       f.allowFullscreen=true;f.referrerPolicy="no-referrer";f.title="Live stream";
-      f.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms allow-popups");
       f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
       f.onload=()=>{if(token!==playerLoadToken||f.style.opacity==='1')return;if(!iframeCommitted(f))return;
         f.style.opacity='1';setTimeout(()=>{if(token===playerLoadToken)loaderEl.classList.add('hidden')},180)};
