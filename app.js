@@ -352,7 +352,6 @@ nsActionsEl.addEventListener("click",e=>{
 /* Tapping "Start stream" reloads the feed inside the click gesture, which is
    what actually unblocks sound on iOS and on Chrome/Edge/Firefox. */
 $("streamStartBtn")?.addEventListener("click",()=>{updateStreamStartAffordance(false);load()});
-$("streamStartNewTabBtn")?.addEventListener("click",()=>{const s=sources[currentSource];if(s)window.open(buildUrl(currentSource),"_blank","noopener")});
 
 function showNoStream(opts){
   const blocked=!!(opts&&opts.blocked),hijack=!!(opts&&opts.hijack);
