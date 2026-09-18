@@ -1,4 +1,4 @@
-/* APEX maintenance mode — lightweight, image-free pit-lane experience */
+/* APEX maintenance mode - lightweight, image-free pit-lane experience */
 :root {
   --bg: #07080a;
   --panel: #0d0f13;
@@ -524,7 +524,7 @@ h1 em {
 }
 
 html.site-released body::after {
-  content: "TRACK CLEAR — RELEASING APEX";
+  content: "TRACK CLEAR - RELEASING APEX";
   position: fixed;
   inset: 0;
   z-index: 100;

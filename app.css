@@ -793,26 +793,36 @@ section {
 /* ═══════════════ CONTROL DECK ═══════════════ */
 
 .deck {
+  position: relative;
+  z-index: 30;
   display: grid;
   grid-template-columns: 1.15fr 1fr;
   gap: 14px;
   margin-bottom: 18px;
 }
 
+.deck.has-open-menu,
+.deck:focus-within,
+.deck:has([aria-expanded="true"]) {
+  z-index: 60;
+}
+
 @media(max-width:820px) {
-.deck {
+  .deck {
     grid-template-columns: 1fr;
   }
-
 }
 
 .deck-box {
+  position: relative;
   padding: 22px;
   overflow: visible;
 }
 
-.deck-box:focus-within {
-  z-index: 40;
+.deck-box.has-open-menu,
+.deck-box:focus-within,
+.deck-box:has([aria-expanded="true"]) {
+  z-index: 50;
   overflow: visible;
 }
 
@@ -829,12 +839,19 @@ section {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .sel {
   flex: 1;
   min-width: 180px;
   position: relative;
+}
+
+.sel.is-open,
+.sel:focus-within,
+.sel:has([aria-expanded="true"]) {
+  z-index: 40;
 }
 
 .sel label {
@@ -891,6 +908,12 @@ select option:disabled {
 .select-shell {
   position: relative;
   width: 100%;
+}
+
+.select-shell.is-open,
+.select-shell:focus-within,
+.select-shell:has([aria-expanded="true"]) {
+  z-index: 50;
 }
 
 .select-shell>.native-select-source {
@@ -1115,6 +1138,7 @@ from {
 
 .stage {
   position: relative;
+  z-index: 1;
   border-radius: var(--r);
   overflow: hidden;
   border: 1px solid var(--line);
@@ -3181,7 +3205,7 @@ footer {
   contain-intrinsic-size: 1px 900px;
 }
 
-/* Paint-skipping for long lists. Rendering hints only — these items carry no
+/* Paint-skipping for long lists. Rendering hints only - these items carry no
    entrance animations, so output is pixel-identical with less render work. */
 .rrow {
   content-visibility: auto;

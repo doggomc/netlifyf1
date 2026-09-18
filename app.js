@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   APEX — Formula 1 Live Companion
+   APEX - Formula 1 Live Companion
    Client Application Logic
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -51,13 +51,13 @@ const liteMotion = reduceMotion || matchMedia('(max-width: 760px)').matches || n
 
 const BLOCKED_COPY = IS_IOS
   ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
-  : "The stream host never responded on this network — the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
+  : "The stream host never responded on this network - the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
 
 const HIJACK_TITLE = "The feed tried to send you to another site";
-const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click — not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
+const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
 const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord' };
-const VIEW_TITLES = { news: 'News — APEX F1', info: 'Terms, Privacy & FAQ — APEX F1', discord: 'Discord — APEX F1' };
+const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
@@ -184,19 +184,19 @@ const radioRcTimeFmt = new Intl.DateTimeFormat('en-GB', {
 
 function formatNewsDate(timestamp) {
   const date = new Date(Number(timestamp));
-  return Number.isNaN(date.getTime()) ? '—' : newsDateFormat.format(date);
+  return Number.isNaN(date.getTime()) ? '-' : newsDateFormat.format(date);
 }
 
 function formatRaceDateTime(timestamp) {
   const date = new Date(Number(timestamp));
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return `${raceDateFormat.format(date)} · ${raceClockFormat.format(date)}`;
 }
 
 function fmtDob(dob) {
-  if (!dob) return '—';
+  if (!dob) return '-';
   const d = new Date(dob + 'T00:00:00Z');
-  if (isNaN(d)) return '—';
+  if (isNaN(d)) return '-';
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -535,15 +535,10 @@ function hoursSince(s) {
   return (Date.now() - s.ts) / 3600000;
 }
 
-function isSessionLive(s) {
+function isStreamAvailable(s) {
   if (!s) return false;
   const d = hoursSince(s);
   return d >= -1 && d <= 3;
-}
-
-function isStreamAvailable(s, source) {
-  if (source?.url) return true;
-  return isSessionLive(s);
 }
 
 function isSessionEnded(s) {
@@ -666,7 +661,7 @@ function updateHeader() {
 
   if (heroTitle) heroTitle.textContent = first;
   if (heroTitle2) heroTitle2.textContent = last;
-  if (activeView === 'home') document.title = currentEvent.name + " — APEX F1";
+  if (activeView === 'home') document.title = currentEvent.name + " - APEX F1";
   if (heroSession) heroSession.textContent = currentSession.name + " · " + SITE_SEASON;
 
   const done = currentEvent.sessions.every(isSessionEnded);
@@ -676,10 +671,10 @@ function updateHeader() {
   }
 
   normalizeCurrentSource();
-  const src = sources[currentSource] || { label: "—", suffix: "" };
+  const src = sources[currentSource] || { label: "-", suffix: "" };
   if (stageLabel) stageLabel.textContent = "apex://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix || "");
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
-  if (badgeEl) badgeEl.style.display = isSessionLive(currentSession) ? "inline-flex" : "none";
+  if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
 
 function renderButtons() {
@@ -872,7 +867,7 @@ function attemptSource(token, order, idx, startedAt) {
     showStreamBlocked();
     return;
   }
-  setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable — switching source…");
+  setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable - switching source…");
   const f = makeStreamIframe(buildUrl(order[idx]), sources[order[idx]].rp);
   let settled = false;
 
@@ -993,8 +988,7 @@ function load() {
     return;
   }
 
-  const selectedSource = sources[currentSource];
-  if (!isStreamAvailable(currentSession, selectedSource)) {
+  if (!isStreamAvailable(currentSession)) {
     showNoStream();
     trackEvent('nostream');
     return;
@@ -1054,9 +1048,9 @@ function applyStreamOverride(override) {
   if (toastKey !== lastOverrideToastKey) {
     lastOverrideToastKey = toastKey;
     if (streamOverride.active && streamOverride.url) {
-      showToast(`Stream override active — ${streamOverride.type || 'custom'} feed`, 'warning');
+      showToast(`Stream override active - ${streamOverride.type || 'custom'} feed`, 'warning');
     } else if (prevActive) {
-      showToast('Stream override deactivated — normal feed restored.', 'success');
+      showToast('Stream override deactivated - normal feed restored.', 'success');
     }
   }
   load();
@@ -1410,6 +1404,10 @@ function enhanceSelect(select) {
   const close = (focusTrigger) => {
     menu.hidden = true;
     trigger.setAttribute('aria-expanded', 'false');
+    shell.classList.remove('is-open');
+    shell.closest('.sel')?.classList.remove('is-open');
+    shell.closest('.deck-box')?.classList.remove('has-open-menu');
+    shell.closest('.deck')?.classList.remove('has-open-menu');
     if (focusTrigger) trigger.focus();
   };
 
@@ -1456,6 +1454,10 @@ function enhanceSelect(select) {
       menu.classList.add('above');
     }
     trigger.setAttribute('aria-expanded', 'true');
+    shell.classList.add('is-open');
+    shell.closest('.sel')?.classList.add('is-open');
+    shell.closest('.deck-box')?.classList.add('has-open-menu');
+    shell.closest('.deck')?.classList.add('has-open-menu');
     const selectedIndex = select.selectedIndex >= 0 ? select.selectedIndex : 0;
     const step = direction || 0;
     const target = step ? getAvailableIndex(selectedIndex + step, step) : getAvailableIndex(selectedIndex, 1);
@@ -1525,6 +1527,10 @@ function setupCustomSelects() {
         if (trigger && menu && !menu.hidden) {
           menu.hidden = true;
           trigger.setAttribute('aria-expanded', 'false');
+          shell.classList.remove('is-open');
+          shell.closest('.sel')?.classList.remove('is-open');
+          shell.closest('.deck-box')?.classList.remove('has-open-menu');
+          shell.closest('.deck')?.classList.remove('has-open-menu');
         }
       }
     });
@@ -1680,7 +1686,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     const url = route === 'home' ? '/' : '/' + route;
     if (location.pathname !== url) history.pushState({ view: route }, '', url);
   }
-  document.title = route === 'home' ? currentEvent.name + " — APEX F1" : VIEW_TITLES[route];
+  document.title = route === 'home' ? currentEvent.name + " - APEX F1" : VIEW_TITLES[route];
   setActiveNav(route);
   closeNav();
   if (!changed) {
@@ -2108,11 +2114,11 @@ function openDriverProfile(driverId) {
   const color = hexFor(team);
   const tEntry = teamEntryForConstructor(team);
   const photo = photoFor(d.driverId);
-  const code = d.code || ((d.givenName?.[0] || '') + (d.familyName?.slice(0, 2) || '')).toUpperCase() || '—';
+  const code = d.code || ((d.givenName?.[0] || '') + (d.familyName?.slice(0, 2) || '')).toUpperCase() || '-';
   const num = d.permanentNumber || '';
   const age = ageFrom(d.dateOfBirth);
   const mate = driverEntries.find((e) => e !== entry && (e.Constructors?.[0]?.name || '') === team)?.Driver;
-  const mateName = mate ? `${mate.givenName || ''} ${mate.familyName || ''}`.trim() : '—';
+  const mateName = mate ? `${mate.givenName || ''} ${mate.familyName || ''}`.trim() : '-';
 
   if (dSheet) {
     dSheet.style.setProperty('--dc', color);
@@ -2126,7 +2132,7 @@ function openDriverProfile(driverId) {
       <div class="dp-info">
         <div class="dp-eyebrow">Driver Profile · ${SITE_SEASON} Season</div>
         <div class="dp-name"><small>${escapeHtml(d.givenName || '')}</small>${escapeHtml(d.familyName || '')}</div>
-        <div class="dp-team">${tEntry.logo ? `<img src="${TEAM_LOGO(tEntry.logo, 96)}" alt="" width="30" height="30" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}<span>${escapeHtml(team || '—')}</span></div>
+        <div class="dp-team">${tEntry.logo ? `<img src="${TEAM_LOGO(tEntry.logo, 96)}" alt="" width="30" height="30" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}<span>${escapeHtml(team || '-')}</span></div>
         <div class="dp-pills">
           <span class="dp-pos">P${escapeHtml(entry.position)}</span>
           ${num ? `<span class="dp-pill">#${escapeHtml(num)}</span>` : ''}
@@ -2152,11 +2158,11 @@ function openDriverProfile(driverId) {
     </div>
     <div class="dp-sec">Biography</div>
     <div class="dp-bio">
-      <div class="dp-fact"><small>Nationality</small><b>${escapeHtml(d.nationality || '—')}</b></div>
+      <div class="dp-fact"><small>Nationality</small><b>${escapeHtml(d.nationality || '-')}</b></div>
       <div class="dp-fact"><small>Born</small><b>${escapeHtml(fmtDob(d.dateOfBirth))}${age !== null ? ` · Age ${age}` : ''}</b></div>
       <div class="dp-fact"><small>Driver Code</small><b>${escapeHtml(code)}</b></div>
-      <div class="dp-fact"><small>Race Number</small><b>${escapeHtml(num || '—')}</b></div>
-      <div class="dp-fact"><small>Team</small><b>${escapeHtml(team || '—')}</b></div>
+      <div class="dp-fact"><small>Race Number</small><b>${escapeHtml(num || '-')}</b></div>
+      <div class="dp-fact"><small>Team</small><b>${escapeHtml(team || '-')}</b></div>
       <div class="dp-fact"><small>Teammate</small><b>${escapeHtml(mateName)}</b></div>
     </div>
     <div class="dp-actions">
@@ -2298,8 +2304,8 @@ async function loadSessionResults() {
       element.style.setProperty('--race-team', rtColor);
       element.style.setProperty('--race-team-ink', inkOn(rtColor));
       const time = type === 'qualifying'
-        ? ([result.Q3, result.Q2, result.Q1].filter(Boolean)[0] || '—')
-        : (result.Time?.time || result.status || '—');
+        ? ([result.Q3, result.Q2, result.Q1].filter(Boolean)[0] || '-')
+        : (result.Time?.time || result.status || '-');
       element.innerHTML = `<div class="pos">${escapeHtml(result.position)}</div><div class="who"><b>${escapeHtml(`${result.Driver?.givenName || ''} ${result.Driver?.familyName || ''}`)}</b><small>${escapeHtml(result.Constructor?.name || '')}</small></div><div class="rtime">${escapeHtml(time)}</div>`;
       fragment.appendChild(element);
     });
@@ -2437,7 +2443,7 @@ function openf1(path, params, ttlMs) {
     try {
       r = await fetch(url, { cache: 'no-store' });
     } catch (_) {
-      const e = new Error('Cannot reach our data server — check your connection');
+      const e = new Error('Cannot reach our data server - check your connection');
       e.code = 'net';
       throw e;
     }
@@ -2448,7 +2454,7 @@ function openf1(path, params, ttlMs) {
         if (d && d.code) code = d.code;
       } catch (_) {}
       const e = new Error(code === 'live'
-        ? 'Live data is locked on OpenF1’s free tier until the session ends — try again after the flag'
+        ? 'Live data is locked on OpenF1’s free tier until the session ends - try again after the flag'
         : code === 'rate' ? 'OpenF1 is busy (shared rate limit)' : 'OpenF1 is unreachable right now');
       e.code = code === 'rate' ? 'rate' : code === 'live' ? 'live' : 'up';
       throw e;
@@ -2610,7 +2616,7 @@ async function radioRcSelectSession(sessionKey, { retry = false } = {}) {
       nextRefresh = 3 * 60e3;
     } else if (err.code === 'rate' && !retry) {
       radioRcSetStatus('OpenF1 is busy · retrying in 20 s', 'warn');
-      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">OpenF1 is busy right now — retrying automatically…</li>';
+      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">OpenF1 is busy right now - retrying automatically…</li>';
       if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty"></li>';
       radioRc.retryTimer = setTimeout(() => {
         if (radioRc.open && radioRc.sessionKey === sessionKey) radioRcSelectSession(sessionKey, { retry: true });

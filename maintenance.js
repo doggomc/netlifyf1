@@ -55,7 +55,7 @@ function releaseWebsite() {
   if (released) return;
   released = true;
   document.documentElement.classList.add('site-released');
-  if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Track clear — releasing website';
+  if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Track clear - releasing website';
   eventSource?.close();
   setTimeout(() => location.replace('/'), 850);
 }
