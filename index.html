@@ -20,14 +20,102 @@
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"APEX F1 Live","url":"https://freef1.netlify.app/","description":"An independent, ad-free Formula racing weekend companion."}</script>
 <style>
-.site-state-gate{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#07080a;color:#f5f6f7;font:700 11px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;transition:opacity .2s}
-.site-state-gate>div{display:flex;align-items:center;gap:11px}.site-state-gate i{width:9px;height:9px;border-radius:50%;background:#e10600;box-shadow:0 0 14px #e10600;animation:siteGatePulse 1s ease-in-out infinite}
-html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-events:none}html.site-checking body>:not(.site-state-gate){visibility:hidden}
-@keyframes siteGatePulse{50%{opacity:.25;transform:scale(.72)}}@media(prefers-reduced-motion:reduce){.site-state-gate i{animation:none}}
-</style>
+    .site-state-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: grid;
+      place-items: center;
+      background: #07080a;
+      color: #f5f6f7;
+      font: 700 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      transition: opacity .2s;
+    }
+    .site-state-gate > div {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+    .site-state-gate i {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #e10600;
+      box-shadow: 0 0 14px #e10600;
+      animation: siteGatePulse 1s ease-in-out infinite;
+    }
+    html:not(.site-checking) .site-state-gate {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    html.site-checking body > :not(.site-state-gate) {
+      visibility: hidden;
+    }
+    @keyframes siteGatePulse {
+      50% {
+        opacity: .25;
+        transform: scale(.72);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .site-state-gate i {
+        animation: none;
+      }
+    }
+  </style>
+<noscript>
+    <style>
+      /* Without JS the .site-checking class is never removed, which would leave the
+         whole page at visibility:hidden. Reveal it and drop the gate instead. */
+      html.site-checking body > :not(.site-state-gate) {
+        visibility: visible;
+      }
+      .site-state-gate {
+        display: none;
+      }
+    </style>
+  </noscript>
 <script>
-(()=>{const h=location.hostname,same=h==='localhost'||h==='127.0.0.1'||h==='f1free.onrender.com'||h.endsWith('.e2b.app'),api=same?location.origin:'https://f1free.onrender.com';let done=false;const release=()=>{if(done)return;done=true;document.documentElement.classList.remove('site-checking')};setTimeout(release,1400);window.__APEX_SITE_STATUS=fetch(api+'/api/site/status',{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}}).then(r=>r.ok?r.json():null).then(data=>{if(data?.maintenance?.active){location.replace('/maintenance.html');return data}release();return data}).catch(()=>{release();return null})})();
-</script>
+    (() => {
+      const hostname = location.hostname;
+      const sameOrigin = hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === 'f1free.onrender.com' ||
+        hostname.endsWith('.e2b.app');
+      const api = sameOrigin ? location.origin : 'https://f1free.onrender.com';
+      let done = false;
+
+      const release = () => {
+        if (done) return;
+        done = true;
+        document.documentElement.classList.remove('site-checking');
+      };
+
+      setTimeout(release, 1400);
+
+      window.__APEX_SITE_STATUS = fetch(api + '/api/site/status', {
+        cache: 'no-store',
+        credentials: 'omit',
+        headers: { Accept: 'application/json' }
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.maintenance?.active) {
+            location.replace('/maintenance.html');
+            return data;
+          }
+          release();
+          return data;
+        })
+        .catch(() => {
+          release();
+          return null;
+        });
+    })();
+  </script>
 <link rel="preload" as="image" href="/assets/hero-f1-1600.webp" type="image/webp" imagesrcset="/assets/hero-f1-800.webp 800w, /assets/hero-f1-1200.webp 1200w, /assets/hero-f1-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">
 <title>APEX — F1 Live</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -38,14 +126,13 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 <link rel="preconnect" href="https://api.openf1.org" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260911-wikisport1">
+<link rel="stylesheet" href="/app.css?v=20260912-livery2">
 </head>
 <body>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
 
 <div class="progress" id="progress"></div>
 <canvas id="speedCanvas"></canvas>
-<div class="glowfield"><div class="orb orb-a"></div><div class="orb orb-b"></div><div class="orb orb-c"></div></div>
 <div class="scanlines"></div><div class="vignette"></div><div class="grain"></div>
 
 <!-- ══ AUTH ══ -->
@@ -155,7 +242,14 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
           <div class="ns-actions" id="nsActions" hidden>
             <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
             <button class="btn sm" id="nsNewTabBtn" type="button">Open feed in new tab</button>
+            <button class="btn sm" id="nsStayBtn" type="button" hidden>Stay on this page</button>
           </div>
+        </div>
+        <div class="stream-start" id="streamStart" hidden>
+          <div class="stream-start-actions">
+            <button class="btn sm" id="streamStartBtn" type="button">Start stream</button>
+          </div>
+          <span class="stream-start-hint">Browsers block sound until you interact with the page. One tap starts the feed on every browser, including iPhone and iPad.</span>
         </div>
       </div>
     </div>
@@ -483,6 +577,6 @@ html:not(.site-checking) .site-state-gate{opacity:0;visibility:hidden;pointer-ev
 </footer>
 
 
-<script src="/app.js?v=20260911-wikisport1" defer></script>
+<script src="/app.js?v=20260912-livery2" defer></script>
 </body>
 </html>

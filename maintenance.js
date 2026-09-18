@@ -1,5 +1,12 @@
 'use strict';
 
+/* Content protection: no right-click menu, no text selection, no image
+   dragging on this page. CSS user-select:none covers modern engines;
+   selectstart/dragstart cover the rest. */
+for (const evt of ['contextmenu', 'selectstart', 'dragstart']) {
+  document.addEventListener(evt, (event) => event.preventDefault());
+}
+
 const productionApi = 'https://f1free.onrender.com';
 const backendHost = location.hostname === 'localhost' ||
   location.hostname === '127.0.0.1' ||
@@ -8,6 +15,7 @@ const backendHost = location.hostname === 'localhost' ||
 const API = backendHost ? location.origin : productionApi;
 
 const messageEl = document.getElementById('maintenanceMessage');
+const returnEtaEl = document.getElementById('returnEta');
 const garageTimeEl = document.getElementById('garageTime');
 const autoStatusEl = document.getElementById('autoStatus');
 let maintenanceStartedAt = Date.now();
@@ -22,10 +30,17 @@ function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
 }
 
 function safeStoreGet(key) {
-  try { return localStorage.getItem(key); } catch (_) { return null; }
+  try {
+    return localStorage.getItem(key);
+  } catch (_) {
+    return null;
+  }
 }
+
 function safeStoreSet(key, value) {
-  try { localStorage.setItem(key, value); } catch (_) {}
+  try {
+    localStorage.setItem(key, value);
+  } catch (_) {}
 }
 
 function formatDuration(milliseconds) {
@@ -33,7 +48,7 @@ function formatDuration(milliseconds) {
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
-  return [hours, minutes, seconds].map(value => String(value).padStart(2, '0')).join(':');
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 }
 
 function releaseWebsite() {
@@ -49,6 +64,7 @@ function applyMaintenanceState(state) {
   if (!state || typeof state.active !== 'boolean') return;
   if (!state.active) return releaseWebsite();
   if (state.message && messageEl) messageEl.textContent = state.message;
+  if (state.eta && returnEtaEl) returnEtaEl.textContent = state.eta;
   if (state.startedAt) maintenanceStartedAt = Number(state.startedAt) || maintenanceStartedAt;
   if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Connected to race control';
 }
@@ -78,8 +94,10 @@ function connectEvents() {
       sseConnected = true;
       if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Connected to race control';
     });
-    source.addEventListener('maintenance_update', event => {
-      try { applyMaintenanceState(JSON.parse(event.data)); } catch (_) {}
+    source.addEventListener('maintenance_update', (event) => {
+      try {
+        applyMaintenanceState(JSON.parse(event.data));
+      } catch (_) {}
     });
     source.addEventListener('error', () => {
       sseConnected = false;
@@ -101,6 +119,7 @@ function initVisitorHeartbeat() {
   let inFlight = false;
   let visitorToken = '';
   let visitorTokenExpiresAt = 0;
+
   const refreshVisitorToken = async () => {
     const response = await fetchWithTimeout(`${API}/api/visitors/token`, {
       cache: 'no-store',
@@ -112,6 +131,7 @@ function initVisitorHeartbeat() {
     visitorToken = data.token || '';
     visitorTokenExpiresAt = Number(data.expiresAt) || 0;
   };
+
   const heartbeat = async () => {
     clearTimeout(timer);
     if (released || document.hidden || inFlight) {
@@ -154,7 +174,9 @@ connectEvents();
 initVisitorHeartbeat();
 updateTelemetry();
 setInterval(updateTelemetry, 1000);
-setInterval(() => { if (!sseConnected) fetchMaintenanceStatus(); }, 30000);
+setInterval(() => {
+  if (!sseConnected) fetchMaintenanceStatus();
+}, 30000);
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
