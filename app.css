@@ -146,23 +146,62 @@ img {
   background: radial-gradient(120% 90% at 50% 40%,transparent 40%,rgba(0,0,0,.72) 100%);
 }
 
-/* ── Player above the atmosphere while a stream is on screen ──
+/* ── Cockpit above the atmosphere while a stream is on screen ──
    .vignette/.scanlines/.grain are fixed overlays at z 58–60. While a stream is loaded
-   (body.has-stream) the player is lifted to 61, so the video is shown untouched and the
-   rest of the page keeps its texture. Zero-lag: the browser handles it natively.
-   For this to work, neither the Watch section nor the view wrapper may form a stacking
-   context (a child can never out-stack its ancestor's context). */
-/* content-visibility:auto (set on .sec further down) also creates a stacking context, so the
-   Watch section opts out of it. It is the first section below the hero, so the paint-skipping
-   optimisation buys nothing there anyway. */
+   (body.has-stream) the cockpit box is lifted to 61, so the video is shown untouched and
+   the rest of the page keeps its texture. Zero-lag: the browser handles it natively.
+
+   A child can never out-stack its own ancestor's stacking context, so EVERY ancestor of
+   the player must be accounted for. The chain is:
+
+     body > .view.is-active > section#watch > .stage.rv > .player
+
+   1. .view.is-active  -> opacity:1 + transform:none  => no stacking context  ✓
+   2. section#watch    -> `section{z-index:2}` below would create one, so it is
+                          neutralised here with z-index:auto. content-visibility:auto
+                          (set on .sec further down) also creates one, hence the opt-out.
+                          It is the first section below the hero, so the paint-skipping
+                          optimisation buys nothing there anyway.                ✓
+   3. .stage           -> THIS was the missed one. `.stage{position:relative;z-index:1}`
+                          forms a stacking context, which trapped the player at z-index:1
+                          in the root context — permanently below the z 58–60 overlays.
+                          Lifting .player alone could never work. The lift therefore has
+                          to happen on .stage itself (see below).                ✓
+   4. .stage.rv        -> the scroll-reveal class animates opacity 0->1 and translateY.
+                          A non-1 opacity mid-transition also forms a stacking context, so
+                          the reveal is force-settled while a stream is on screen.   ✓ */
 #watch {
   z-index: auto;
   content-visibility: visible;
   contain: none;
 }
 
+/* Lift the whole cockpit box (stage-bar + player) clear of the atmosphere layers.
+   .stage keeps overflow:hidden + border-radius, so it stays a clean framed window and
+   the texture resumes immediately outside its edges. */
+body.has-stream .stage {
+  z-index: 61;
+  /* never let a half-finished .rv reveal trap the cockpit in a stacking context */
+  opacity: 1;
+  transform: none;
+  /* scope the transition so force-settling the reveal can't animate into a visible jump */
+  transition-property: border-color;
+}
+
+/* Kept as a within-.stage ordering guarantee: the iframe and the loader/nostream
+   overlays are all absolutely positioned siblings inside .player. */
 body.has-stream .player {
   z-index: 61;
+}
+
+/* While the cockpit is lifted, an open Session Selector / feed-source menu must
+   still float above it — those menus expand downward, straight over the player.
+   The deck's own open-state lift below (z 60) would land under the cockpit's 61,
+   so re-lift the deck one step higher whenever a menu is open during a stream. */
+body.has-stream .deck.has-open-menu,
+body.has-stream .deck:focus-within,
+body.has-stream .deck:has([aria-expanded="true"]) {
+  z-index: 62;
 }
 
 /* Top progress bar */

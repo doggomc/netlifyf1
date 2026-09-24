@@ -913,9 +913,10 @@ function load() {
   playerEl?.querySelector("iframe")?.remove();
   playerEl?.querySelector("video")?.remove();
 
+  const videoMime = streamOverride.type === 'webm' ? 'video/webm' : streamOverride.type === 'mp4' ? 'video/mp4' : '';
   if (streamOverride.active && streamOverride.url) {
-    const f = document.createElement(streamOverride.type === 'mp4' ? 'video' : 'iframe');
-    if (streamOverride.type === 'mp4') {
+    const f = document.createElement(videoMime ? 'video' : 'iframe');
+    if (videoMime) {
       f.controls = true;
       f.autoplay = true;
       f.playsInline = true;
@@ -926,7 +927,7 @@ function load() {
       f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0';
       const s = document.createElement('source');
       s.src = streamOverride.url;
-      s.type = 'video/mp4';
+      s.type = videoMime;
       f.appendChild(s);
       f.oncanplay = () => {
         if (token === playerLoadToken) {
