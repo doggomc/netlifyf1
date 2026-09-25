@@ -600,21 +600,11 @@ function getStreamEastSlug(event, session) {
 
 const sources=[
  {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
- {id:"sky-uk-3",label:"Sky UK 3",streamNum:3},
- {id:"f1tv",label:"F1TV",suffix:""},
- {id:"appletv",label:"AppleTV",streamNum:1,suffix:"/apple-tv-f1tv-en-us"},
  {id:"sky-uk",label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
- {id:"streame",label:"Streame",streamNum:2,suffix:""},
- // ── the rest, in their original relative order ──
- {id:"f1tv-alt",label:"F1TV Alt",streamNum:3,suffix:"/f1tv"},
- {id:"dazn",label:"DAZN",streamNum:1,suffix:"/dazn-es"},
- {id:"sky-sports-f1",label:"Sky Sports F1",streamNum:2,suffix:"/sky-sport-f1-de"},
- // wikisport.info serves its own player when framed (the page redirects
- // top-level visits, so it only renders inside an iframe). We embed their entry
- // page, not the inner /strm/NN.php player number: the wrapper self-updates
- // when the provider rotates player pages, and it carries their Stream 1/2/3
- // links as an in-player fallback. Touch users can scroll inside the frame if
- // the provider's layout is taller than the stage.
+ {id:"f1tv",label:"F1TV",suffix:""},
+ {id:"streameast-1",label:"StreamEast 1",streamNum:1},
+ {id:"streameast-2",label:"StreamEast 2",streamNum:2},
+ {id:"streameast-3",label:"StreamEast 3",streamNum:3},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
