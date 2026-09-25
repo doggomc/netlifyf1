@@ -927,16 +927,6 @@ function attemptSource(token, order, idx, startedAt) {
     attemptSource(token, order, idx + 1, startedAt);
   };
 
-  if (typeof fetch === 'function' && targetUrl && targetUrl.startsWith('http')) {
-    fetch(targetUrl, { mode: 'no-cors', cache: 'no-store' }).catch(() => {
-      if (token === playerLoadToken && !settled) {
-        trackEvent('stream_dns_error');
-        f.remove();
-        attemptSource(token, order, idx + 1, startedAt);
-      }
-    });
-  }
-
   watchFrameNavigation(f, token, () => settled);
 
   setTimeout(() => {
