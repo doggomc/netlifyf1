@@ -592,23 +592,19 @@ function getNextSession() {
 }
 
 /* ═══════════════ 6. STREAM SOURCES & PLAYER LOGIC ═══════════════ */
+function getStreamEastSlug(event, session) {
+  const ev = (event?.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const sess = (session?.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return `ppv-${ev}-${sess}`;
+}
+
 const sources=[
  {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
- {id:"sky-uk-3",label:"Sky UK 3",url:"https://epiembeds.online/embed/skysportsf1-uk"},
- {id:"f1tv",label:"F1TV",suffix:""},
- {id:"appletv",label:"AppleTV",suffix:"/apple-tv-f1tv-en-us"},
  {id:"sky-uk",label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
- {id:"streame",label:"Streame",url:"https://streame.center/embed/sh60.php"},
- // ── the rest, in their original relative order ──
- {id:"f1tv-alt",label:"F1TV Alt",suffix:"/f1tv"},
- {id:"dazn",label:"DAZN",suffix:"/dazn-es"},
- {id:"sky-sports-f1",label:"Sky Sports F1",suffix:"/sky-sport-f1-de"},
- // wikisport.info serves its own player when framed (the page redirects
- // top-level visits, so it only renders inside an iframe). We embed their entry
- // page, not the inner /strm/NN.php player number: the wrapper self-updates
- // when the provider rotates player pages, and it carries their Stream 1/2/3
- // links as an in-player fallback. Touch users can scroll inside the frame if
- // the provider's layout is taller than the stage.
+ {id:"f1tv",label:"F1TV",suffix:""},
+ {id:"sky-sports-f1",label:"Sky Sports F1",streamNum:1},
+ {id:"appletv",label:"AppleTV",streamNum:3},
+ {id:"dazn",label:"DAZN",streamNum:5},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
@@ -644,8 +640,15 @@ let currentSource = 0;
 let activeView = 'home';
 let playerLoadToken = 0;
 
-const buildUrl = (i) => sources[i]?.url ||
-  (sources[i] ? `https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${sources[i].suffix || ""}` : "");
+const buildUrl = (i) => {
+  const s = sources[i];
+  if (!s) return "";
+  if (s.streamNum) {
+    const slug = getStreamEastSlug(currentEvent, currentSession);
+    return `https://embed.st/embed/admin/${slug}/${s.streamNum}`;
+  }
+  return s.url || (s.suffix !== undefined ? `https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${s.suffix || ""}` : "");
+};
 
 function updateHeader() {
   const parts = currentEvent.name.split(" ");
@@ -672,7 +675,7 @@ function updateHeader() {
 
   normalizeCurrentSource();
   const src = sources[currentSource] || { label: "-", suffix: "" };
-  if (stageLabel) stageLabel.textContent = "apex://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix || "");
+  if (stageLabel) stageLabel.textContent = "apex://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
@@ -758,6 +761,8 @@ document.addEventListener("visibilitychange", () => { nsPaused = document.hidden
 nsActionsEl?.addEventListener("click", (e) => {
   if (e.target.id === "nsRetryBtn") {
     load();
+  } else if (e.target.id === "nsNextBtn") {
+    switchToNextSource();
   } else if (e.target.id === "nsNewTabBtn") {
     window.open(buildUrl(currentSource), "_blank", "noopener");
   } else if (e.target.id === "nsStayBtn") {
@@ -765,6 +770,18 @@ nsActionsEl?.addEventListener("click", (e) => {
     setStreamOnScreen(true);
   }
 });
+
+function switchToNextSource() {
+  const enabled = [];
+  sources.forEach((s, i) => { if (sourceEnabled(s)) enabled.push(i); });
+  if (enabled.length <= 1) return;
+  const currIdx = enabled.indexOf(currentSource);
+  const nextIdx = (currIdx + 1) % enabled.length;
+  currentSource = enabled[nextIdx];
+  renderButtons();
+  updateHeader();
+  load();
+}
 
 $("streamStartBtn")?.addEventListener("click", () => {
   updateStreamStartAffordance(false);
@@ -867,12 +884,18 @@ function attemptSource(token, order, idx, startedAt) {
     showStreamBlocked();
     return;
   }
+  const targetUrl = buildUrl(order[idx]);
   setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable - switching source…");
-  const f = makeStreamIframe(buildUrl(order[idx]), sources[order[idx]].rp);
+  const f = makeStreamIframe(targetUrl, sources[order[idx]].rp);
   let settled = false;
 
   const reveal = () => {
     settled = true;
+    if (currentSource !== order[idx]) {
+      currentSource = order[idx];
+      renderButtons();
+      updateHeader();
+    }
     updateStreamStartAffordance(true);
     trackEvent('stream_ready', Math.round(performance.now() - startedAt));
     f.classList.add('loaded');
@@ -885,6 +908,13 @@ function attemptSource(token, order, idx, startedAt) {
     if (token !== playerLoadToken || settled) return;
     if (!iframeCommitted(f)) return;
     reveal();
+  };
+
+  f.onerror = () => {
+    if (token !== playerLoadToken || settled) return;
+    trackEvent('stream_error');
+    f.remove();
+    attemptSource(token, order, idx + 1, startedAt);
   };
 
   watchFrameNavigation(f, token, () => settled);
@@ -1070,12 +1100,12 @@ function applySourceConfig(payload) {
   const next = new Set(disabled.map(String));
   if (next.size === disabledSources.size && [...next].every((id) => disabledSources.has(id))) return;
   const previous = sources[currentSource];
-  const wasUsable = Boolean(previous) && sourceEnabled(previous);
   disabledSources = next;
-  if (!wasUsable) normalizeCurrentSource();
+  const isStillUsable = Boolean(previous) && sourceEnabled(previous);
+  if (!isStillUsable) normalizeCurrentSource();
   renderButtons();
   updateHeader();
-  if (!wasUsable) load();
+  if (!isStillUsable) load();
 }
 
 function initStreamOverrideSSE() {
