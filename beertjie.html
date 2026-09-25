@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A0A0B">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Secret Paddock Access: Meet Beertjie, Chief Morale Officer of APEX F1.">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <title>Beertjie - Chief Morale Officer · APEX F1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+  
+  <style>
+    :root {
+      --ink: #0A0A0B;
+      --ink-2: #0F1012;
+      --surface: rgba(255, 255, 255, 0.035);
+      --surface-2: rgba(255, 255, 255, 0.06);
+      --line: rgba(255, 255, 255, 0.09);
+      --line-2: rgba(255, 255, 255, 0.16);
+      --text: #F5F6F7;
+      --muted: #8A8F98;
+      --dim: #5C626B;
+      --red: #E10600;
+      --red-deep: #8B0400;
+      --red-glow: rgba(225, 6, 0, 0.45);
+      --team: #E10600;
+      --team-2: #B30500;
+      --team-ink: #FFFFFF;
+      --r: 18px;
+      --r-sm: 10px;
+      --r-xs: 6px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --maxw: 1240px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      min-height: 100%;
+    }
+
+    body {
+      background: var(--ink);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      line-height: 1.55;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+      background: var(--team);
+      color: #fff;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* ── Typography ── */
+    .display {
+      font-family: 'Archivo', sans-serif;
+      font-weight: 900;
+      letter-spacing: -0.045em;
+      line-height: 0.95;
+      text-transform: uppercase;
+      font-style: italic;
+    }
+
+    .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--team);
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Atmosphere ── */
+    .track {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.45;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 118px, rgba(255, 255, 255, 0.025) 118px 119px),
+        repeating-linear-gradient(0deg, transparent 0 118px, rgba(255, 255, 255, 0.025) 118px 119px);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 75%);
+      mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 75%);
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.04;
+      background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(255, 255, 255, 0.35) 2px 3px);
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.75) 100%);
+    }
+
+    /* ── Navigation Bar ── */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px clamp(16px, 4vw, 44px);
+      background: rgba(10, 10, 11, 0.75);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, var(--team), var(--team-2));
+      display: grid;
+      place-items: center;
+      box-shadow: 0 6px 22px -6px var(--red-glow);
+    }
+
+    .brand-mark svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+
+    .brand-text b {
+      font-family: 'Archivo', sans-serif;
+      font-style: italic;
+      font-weight: 900;
+      font-size: 1.15rem;
+      letter-spacing: -0.04em;
+    }
+
+    .brand-text span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 99px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .pill.secret {
+      color: #fff;
+      border-color: color-mix(in srgb, var(--team) 45%, transparent);
+      background: color-mix(in srgb, var(--team) 14%, transparent);
+    }
+
+    .pill .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--team);
+      box-shadow: 0 0 10px var(--team);
+      animation: pulseDot 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulseDot {
+      50% {
+        opacity: 0.3;
+        transform: scale(0.7);
+      }
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-family: 'Archivo', sans-serif;
+      font-weight: 800;
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 13px 24px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid var(--line-2);
+      background: var(--surface);
+      color: var(--text);
+      overflow: hidden;
+      transition: transform 0.22s var(--ease), border-color 0.22s var(--ease), color 0.22s var(--ease), background 0.22s var(--ease);
+      white-space: nowrap;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--team);
+      transform: translateX(-101%) skewX(-14deg) scale(1.3);
+      transition: transform 0.45s var(--ease);
+      z-index: -1;
+    }
+
+    .btn:hover {
+      border-color: var(--team);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    .btn:hover::before {
+      transform: translateX(0) skewX(-14deg) scale(1.3);
+    }
+
+    .btn:active {
+      transform: translateY(0) scale(0.985);
+    }
+
+    .btn.primary {
+      background: var(--team);
+      border-color: var(--team);
+      color: var(--team-ink);
+      box-shadow: 0 10px 28px -10px var(--red-glow);
+    }
+
+    .btn.primary::before {
+      background: #fff;
+    }
+
+    .btn.primary:hover {
+      color: var(--ink);
+    }
+
+    .btn.sm {
+      padding: 8px 16px;
+      font-size: 0.74rem;
+    }
+
+    /* ── Main Content Container ── */
+    .container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 120px clamp(16px, 4vw, 44px) 80px;
+      flex: 1;
+    }
+
+    /* ── Hero Banner ── */
+    .hero-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    h1.display {
+      font-size: clamp(2.8rem, 8vw, 6.2rem);
+    }
+
+    h1.display em {
+      font-style: italic;
+      color: transparent;
+      -webkit-text-stroke: 2px var(--team);
+    }
+
+    .hero-desc {
+      max-width: 680px;
+      color: #C6CAD1;
+      font-size: clamp(0.96rem, 1.8vw, 1.15rem);
+      line-height: 1.6;
+    }
+
+    /* ── Telemetry Stats Grid ── */
+    .telemetry-deck {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 48px;
+    }
+
+    .stat-tile {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-sm);
+      padding: 18px 20px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: border-color 0.25s var(--ease), transform 0.25s var(--ease);
+    }
+
+    .stat-tile:hover {
+      border-color: var(--line-2);
+      transform: translateY(-2px);
+    }
+
+    .stat-tile small {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .stat-tile b {
+      display: block;
+      font-family: 'Archivo', sans-serif;
+      font-size: 1.45rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .stat-tile b.accent {
+      color: var(--team);
+    }
+
+    /* ── Photo Gallery Grid ── */
+    .gallery-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .gallery-head h2 {
+      font-family: 'Archivo', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 900;
+      font-style: italic;
+      text-transform: uppercase;
+      letter-spacing: -0.02em;
+    }
+
+    .gallery-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── Individual Photo Box ── */
+    .photo-card {
+      position: relative;
+      background: rgba(18, 19, 23, 0.75);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.3s var(--ease), transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+      outline: none;
+    }
+
+    .photo-card:hover,
+    .photo-card:focus-visible {
+      border-color: var(--team);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.9), 0 0 30px -10px var(--red-glow);
+    }
+
+    .photo-card:focus-visible {
+      outline: 2px solid var(--team);
+      outline-offset: 3px;
+    }
+
+    .photo-thumb-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .photo-thumb-wrap picture,
+    .photo-thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      transition: transform 0.45s var(--ease), filter 0.45s var(--ease);
+    }
+
+    .photo-card:hover .photo-thumb-wrap img {
+      transform: scale(1.06);
+    }
+
+    .photo-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: rgba(10, 10, 11, 0.85);
+      border: 1px solid var(--line-2);
+      color: #fff;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 2;
+    }
+
+    .photo-zoom-hint {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(10, 10, 11, 0.85);
+      border: 1px solid var(--line-2);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.25s var(--ease), transform 0.25s var(--ease), background 0.25s var(--ease);
+      z-index: 2;
+    }
+
+    .photo-card:hover .photo-zoom-hint {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .photo-info {
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(15, 16, 18, 0.7);
+      border-top: 1px solid var(--line);
+      flex: 1;
+    }
+
+    .photo-title {
+      font-family: 'Archivo', sans-serif;
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+      color: #fff;
+    }
+
+    .photo-desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    /* ── Fullscreen Lightbox Modal ── */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(4, 5, 7, 0.95);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.28s var(--ease), visibility 0.28s;
+      padding: clamp(16px, 4vw, 40px);
+    }
+
+    .lightbox.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .lightbox-toolbar {
+      position: absolute;
+      top: clamp(16px, 3vw, 28px);
+      left: clamp(16px, 4vw, 44px);
+      right: clamp(16px, 4vw, 44px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 10;
+    }
+
+    .lightbox-caption-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      max-width: 70%;
+    }
+
+    .lightbox-title {
+      font-family: 'Archivo', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.05rem, 2vw, 1.3rem);
+      color: #fff;
+    }
+
+    .lightbox-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      line-height: 1.4;
+    }
+
+    .lightbox-close {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid var(--line-2);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: background 0.2s var(--ease), transform 0.2s var(--ease);
+      flex-shrink: 0;
+    }
+
+    .lightbox-close:hover {
+      background: var(--team);
+      transform: scale(1.08);
+    }
+
+    .lightbox-stage {
+      position: relative;
+      max-width: 90vw;
+      max-height: 78vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lightbox-img {
+      max-width: 100%;
+      max-height: 78vh;
+      object-fit: contain;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--line);
+      box-shadow: 0 30px 90px -20px rgba(0, 0, 0, 0.95);
+      animation: zoomIn 0.3s var(--ease);
+    }
+
+    @keyframes zoomIn {
+      from {
+        opacity: 0;
+        transform: scale(0.94);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 1px solid var(--line-2);
+      background: rgba(10, 10, 11, 0.85);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 1.4rem;
+      transition: background 0.2s var(--ease), transform 0.2s var(--ease), border-color 0.2s var(--ease);
+      z-index: 10;
+    }
+
+    .lightbox-nav:hover {
+      background: var(--team);
+      border-color: var(--team);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .lightbox-nav.prev {
+      left: clamp(12px, 3vw, 40px);
+    }
+
+    .lightbox-nav.next {
+      right: clamp(12px, 3vw, 40px);
+    }
+
+    /* ── Footer ── */
+    footer {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid var(--line);
+      background: rgba(10, 10, 11, 0.7);
+      margin-top: auto;
+    }
+
+    .foot-bar {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 20px clamp(16px, 4vw, 44px);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 640px) {
+      .lightbox-nav {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+      }
+      .lightbox-nav.prev { left: 8px; }
+      .lightbox-nav.next { right: 8px; }
+      .lightbox-toolbar { top: 12px; left: 14px; right: 14px; }
+    }
+  </style>
+
+  <script>
+    /* Match user's active team livery color dynamically */
+    (() => {
+      try {
+        const palette = {
+          default: '#E10600',
+          mclaren: '#FF8000',
+          ferrari: '#DC0000',
+          redbull: '#1E41FF',
+          mercedes: '#00D2BE',
+          williams: '#005AFF',
+          astonmartin: '#006F62',
+          alpine: '#FF0080',
+          haas: '#E6E6E6',
+          audi: '#E62213',
+          cadillac: '#B4A07A',
+          racingbulls: '#6692FF'
+        };
+        const id = localStorage.getItem('freef1_team');
+        const c = palette[id];
+        if (c) {
+          const rs = document.documentElement.style;
+          rs.setProperty('--team', c);
+          rs.setProperty('--red-glow', c + '70');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="track" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <a class="brand" href="/" aria-label="APEX home">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/>
+          <path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/>
+        </svg>
+      </span>
+      <span class="brand-text"><b>APEX</b><span>F1 LIVE</span></span>
+    </a>
+    <div class="nav-right">
+      <div class="pill secret"><span class="dot"></span>Paddock Easter Egg</div>
+      <a class="btn primary sm" href="/">Return to Cockpit</a>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container">
+    <div class="hero-banner">
+      <span class="eyebrow">Classified · Garage Mascot Telemetry</span>
+      <div class="title-row">
+        <h1 class="display">Meet <em>Beertjie</em></h1>
+        <a class="btn" href="/">← Return to Cockpit</a>
+      </div>
+      <p class="hero-desc">
+        Chief Morale Officer and fastest paddock companion in Formula 1. When the red flags wave and the pit lane clears, Beertjie is on track keeping spirits at peak performance.
+      </p>
+    </div>
+
+    <!-- Telemetry Cards -->
+    <div class="telemetry-deck">
+      <div class="stat-tile">
+        <small>Official Team Role</small>
+        <b class="accent">Chief Morale Officer</b>
+      </div>
+      <div class="stat-tile">
+        <small>Top Paddock Speed</small>
+        <b>342 km/h (Zoomies)</b>
+      </div>
+      <div class="stat-tile">
+        <small>Scheduled Pit Stops</small>
+        <b>Every 5 Laps (Belly Rubs)</b>
+      </div>
+      <div class="stat-tile">
+        <small>Race Weekend Status</small>
+        <b>100% Good Boy</b>
+      </div>
+    </div>
+
+    <!-- Gallery Section -->
+    <section aria-labelledby="galleryTitle">
+      <div class="gallery-head">
+        <div>
+          <h2 id="galleryTitle">Beertjie Photo Gallery</h2>
+          <span class="eyebrow" style="margin-top:4px;display:block">Click any box to maximize</span>
+        </div>
+        <div class="gallery-counter mono">10 Photos Recorded</div>
+      </div>
+
+      <!-- Photo Boxes Grid -->
+      <div class="photo-grid" id="photoGrid">
+        <!-- Photo 1 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 1: Grass Stint & Apex Smile" data-idx="0" data-src="/assets/beertjie/beertjie-01.webp" data-title="Grass Stint & Apex Smile" data-desc="Fresh tires, green grass, and maximum paddock joy on a sunny race weekend.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Pit Wall</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-01-thumb.webp">
+              <img src="/assets/beertjie/beertjie-01.jpg" alt="Beertjie smiling in the green grass with a blade of grass in his mouth" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Grass Stint & Apex Smile</h3>
+            <p class="photo-desc">Fresh tires, green grass, and maximum paddock joy on a sunny race weekend.</p>
+          </div>
+        </article>
+
+        <!-- Photo 2 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 2: Race Control Strategy Meeting" data-idx="1" data-src="/assets/beertjie/beertjie-02.webp" data-title="Race Control Strategy Meeting" data-desc="The whole paddock squad lined up on the lawn analyzing turn 1 braking points.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Briefing</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-02-thumb.webp">
+              <img src="/assets/beertjie/beertjie-02.jpg" alt="Beertjie and fellow dog crew sitting together on the grass looking forward like race stewards" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Race Control Strategy Meeting</h3>
+            <p class="photo-desc">The whole paddock squad lined up on the lawn analyzing turn 1 braking points.</p>
+          </div>
+        </article>
+
+        <!-- Photo 3 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 3: Fastest Lap Celebration" data-idx="2" data-src="/assets/beertjie/beertjie-03.webp" data-title="Fastest Lap Celebration" data-desc="Yellow trophy ball secured in paws, enjoying maximum belly rubs in parc fermé.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">P1 Trophy</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-03-thumb.webp">
+              <img src="/assets/beertjie/beertjie-03.jpg" alt="Beertjie lying on his back in the grass with paws up holding a yellow smiley ball" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Fastest Lap Celebration</h3>
+            <p class="photo-desc">Yellow trophy ball secured in paws, enjoying maximum belly rubs in parc fermé.</p>
+          </div>
+        </article>
+
+        <!-- Photo 4 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 4: Spotting the Start Lights" data-idx="3" data-src="/assets/beertjie/beertjie-04.webp" data-title="Spotting the Start Lights" data-desc="Eyes locked on the five red lights ahead, waiting for lights out.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Start Grid</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-04-thumb.webp">
+              <img src="/assets/beertjie/beertjie-04.jpg" alt="Close-up of Beertjie looking up towards the sunlight with an attentive curious expression" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Spotting the Start Lights</h3>
+            <p class="photo-desc">Eyes locked on the five red lights ahead, waiting for lights out.</p>
+          </div>
+        </article>
+
+        <!-- Photo 5 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 5: Tire Blanket Warmers" data-idx="4" data-src="/assets/beertjie/beertjie-05.webp" data-title="Tire Blanket Warmers" data-desc="Pre-race warmup in the cozy hospitality suite with the softest pit gear.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Warmup</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-05-thumb.webp">
+              <img src="/assets/beertjie/beertjie-05.jpg" alt="Beertjie snuggled under blankets peeking out with tiny teeth and a cozy smile" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Tire Blanket Warmers</h3>
+            <p class="photo-desc">Pre-race warmup in the cozy hospitality suite with the softest pit gear.</p>
+          </div>
+        </article>
+
+        <!-- Photo 6 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 6: Pit Wall Command Center" data-idx="5" data-src="/assets/beertjie/beertjie-06.webp" data-title="Pit Wall Command Center" data-desc="Holding pole position on the team luxury couch while monitoring live timing.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Telemetry</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-06-thumb.webp">
+              <img src="/assets/beertjie/beertjie-06.jpg" alt="Beertjie resting comfortably on a large teal beanbag bed against a clean gray wall" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Pit Wall Command Center</h3>
+            <p class="photo-desc">Holding pole position on the team luxury couch while monitoring live timing.</p>
+          </div>
+        </article>
+
+        <!-- Photo 7 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 7: Post-Qualifying Debrief" data-idx="6" data-src="/assets/beertjie/beertjie-07.webp" data-title="Post-Qualifying Debrief" data-desc="Styling in pink checkered blankets after taking provisional pole position.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Qualifying</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-07-thumb.webp">
+              <img src="/assets/beertjie/beertjie-07.jpg" alt="Fluffy Beertjie sitting on a bright pink checkered blanket smiling proudly" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Post-Qualifying Debrief</h3>
+            <p class="photo-desc">Styling in pink checkered blankets after taking provisional pole position.</p>
+          </div>
+        </article>
+
+        <!-- Photo 8 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 8: Inverted Downforce Test" data-idx="7" data-src="/assets/beertjie/beertjie-08.webp" data-title="Inverted Downforce Test" data-desc="Testing aerodynamic ground effects and comfort from the driver pillow.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Aero Test</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-08-thumb.webp">
+              <img src="/assets/beertjie/beertjie-08.jpg" alt="Beertjie looking upside down at the camera cozy on a blue blanket with big dark eyes" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Inverted Downforce Test</h3>
+            <p class="photo-desc">Testing aerodynamic ground effects and comfort from the driver pillow.</p>
+          </div>
+        </article>
+
+        <!-- Photo 9 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 9: Teammate Slipstream" data-idx="8" data-src="/assets/beertjie/beertjie-09.webp" data-title="Teammate Slipstream" data-desc="Tucking in behind the sister car for optimum drafting and nap aerodynamics.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Formation</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-09-thumb.webp">
+              <img src="/assets/beertjie/beertjie-09.jpg" alt="Beertjie leaning his chin and body affectionately against his sleeping black dog companion" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Teammate Slipstream</h3>
+            <p class="photo-desc">Tucking in behind the sister car for optimum drafting and nap aerodynamics.</p>
+          </div>
+        </article>
+
+        <!-- Photo 10 -->
+        <article class="photo-card" tabindex="0" role="button" aria-label="Maximize photo 10: Undercover in the Garage" data-idx="9" data-src="/assets/beertjie/beertjie-10.webp" data-title="Undercover in the Garage" data-desc="Stealth mode in the dark blue fleece blanket awaiting the checkered flag.">
+          <div class="photo-thumb-wrap">
+            <span class="photo-badge">Stealth</span>
+            <picture>
+              <source type="image/webp" srcset="/assets/beertjie/beertjie-10-thumb.webp">
+              <img src="/assets/beertjie/beertjie-10.jpg" alt="Beertjie tucked deep into plush blue blankets with just his cute nose and sweet eyes visible" width="600" height="450" loading="lazy" decoding="async">
+            </picture>
+            <div class="photo-zoom-hint" aria-hidden="true">⤢</div>
+          </div>
+          <div class="photo-info">
+            <h3 class="photo-title">Undercover in the Garage</h3>
+            <p class="photo-desc">Stealth mode in the dark blue fleece blanket awaiting the checkered flag.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- Maximize Lightbox Modal -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <div class="lightbox-toolbar">
+      <div class="lightbox-caption-bar">
+        <span class="lightbox-title" id="lightboxTitle">Beertjie</span>
+        <span class="lightbox-sub" id="lightboxSub">Photo 1 of 10</span>
+      </div>
+      <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close photo view">✕</button>
+    </div>
+
+    <button class="lightbox-nav prev" id="lightboxPrev" type="button" aria-label="Previous photo">‹</button>
+    
+    <div class="lightbox-stage" id="lightboxStage">
+      <img class="lightbox-img" id="lightboxImg" src="" alt="Maximized photo of Beertjie">
+    </div>
+
+    <button class="lightbox-nav next" id="lightboxNext" type="button" aria-label="Next photo">›</button>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="foot-bar mono">
+      <span>© 2026 Apex - Secret Mascot Dossier · Created for <span style="color:#fff">Beertjie</span></span>
+      <span><a href="/" style="color:var(--team);font-weight:700">← Back to APEX Cockpit</a></span>
+    </div>
+  </footer>
+
+  <!-- Lightbox & Gallery Interactions -->
+  <script>
+    (() => {
+      const lightbox = document.getElementById('lightbox');
+      const lightboxImg = document.getElementById('lightboxImg');
+      const lightboxTitle = document.getElementById('lightboxTitle');
+      const lightboxSub = document.getElementById('lightboxSub');
+      const lightboxClose = document.getElementById('lightboxClose');
+      const lightboxPrev = document.getElementById('lightboxPrev');
+      const lightboxNext = document.getElementById('lightboxNext');
+      const cards = Array.from(document.querySelectorAll('.photo-card'));
+      let currentIndex = 0;
+
+      function openLightbox(index) {
+        currentIndex = (index + cards.length) % cards.length;
+        const card = cards[currentIndex];
+        const src = card.dataset.src;
+        const title = card.dataset.title || ('Beertjie Photo ' + (currentIndex + 1));
+        const desc = card.dataset.desc || '';
+
+        lightboxImg.src = src;
+        lightboxTitle.textContent = title;
+        lightboxSub.textContent = desc ? (desc + ' · (Photo ' + (currentIndex + 1) + ' of ' + cards.length + ')') : ('Photo ' + (currentIndex + 1) + ' of ' + cards.length);
+        lightbox.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeLightbox() {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+
+      cards.forEach((card, idx) => {
+        card.addEventListener('click', () => openLightbox(idx));
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openLightbox(idx);
+          }
+        });
+      });
+
+      lightboxClose?.addEventListener('click', closeLightbox);
+
+      lightboxPrev?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openLightbox(currentIndex - 1);
+      });
+
+      lightboxNext?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openLightbox(currentIndex + 1);
+      });
+
+      lightbox?.addEventListener('click', (e) => {
+        if (e.target === lightbox || e.target.id === 'lightboxStage') {
+          closeLightbox();
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('open')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') openLightbox(currentIndex - 1);
+        if (e.key === 'ArrowRight') openLightbox(currentIndex + 1);
+      });
+
+      // Touch swipe support for mobile devices
+      let touchStartX = 0;
+      let touchEndX = 0;
+      lightbox.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+      }, { passive: true });
+      lightbox.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchEndX - touchStartX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) openLightbox(currentIndex - 1);
+          else openLightbox(currentIndex + 1);
+        }
+      }, { passive: true });
+    })();
+  </script>
+</body>
+</html>
