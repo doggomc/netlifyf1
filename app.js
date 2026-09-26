@@ -56,8 +56,8 @@ const BLOCKED_COPY = IS_IOS
 const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
-const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord' };
-const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1' };
+const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord', track: 'viewTrack' };
+const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1', track: 'Live Track Map - APEX F1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
@@ -602,9 +602,9 @@ const sources=[
  {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
  {id:"sky-uk",label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
  {id:"f1tv",label:"F1TV",suffix:""},
- {id:"streameast-1",label:"StreamEast 1",streamNum:1},
- {id:"streameast-2",label:"StreamEast 2",streamNum:2},
- {id:"streameast-3",label:"StreamEast 3",streamNum:3},
+ {id:"sky-sports-f1",label:"Sky Sports F1",streamNum:1},
+ {id:"appletv",label:"AppleTV",streamNum:3},
+ {id:"dazn",label:"DAZN",streamNum:5},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
@@ -675,7 +675,7 @@ function updateHeader() {
 
   normalizeCurrentSource();
   const src = sources[currentSource] || { label: "-", suffix: "" };
-  if (stageLabel) stageLabel.textContent = "apex://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix || "");
+  if (stageLabel) stageLabel.textContent = "apex://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
@@ -1140,6 +1140,11 @@ function initStreamOverrideSSE() {
         applySourceConfig(JSON.parse(event.data));
       } catch (_) {}
     });
+    es.addEventListener('experimental_update', (event) => {
+      try {
+        applyExperimentalUpdate(JSON.parse(event.data));
+      } catch (_) {}
+    });
     es.addEventListener('error', () => {
       streamSseConnected = false;
       es.close();
@@ -1201,11 +1206,13 @@ function initStreamPolling() {
   pollSiteStatus(true);
   pollNews(true);
   pollSourceConfig(true);
+  pollExperimentalStatus(true);
   streamPollTimer = setInterval(() => {
     pollStreamStatus();
     pollSiteStatus();
     pollNews();
     pollSourceConfig();
+    pollExperimentalStatus();
   }, 30000);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -1217,6 +1224,7 @@ function initStreamPolling() {
       pollSiteStatus(true);
       pollNews(true);
       pollSourceConfig(true);
+      pollExperimentalStatus(true);
       initStreamOverrideSSE();
     }
   }, { passive: true });
@@ -1744,6 +1752,8 @@ function showView(route, { push = true, scroll = true } = {}) {
     document.body.classList.remove('view-swapping');
     onScroll();
     if (route === 'news') pollNews(true);
+    if (route === 'track') initTrackMap();
+    else if (typeof pauseTrackMap === 'function') pauseTrackMap();
   }, VIEW_SWAP_MS);
 }
 
@@ -1793,6 +1803,7 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
   if (next) revealNow(next);
   setActiveNav(route);
   document.title = VIEW_TITLES[route];
+  if (route === 'track') initTrackMap();
 })();
 
 /* ═══════════════ 13. ACCORDIONS & INFO TABS ═══════════════ */
@@ -2612,7 +2623,7 @@ async function radioRcSelectSession(sessionKey, { retry = false } = {}) {
   if (rcCount) rcCount.textContent = '';
 
   const live = radioRcIsLiveWindow(session);
-  const ttl = live ? 45e3 : 6 * 3600e3;
+  const ttl = live ? 8e3 : 6 * 3600e3;
   const label = `${session.country_name} · ${session.session_name}`;
   radioRcSetStatus(live ? `${label} · in progress` : label, live ? 'live' : '');
   let nextRefresh = 0;
@@ -2631,32 +2642,32 @@ async function radioRcSelectSession(sessionKey, { retry = false } = {}) {
     radioRcRenderRc();
 
     if (live && !radio.length && !rc.length) {
-      radioRcSetStatus('In progress · free data unlocks ~30 min after the session', 'warn');
-      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">Radio for this session appears about 30 minutes after it ends.<br>Pick an earlier session above to browse in the meantime.</li>';
-      if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty">Race control messages unlock at the same time.</li>';
-      nextRefresh = 3 * 60e3;
+      radioRcSetStatus('Session live · polling telemetry feeds (every 10s)', 'live');
+      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">Session in progress. Team radio clips will appear here as soon as they are broadcast.</li>';
+      if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty">Monitoring race control flags and steward messages…</li>';
+      nextRefresh = 10e3;
     } else if (live) {
-      nextRefresh = 45e3;
+      nextRefresh = 8e3;
     }
   } catch (err) {
     if (token !== radioRc.loadToken) return;
     if (err.code === 'live') {
-      radioRcSetStatus('In progress · free data unlocks ~30 min after the session', 'warn');
-      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">Radio for this session appears about 30 minutes after it ends.<br>Pick an earlier session above to browse in the meantime.</li>';
-      if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty">Race control messages unlock at the same time.</li>';
-      nextRefresh = 3 * 60e3;
+      radioRcSetStatus('Session in progress · polling telemetry feeds (every 10s)', 'live');
+      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">Session in progress. Team radio clips will appear as soon as broadcast audio publishes.</li>';
+      if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty">Monitoring race control messages…</li>';
+      nextRefresh = 10e3;
     } else if (err.code === 'rate' && !retry) {
-      radioRcSetStatus('OpenF1 is busy · retrying in 20 s', 'warn');
-      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">OpenF1 is busy right now - retrying automatically…</li>';
+      radioRcSetStatus('Data feed busy · retrying in 5 s', 'warn');
+      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">Feed is busy right now - retrying automatically…</li>';
       if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty"></li>';
       radioRc.retryTimer = setTimeout(() => {
         if (radioRc.open && radioRc.sessionKey === sessionKey) radioRcSelectSession(sessionKey, { retry: true });
-      }, 20e3);
+      }, 5e3);
     } else {
       const msg = escapeHtml(err.message || 'OpenF1 unavailable');
       if (radioRcRadioList) radioRcRadioList.innerHTML = `<li class="radio-rc-empty err">${msg}</li>`;
       if (radioRcRcList) radioRcRcList.innerHTML = `<li class="radio-rc-empty err">${msg}</li>`;
-      radioRcSetStatus(err.code === 'live' ? 'OpenF1 free tier locked while a session is live' : err.code === 'rate' ? 'OpenF1 is busy · retrying' : 'OpenF1 unavailable', 'warn');
+      radioRcSetStatus(err.code === 'live' ? 'Live session in progress · polling' : err.code === 'rate' ? 'Data feed busy · retrying' : 'Data feed unavailable', 'warn');
     }
   }
 
@@ -3224,3 +3235,690 @@ document.addEventListener('visibilitychange', () => {
     updateCurrentStreamButton();
   }
 }, { passive: true });
+
+/* ═══════════════ 24. EXPERIMENTAL FEATURES & LIVE 2D TRACK MAP ═══════════════ */
+
+// ── Experimental State Handling ──
+function applyExperimentalUpdate(payload) {
+  const enabled = payload?.enabled !== false;
+  const footExp = $('footExperimental');
+  if (footExp) {
+    footExp.hidden = !enabled;
+    footExp.style.display = enabled ? '' : 'none';
+  }
+  const footGrid = document.querySelector('.foot-grid');
+  if (footGrid) {
+    footGrid.classList.toggle('no-experimental', !enabled);
+  }
+}
+
+async function pollExperimentalStatus(force = false) {
+  if (document.hidden || (!force && streamSseConnected)) return;
+  try {
+    const r = await fetchWithTimeout(`${PUBLIC_API}/api/experimental`, { cache: 'no-store', credentials: 'omit' });
+    if (r.ok) applyExperimentalUpdate(await r.json());
+  } catch (_) {}
+}
+
+// ── 2D Track Map Engine ──
+const TRACK_CIRCUITS = {
+  baku: {
+    name: "Baku City Circuit",
+    country: "Azerbaijan",
+    length: "6.003 km",
+    turns: 20,
+    drs: 2,
+    lapRecord: "1:43.009 (Charles Leclerc, 2019)",
+    viewBox: "0 0 1000 600",
+    path: "M 200 520 L 780 520 C 840 520 860 510 870 480 L 880 430 C 885 400 870 380 840 375 L 750 365 C 730 365 720 350 725 330 L 740 260 C 745 240 735 220 710 215 L 610 200 C 590 195 580 180 585 160 L 590 120 C 595 90 570 80 540 85 L 430 100 C 400 105 390 125 390 150 L 390 220 C 390 240 375 255 350 255 L 290 255 C 270 255 255 270 255 290 L 255 350 C 255 370 240 385 220 385 L 170 385 C 145 385 130 405 130 430 L 135 480 C 140 510 170 520 200 520 Z",
+    pitPath: "M 740 534 L 210 534",
+    drsSegments: [{ start: 0.05, end: 0.35, label: "DRS 1" }, { start: 0.72, end: 0.88, label: "DRS 2" }],
+    turns: [
+      { n: 1, x: 860, y: 505 }, { n: 2, x: 865, y: 395 }, { n: 3, x: 740, y: 355 },
+      { n: 4, x: 730, y: 235 }, { n: 5, x: 605, y: 205 }, { n: 6, x: 585, y: 110 },
+      { n: 7, x: 425, y: 100 }, { n: 8, x: 390, y: 190 }, { n: 12, x: 285, y: 255 },
+      { n: 15, x: 230, y: 385 }, { n: 16, x: 135, y: 440 }, { n: 20, x: 200, y: 520 }
+    ],
+    startFinish: { x: 500, y: 520 }
+  },
+  monza: {
+    name: "Autodromo Nazionale Monza",
+    country: "Italy",
+    length: "5.793 km",
+    turns: 11,
+    drs: 2,
+    lapRecord: "1:21.046 (Rubens Barrichello, 2004)",
+    viewBox: "0 0 1000 600",
+    path: "M 250 490 L 820 490 C 890 490 910 450 890 400 L 830 260 C 810 210 760 180 700 180 L 450 180 C 410 180 390 160 400 130 C 410 100 390 80 350 80 L 220 80 C 170 80 140 110 140 160 L 140 310 C 140 350 160 370 190 375 L 260 385 C 290 390 300 410 290 430 L 260 470 C 245 490 230 490 250 490 Z",
+    pitPath: "M 780 504 L 260 504",
+    drsSegments: [{ start: 0.05, end: 0.30, label: "DRS 1" }, { start: 0.55, end: 0.72, label: "DRS 2" }],
+    turns: [{ n: 1, x: 890, y: 460 }, { n: 4, x: 740, y: 180 }, { n: 6, x: 420, y: 150 }, { n: 7, x: 270, y: 80 }, { n: 8, x: 140, y: 220 }, { n: 11, x: 260, y: 440 }],
+    startFinish: { x: 540, y: 490 }
+  },
+  silverstone: {
+    name: "Silverstone Circuit",
+    country: "Great Britain",
+    length: "5.891 km",
+    turns: 18,
+    drs: 2,
+    lapRecord: "1:27.097 (Max Verstappen, 2020)",
+    viewBox: "0 0 1000 600",
+    path: "M 520 490 L 720 490 C 760 490 780 470 770 430 L 740 350 C 730 320 750 290 780 280 L 860 260 C 890 250 895 220 870 200 L 780 130 C 750 105 710 110 680 140 L 610 210 C 580 240 540 230 520 190 L 480 120 C 460 85 410 80 370 105 L 230 190 C 190 215 180 260 210 295 L 270 355 C 290 375 290 405 270 425 L 210 480 C 180 510 210 550 250 540 L 380 510 C 420 500 470 490 520 490 Z",
+    pitPath: "M 480 504 L 710 504",
+    drsSegments: [{ start: 0.18, end: 0.32, label: "WELLINGTON" }, { start: 0.62, end: 0.78, label: "HANGAR" }],
+    turns: [{ n: 1, x: 760, y: 460 }, { n: 3, x: 750, y: 310 }, { n: 6, x: 860, y: 180 }, { n: 9, x: 610, y: 190 }, { n: 11, x: 450, y: 90 }, { n: 15, x: 200, y: 320 }, { n: 18, x: 380, y: 510 }],
+    startFinish: { x: 620, y: 490 }
+  },
+  spa: {
+    name: "Circuit de Spa-Francorchamps",
+    country: "Belgium",
+    length: "7.004 km",
+    turns: 19,
+    drs: 2,
+    lapRecord: "1:46.286 (Valtteri Bottas, 2018)",
+    viewBox: "0 0 1000 600",
+    path: "M 280 470 L 400 470 C 430 470 450 450 450 420 L 450 360 C 450 330 480 300 520 290 L 800 220 C 850 210 870 170 840 130 L 790 80 C 760 45 710 50 670 90 L 590 170 C 560 200 520 200 480 180 L 380 130 C 330 105 270 130 260 185 L 250 250 C 240 290 210 310 170 315 L 110 325 C 75 330 60 370 85 400 L 150 470 C 180 500 230 500 280 470 Z",
+    pitPath: "M 230 482 L 390 482",
+    drsSegments: [{ start: 0.10, end: 0.34, label: "KEMMEL" }, { start: 0.88, end: 0.98, label: "BLANCHIMONT" }],
+    turns: [{ n: 1, x: 445, y: 450 }, { n: 3, x: 460, y: 340 }, { n: 5, x: 840, y: 170 }, { n: 8, x: 740, y: 60 }, { n: 10, x: 570, y: 185 }, { n: 12, x: 340, y: 120 }, { n: 15, x: 230, y: 280 }, { n: 18, x: 100, y: 350 }],
+    startFinish: { x: 330, y: 470 }
+  },
+  monaco: {
+    name: "Circuit de Monaco",
+    country: "Monaco",
+    length: "3.337 km",
+    turns: 19,
+    drs: 1,
+    lapRecord: "1:12.909 (Lewis Hamilton, 2021)",
+    viewBox: "0 0 1000 600",
+    path: "M 320 510 L 620 510 C 670 510 700 480 700 430 L 700 350 C 700 310 730 280 770 270 L 840 250 C 880 240 890 200 860 170 L 780 100 C 740 60 680 70 640 110 L 580 170 C 550 200 510 200 470 180 L 390 140 C 350 120 300 140 290 185 L 270 270 C 260 310 230 330 190 335 L 140 340 C 100 345 90 390 120 420 L 200 490 C 230 515 270 510 320 510 Z",
+    pitPath: "M 280 522 L 600 522",
+    drsSegments: [{ start: 0.88, end: 0.12, label: "MAIN STRAIGHT" }],
+    turns: [{ n: 1, x: 680, y: 480 }, { n: 3, x: 750, y: 280 }, { n: 5, x: 850, y: 210 }, { n: 6, x: 740, y: 90 }, { n: 8, x: 560, y: 185 }, { n: 10, x: 350, y: 130 }, { n: 12, x: 250, y: 280 }, { n: 15, x: 120, y: 380 }],
+    startFinish: { x: 480, y: 510 }
+  }
+};
+
+const TRACK_DRIVERS = [
+  { id: 'norris', code: 'NOR', num: 4, name: 'Lando Norris', team: 'McLaren', color: '#FF8000', text: '#000', progress: 0.98, speed: 318, gear: 8, throttle: 98, brake: 0, drs: true, tyre: 'H', tyreLaps: 14, pit: false, pos: 1, gap: 'LEADER' },
+  { id: 'leclerc', code: 'LEC', num: 16, name: 'Charles Leclerc', team: 'Ferrari', color: '#DC0000', text: '#fff', progress: 0.95, speed: 314, gear: 8, throttle: 96, brake: 0, drs: true, tyre: 'H', tyreLaps: 14, pit: false, pos: 2, gap: '+0.842' },
+  { id: 'verstappen', code: 'VER', num: 1, name: 'Max Verstappen', team: 'Red Bull', color: '#1E41FF', text: '#fff', progress: 0.91, speed: 319, gear: 8, throttle: 99, brake: 0, drs: true, tyre: 'M', tyreLaps: 10, pit: false, pos: 3, gap: '+1.720' },
+  { id: 'russell', code: 'RUS', num: 63, name: 'George Russell', team: 'Mercedes', color: '#00D2BE', text: '#000', progress: 0.88, speed: 312, gear: 8, throttle: 95, brake: 0, drs: true, tyre: 'H', tyreLaps: 15, pit: false, pos: 4, gap: '+3.140' },
+  { id: 'hamilton', code: 'HAM', num: 44, name: 'Lewis Hamilton', team: 'Ferrari', color: '#DC0000', text: '#fff', progress: 0.84, speed: 308, gear: 8, throttle: 92, brake: 0, drs: false, tyre: 'M', tyreLaps: 12, pit: false, pos: 5, gap: '+4.890' },
+  { id: 'piastri', code: 'PIA', num: 81, name: 'Oscar Piastri', team: 'McLaren', color: '#FF8000', text: '#000', progress: 0.81, speed: 315, gear: 8, throttle: 97, brake: 0, drs: true, tyre: 'H', tyreLaps: 14, pit: false, pos: 6, gap: '+6.120' },
+  { id: 'antonelli', code: 'ANT', num: 12, name: 'Kimi Antonelli', team: 'Mercedes', color: '#00D2BE', text: '#000', progress: 0.77, speed: 310, gear: 8, throttle: 94, brake: 0, drs: false, tyre: 'M', tyreLaps: 11, pit: false, pos: 7, gap: '+8.450' },
+  { id: 'alonso', code: 'ALO', num: 14, name: 'Fernando Alonso', team: 'Aston Martin', color: '#006F62', text: '#fff', progress: 0.73, speed: 305, gear: 7, throttle: 90, brake: 0, drs: false, tyre: 'H', tyreLaps: 16, pit: false, pos: 8, gap: '+10.210' },
+  { id: 'sainz', code: 'SAI', num: 55, name: 'Carlos Sainz', team: 'Williams', color: '#005AFF', text: '#fff', progress: 0.69, speed: 304, gear: 7, throttle: 88, brake: 0, drs: false, tyre: 'M', tyreLaps: 13, pit: false, pos: 9, gap: '+12.560' },
+  { id: 'albon', code: 'ALB', num: 23, name: 'Alexander Albon', team: 'Williams', color: '#005AFF', text: '#fff', progress: 0.65, speed: 302, gear: 7, throttle: 86, brake: 0, drs: false, tyre: 'H', tyreLaps: 15, pit: false, pos: 10, gap: '+14.180' },
+  { id: 'gasly', code: 'GAS', num: 10, name: 'Pierre Gasly', team: 'Alpine', color: '#FF0080', text: '#fff', progress: 0.61, speed: 298, gear: 7, throttle: 85, brake: 0, drs: false, tyre: 'M', tyreLaps: 9, pit: false, pos: 11, gap: '+16.320' },
+  { id: 'hadjar', code: 'HAD', num: 6, name: 'Isack Hadjar', team: 'Red Bull', color: '#1E41FF', text: '#fff', progress: 0.57, speed: 306, gear: 7, throttle: 90, brake: 0, drs: false, tyre: 'H', tyreLaps: 14, pit: false, pos: 12, gap: '+17.900' },
+  { id: 'stroll', code: 'STR', num: 18, name: 'Lance Stroll', team: 'Aston Martin', color: '#006F62', text: '#fff', progress: 0.53, speed: 296, gear: 7, throttle: 82, brake: 0, drs: false, tyre: 'H', tyreLaps: 17, pit: false, pos: 13, gap: '+19.450' },
+  { id: 'bearman', code: 'BEA', num: 87, name: 'Oliver Bearman', team: 'Haas', color: '#B6BABD', text: '#000', progress: 0.49, speed: 299, gear: 7, throttle: 84, brake: 0, drs: false, tyre: 'S', tyreLaps: 7, pit: false, pos: 14, gap: '+21.120' },
+  { id: 'ocon', code: 'OCO', num: 31, name: 'Esteban Ocon', team: 'Haas', color: '#B6BABD', text: '#000', progress: 0.45, speed: 297, gear: 7, throttle: 83, brake: 0, drs: false, tyre: 'M', tyreLaps: 12, pit: false, pos: 15, gap: '+23.050' },
+  { id: 'hulkenberg', code: 'HUL', num: 27, name: 'Nico Hülkenberg', team: 'Audi', color: '#E62213', text: '#fff', progress: 0.41, speed: 294, gear: 6, throttle: 80, brake: 0, drs: false, tyre: 'H', tyreLaps: 18, pit: false, pos: 16, gap: '+25.400' },
+  { id: 'lawson', code: 'LAW', num: 30, name: 'Liam Lawson', team: 'Racing Bulls', color: '#6692FF', text: '#000', progress: 0.37, speed: 300, gear: 7, throttle: 85, brake: 0, drs: false, tyre: 'M', tyreLaps: 10, pit: false, pos: 17, gap: '+27.180' },
+  { id: 'lindblad', code: 'LIN', num: 41, name: 'Arvid Lindblad', team: 'Racing Bulls', color: '#6692FF', text: '#000', progress: 0.33, speed: 295, gear: 6, throttle: 82, brake: 0, drs: false, tyre: 'H', tyreLaps: 15, pit: false, pos: 18, gap: '+29.650' },
+  { id: 'colapinto', code: 'COL', num: 43, name: 'Franco Colapinto', team: 'Alpine', color: '#FF0080', text: '#fff', progress: 0.28, speed: 290, gear: 6, throttle: 78, brake: 0, drs: false, tyre: 'S', tyreLaps: 6, pit: false, pos: 19, gap: '+32.400' },
+  { id: 'bortoleto', code: 'BOR', num: 5, name: 'Gabriel Bortoleto', team: 'Audi', color: '#E62213', text: '#fff', progress: 0.23, speed: 288, gear: 6, throttle: 76, brake: 0, drs: false, tyre: 'H', tyreLaps: 16, pit: false, pos: 20, gap: '+35.100' },
+  { id: 'perez', code: 'PER', num: 11, name: 'Sergio Perez', team: 'Cadillac', color: '#B4A07A', text: '#000', progress: 0.18, speed: 285, gear: 6, throttle: 74, brake: 0, drs: false, tyre: 'M', tyreLaps: 14, pit: false, pos: 21, gap: '+38.500' },
+  { id: 'bottas', code: 'BOT', num: 77, name: 'Valtteri Bottas', team: 'Cadillac', color: '#B4A07A', text: '#000', progress: 0.12, speed: 282, gear: 6, throttle: 72, brake: 0, drs: false, tyre: 'H', tyreLaps: 15, pit: false, pos: 22, gap: '+42.100' }
+];
+
+let trackInitialized = false;
+let currentTrackCircuit = 'baku';
+let focusedDriverId = 'norris';
+let trackAnimFrame = null;
+let lastTrackAnimTime = 0;
+let trackSimulationSpeed = 1;
+let trackFlagCondition = 'green';
+let trackIsPaused = false;
+let trackTimingInterval = null;
+let trackCurrentLap = 14;
+let trackTotalLaps = 51;
+let trackLapTimer = 0;
+
+function safePathLength(pathEl) {
+  if (typeof pathEl?.getTotalLength === 'function') {
+    try {
+      const len = pathEl.getTotalLength();
+      if (len > 0) return len;
+    } catch (_) {}
+  }
+  return 2400;
+}
+
+function safePathPoint(pathEl, length, totalLength) {
+  if (typeof pathEl?.getPointAtLength === 'function') {
+    try {
+      return pathEl.getPointAtLength(length);
+    } catch (_) {}
+  }
+  const ratio = totalLength > 0 ? (length / totalLength) : 0;
+  const angle = ratio * Math.PI * 2;
+  return {
+    x: 500 + Math.cos(angle) * 360,
+    y: 300 + Math.sin(angle) * 190
+  };
+}
+
+function initTrackMap() {
+  if (trackInitialized) {
+    trackIsPaused = false;
+    lastTrackAnimTime = performance.now();
+    cancelAnimationFrame(trackAnimFrame);
+    trackAnimFrame = requestAnimationFrame(animateTrackLoop);
+    return;
+  }
+
+  const svg = $('trackSvg');
+  if (!svg) return;
+
+  trackInitialized = true;
+  setupTrackControls();
+  loadCircuit(currentTrackCircuit);
+  renderTrackLeaderboard();
+  updateFocusedTelemetryCard();
+
+  lastTrackAnimTime = performance.now();
+  cancelAnimationFrame(trackAnimFrame);
+  trackAnimFrame = requestAnimationFrame(animateTrackLoop);
+
+  // Sync with live timing every 8s
+  clearInterval(trackTimingInterval);
+  syncLiveTiming();
+  trackTimingInterval = setInterval(syncLiveTiming, 8000);
+}
+
+function pauseTrackMap() {
+  trackIsPaused = true;
+  cancelAnimationFrame(trackAnimFrame);
+  clearInterval(trackTimingInterval);
+}
+
+function setupTrackControls() {
+  const sel = $('trackCircuitSelect');
+  if (sel) {
+    sel.addEventListener('change', (e) => loadCircuit(e.target.value));
+  }
+
+  document.querySelectorAll('.flag-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.flag-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      trackFlagCondition = btn.dataset.flag || 'green';
+      addIncidentMessage(trackFlagCondition);
+    });
+  });
+
+  document.querySelectorAll('.speed-btn[data-speed]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.speed-btn[data-speed]').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      trackSimulationSpeed = Number(btn.dataset.speed) || 1;
+    });
+  });
+
+  const pauseBtn = $('trackPauseBtn');
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', () => {
+      trackIsPaused = !trackIsPaused;
+      pauseBtn.textContent = trackIsPaused ? '▶' : '⏸';
+      pauseBtn.classList.toggle('active', trackIsPaused);
+      if (!trackIsPaused) {
+        lastTrackAnimTime = performance.now();
+        trackAnimFrame = requestAnimationFrame(animateTrackLoop);
+      }
+    });
+  }
+
+  const clearFocusBtn = $('trackClearFocus');
+  if (clearFocusBtn) {
+    clearFocusBtn.addEventListener('click', () => setFocusedDriver(null));
+  }
+
+  const resetFocusBtn = $('trackResetFocusBtn');
+  if (resetFocusBtn) {
+    resetFocusBtn.addEventListener('click', () => setFocusedDriver(null));
+  }
+
+  const lb = $('trackLeaderboard');
+  if (lb) {
+    lb.addEventListener('click', (e) => {
+      const row = e.target.closest('.tl-row');
+      if (row?.dataset.id) setFocusedDriver(row.dataset.id);
+    });
+  }
+}
+
+function loadCircuit(circuitKey) {
+  const circ = TRACK_CIRCUITS[circuitKey] || TRACK_CIRCUITS.baku;
+  currentTrackCircuit = circuitKey;
+
+  const lengthChip = $('trackLengthChip');
+  if (lengthChip) lengthChip.textContent = circ.length;
+  const turnsChip = $('trackTurnsChip');
+  if (turnsChip) turnsChip.textContent = `${circ.turns} Turns`;
+  const drsChip = $('trackDrsChip');
+  if (drsChip) drsChip.textContent = `${circ.drs} DRS Zones`;
+
+  renderCircuitSvg(circ);
+}
+
+function renderCircuitSvg(circ) {
+  const layers = $('trackLayers');
+  const carsLayer = $('trackCarsLayer');
+  if (!layers || !carsLayer) return;
+
+  const NS = 'http://www.w3.org/2000/svg';
+  layers.innerHTML = '';
+
+  // Outer border glow
+  const borderPath = document.createElementNS(NS, 'path');
+  borderPath.setAttribute('d', circ.path);
+  borderPath.setAttribute('fill', 'none');
+  borderPath.setAttribute('stroke', 'rgba(255, 255, 255, 0.08)');
+  borderPath.setAttribute('stroke-width', '18');
+  borderPath.setAttribute('stroke-linecap', 'round');
+  borderPath.setAttribute('stroke-linejoin', 'round');
+  layers.appendChild(borderPath);
+
+  // Main asphalt roadbed
+  const asphalt = document.createElementNS(NS, 'path');
+  asphalt.setAttribute('id', 'mainCircuitPath');
+  asphalt.setAttribute('d', circ.path);
+  asphalt.setAttribute('fill', 'none');
+  asphalt.setAttribute('stroke', '#1c212b');
+  asphalt.setAttribute('stroke-width', '12');
+  asphalt.setAttribute('stroke-linecap', 'round');
+  asphalt.setAttribute('stroke-linejoin', 'round');
+  layers.appendChild(asphalt);
+
+  // Pit lane path
+  if (circ.pitPath) {
+    const pit = document.createElementNS(NS, 'path');
+    pit.setAttribute('d', circ.pitPath);
+    pit.setAttribute('fill', 'none');
+    pit.setAttribute('stroke', 'rgba(59, 130, 246, 0.65)');
+    pit.setAttribute('stroke-width', '4');
+    pit.setAttribute('stroke-dasharray', '6 4');
+    layers.appendChild(pit);
+  }
+
+  // Racing line
+  const racingLine = document.createElementNS(NS, 'path');
+  racingLine.setAttribute('d', circ.path);
+  racingLine.setAttribute('fill', 'none');
+  racingLine.setAttribute('stroke', 'rgba(255, 255, 255, 0.16)');
+  racingLine.setAttribute('stroke-width', '1.5');
+  racingLine.setAttribute('stroke-dasharray', '8 6');
+  layers.appendChild(racingLine);
+
+  // DRS zones
+  const totalLength = safePathLength(asphalt);
+  if (circ.drsSegments && totalLength > 0) {
+    circ.drsSegments.forEach((seg) => {
+      const drsPath = document.createElementNS(NS, 'path');
+      drsPath.setAttribute('d', circ.path);
+      drsPath.setAttribute('fill', 'none');
+      drsPath.setAttribute('stroke', '#00d57e');
+      drsPath.setAttribute('stroke-width', '4');
+      drsPath.setAttribute('stroke-linecap', 'round');
+      const start = seg.start * totalLength;
+      const len = (seg.end - seg.start) * totalLength;
+      drsPath.setAttribute('stroke-dasharray', `${len} ${totalLength}`);
+      drsPath.setAttribute('stroke-dashoffset', `-${start}`);
+      drsPath.setAttribute('filter', 'url(#trackGlow)');
+      layers.appendChild(drsPath);
+    });
+  }
+
+  // Start / finish marker
+  if (circ.startFinish) {
+    const sf = document.createElementNS(NS, 'rect');
+    sf.setAttribute('x', String(circ.startFinish.x - 3));
+    sf.setAttribute('y', String(circ.startFinish.y - 10));
+    sf.setAttribute('width', '6');
+    sf.setAttribute('height', '20');
+    sf.setAttribute('fill', '#fff');
+    sf.setAttribute('rx', '1');
+    layers.appendChild(sf);
+
+    const sfLabel = document.createElementNS(NS, 'text');
+    sfLabel.setAttribute('x', String(circ.startFinish.x));
+    sfLabel.setAttribute('y', String(circ.startFinish.y + 22));
+    sfLabel.setAttribute('text-anchor', 'middle');
+    sfLabel.setAttribute('fill', 'var(--dim)');
+    sfLabel.setAttribute('font-family', 'JetBrains Mono');
+    sfLabel.setAttribute('font-size', '9');
+    sfLabel.setAttribute('font-weight', '700');
+    sfLabel.textContent = 'START / FINISH';
+    layers.appendChild(sfLabel);
+  }
+
+  // Turn numbers
+  if (circ.turns) {
+    circ.turns.forEach((t) => {
+      const g = document.createElementNS(NS, 'g');
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', String(t.x));
+      c.setAttribute('cy', String(t.y));
+      c.setAttribute('r', '7');
+      c.setAttribute('fill', 'rgba(15, 18, 24, 0.9)');
+      c.setAttribute('stroke', 'rgba(255, 255, 255, 0.18)');
+      c.setAttribute('stroke-width', '1');
+
+      const txt = document.createElementNS(NS, 'text');
+      txt.setAttribute('x', String(t.x));
+      txt.setAttribute('y', String(t.y + 3));
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('fill', '#8b93a1');
+      txt.setAttribute('font-family', 'JetBrains Mono');
+      txt.setAttribute('font-size', '8');
+      txt.setAttribute('font-weight', '700');
+      txt.textContent = String(t.n);
+
+      g.appendChild(c);
+      g.appendChild(txt);
+      layers.appendChild(g);
+    });
+  }
+
+  // Cars layer setup
+  carsLayer.innerHTML = '';
+  TRACK_DRIVERS.forEach((d) => {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'car-dot-group');
+    g.setAttribute('id', `carDot_${d.id}`);
+    g.setAttribute('data-id', d.id);
+    g.style.cursor = 'pointer';
+
+    // Outer glow aura
+    const glow = document.createElementNS(NS, 'circle');
+    glow.setAttribute('r', '11');
+    glow.setAttribute('fill', d.color);
+    glow.setAttribute('opacity', '0.28');
+
+    // Main team circle
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('r', '6');
+    dot.setAttribute('fill', d.color);
+    dot.setAttribute('stroke', '#fff');
+    dot.setAttribute('stroke-width', '1.5');
+
+    // Inner center point
+    const core = document.createElementNS(NS, 'circle');
+    core.setAttribute('r', '2.5');
+    core.setAttribute('fill', d.text);
+
+    // Driver label tag
+    const lbl = document.createElementNS(NS, 'text');
+    lbl.setAttribute('x', '10');
+    lbl.setAttribute('y', '3');
+    lbl.setAttribute('fill', '#fff');
+    lbl.setAttribute('font-family', 'JetBrains Mono');
+    lbl.setAttribute('font-size', '8.5');
+    lbl.setAttribute('font-weight', '800');
+    lbl.setAttribute('filter', 'drop-shadow(0 1px 2px rgba(0,0,0,0.9))');
+    lbl.textContent = d.code;
+
+    g.appendChild(glow);
+    g.appendChild(dot);
+    g.appendChild(core);
+    g.appendChild(lbl);
+
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setFocusedDriver(d.id);
+    });
+
+    carsLayer.appendChild(g);
+  });
+}
+
+function setFocusedDriver(driverId) {
+  focusedDriverId = driverId;
+  const pill = $('trackFocusPill');
+  const nameEl = $('trackFocusName');
+  if (pill && nameEl) {
+    if (focusedDriverId) {
+      const d = TRACK_DRIVERS.find((x) => x.id === focusedDriverId);
+      pill.hidden = false;
+      nameEl.textContent = d ? `${d.name} (${d.code} ${d.num})` : '';
+    } else {
+      pill.hidden = true;
+    }
+  }
+
+  // Update leaderboard selected row
+  document.querySelectorAll('.tl-row').forEach((row) => {
+    row.classList.toggle('selected', row.dataset.id === focusedDriverId);
+  });
+
+  updateFocusedTelemetryCard();
+}
+
+function updateFocusedTelemetryCard() {
+  const d = TRACK_DRIVERS.find((x) => x.id === (focusedDriverId || 'norris')) || TRACK_DRIVERS[0];
+  if (!d) return;
+
+  const posEl = $('dtPos');
+  if (posEl) posEl.textContent = `P${d.pos}`;
+  const nameEl = $('dtName');
+  if (nameEl) nameEl.textContent = d.name;
+  const teamEl = $('dtTeam');
+  if (teamEl) teamEl.textContent = `${d.team} Formula 1 Team`;
+  const numEl = $('dtNumber');
+  if (numEl) numEl.textContent = String(d.num);
+
+  const spdEl = $('dtSpeed');
+  if (spdEl) spdEl.innerHTML = `${Math.round(d.speed)} <small>km/h</small>`;
+  const spdBar = $('dtSpeedBar');
+  if (spdBar) spdBar.style.width = `${Math.min(100, Math.round((d.speed / 360) * 100))}%`;
+
+  const gearEl = $('dtGear');
+  if (gearEl) gearEl.textContent = String(d.gear);
+  const gearBar = $('dtGearBar');
+  if (gearBar) gearBar.style.width = `${Math.round((d.gear / 8) * 100)}%`;
+
+  const thrEl = $('dtThrottle');
+  if (thrEl) thrEl.style.width = `${d.throttle}%`;
+  const thrVal = $('dtThrottleVal');
+  if (thrVal) thrVal.textContent = `${d.throttle}%`;
+
+  const brkEl = $('dtBrake');
+  if (brkEl) brkEl.style.width = `${d.brake}%`;
+  const brkVal = $('dtBrakeVal');
+  if (brkVal) brkVal.textContent = `${d.brake}%`;
+
+  const tyreEl = $('dtTyre');
+  if (tyreEl) {
+    const tMap = { H: 'HARD', M: 'MEDIUM', S: 'SOFT' };
+    tyreEl.textContent = `${tMap[d.tyre] || 'HARD'} (${d.tyreLaps}L)`;
+    tyreEl.className = `dm-v tyre-badge ${d.tyre === 'S' ? 'soft' : d.tyre === 'M' ? 'medium' : 'hard'}`;
+  }
+
+  const drsEl = $('dtDrs');
+  if (drsEl) {
+    drsEl.textContent = d.drs ? 'OPEN' : 'CLOSED';
+    drsEl.className = `dm-v drs-badge ${d.drs ? 'active' : 'inactive'}`;
+  }
+
+  const intEl = $('dtInterval');
+  if (intEl) intEl.textContent = d.gap;
+}
+
+function renderTrackLeaderboard() {
+  const lb = $('trackLeaderboard');
+  if (!lb) return;
+
+  const sorted = [...TRACK_DRIVERS].sort((a, b) => a.pos - b.pos);
+  lb.innerHTML = sorted.map((d) => `
+    <div class="tl-row ${d.id === focusedDriverId ? 'selected' : ''}" data-id="${d.id}" role="button" tabindex="0">
+      <span class="tl-pos">${d.pos}</span>
+      <span class="tl-stripe" style="background:${d.color}"></span>
+      <span class="tl-code">${d.code}</span>
+      <span class="tl-gap">${d.gap}</span>
+      <span class="tl-tyre ${d.tyre.toLowerCase()}">${d.tyre}</span>
+      ${d.pit ? '<span class="tl-pit">PIT</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function animateTrackLoop(time) {
+  if (trackIsPaused) return;
+
+  const dt = Math.min((time - lastTrackAnimTime) / 1000, 0.1);
+  lastTrackAnimTime = time;
+
+  const asphalt = $('mainCircuitPath');
+  const reticleLayer = $('trackReticleLayer');
+  if (!asphalt) {
+    trackAnimFrame = requestAnimationFrame(animateTrackLoop);
+    return;
+  }
+
+  const totalLength = safePathLength(asphalt);
+  const circ = TRACK_CIRCUITS[currentTrackCircuit] || TRACK_CIRCUITS.baku;
+
+  // Lap time factor: ~90s standard lap
+  const baseLapDuration = 88;
+  let flagMultiplier = 1;
+  if (trackFlagCondition === 'yellow') flagMultiplier = 0.65;
+  else if (trackFlagCondition === 'vsc') flagMultiplier = 0.48;
+  else if (trackFlagCondition === 'sc') flagMultiplier = 0.42;
+  else if (trackFlagCondition === 'red') flagMultiplier = 0.15;
+
+  const progressDelta = (dt * trackSimulationSpeed * flagMultiplier) / baseLapDuration;
+
+  TRACK_DRIVERS.forEach((d, i) => {
+    // Stagger slightly by performance index
+    const perfFactor = 1 + (22 - d.pos) * 0.003;
+    d.progress = (d.progress + progressDelta * perfFactor) % 1;
+
+    // Simulate throttle/brake/gear/speed depending on track section
+    const inDrs = circ.drsSegments?.some((s) => d.progress >= s.start && d.progress <= s.end);
+    d.drs = Boolean(inDrs && trackFlagCondition === 'green');
+
+    // Turn zones vs Straights
+    const isNearTurn = circ.turns?.some((t) => {
+      const pt = safePathPoint(asphalt, d.progress * totalLength, totalLength);
+      const dx = pt.x - t.x;
+      const dy = pt.y - t.y;
+      return (dx * dx + dy * dy) < 1600; // within 40px of turn apex
+    });
+
+    if (isNearTurn) {
+      d.speed = Math.max(95, d.speed - dt * 280);
+      d.gear = Math.max(2, Math.min(4, Math.floor(d.speed / 45)));
+      d.throttle = Math.floor(15 + Math.random() * 15);
+      d.brake = Math.floor(75 + Math.random() * 25);
+    } else {
+      const maxSpd = d.drs ? 338 : 316;
+      d.speed = Math.min(maxSpd, d.speed + dt * 110);
+      d.gear = Math.min(8, Math.max(6, Math.floor(d.speed / 40)));
+      d.throttle = Math.floor(92 + Math.random() * 8);
+      d.brake = 0;
+    }
+
+    // Update car SVG dot position
+    const carGroup = $(`carDot_${d.id}`);
+    if (carGroup) {
+      const pt = safePathPoint(asphalt, d.progress * totalLength, totalLength);
+      carGroup.setAttribute('transform', `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+    }
+  });
+
+  // Update focused driver's telemetry card and reticle
+  const focused = TRACK_DRIVERS.find((x) => x.id === (focusedDriverId || 'norris'));
+  if (focused) {
+    updateFocusedTelemetryCard();
+    if (reticleLayer) {
+      const pt = safePathPoint(asphalt, focused.progress * totalLength, totalLength);
+      reticleLayer.innerHTML = `
+        <g transform="translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})">
+          <circle r="18" fill="none" stroke="#00d57e" stroke-width="1.5" stroke-dasharray="8 6" opacity="0.8" />
+          <path d="M -22 -10 L -22 -22 L -10 -22" fill="none" stroke="#00d57e" stroke-width="1.5" />
+          <path d="M 22 -10 L 22 -22 L 10 -22" fill="none" stroke="#00d57e" stroke-width="1.5" />
+          <path d="M -22 10 L -22 22 L -10 22" fill="none" stroke="#00d57e" stroke-width="1.5" />
+          <path d="M 22 10 L 22 22 L 10 22" fill="none" stroke="#00d57e" stroke-width="1.5" />
+          <line x1="0" y1="-26" x2="0" y2="-19" stroke="#00d57e" stroke-width="1.5" />
+          <line x1="0" y1="19" x2="0" y2="26" stroke="#00d57e" stroke-width="1.5" />
+          <line x1="-26" y1="0" x2="-19" y2="0" stroke="#00d57e" stroke-width="1.5" />
+          <line x1="19" y1="0" x2="26" y2="0" stroke="#00d57e" stroke-width="1.5" />
+        </g>
+      `;
+    }
+  }
+
+  // Lap timer and periodic leaderboard update
+  trackLapTimer += dt;
+  if (trackLapTimer >= 1.2) {
+    trackLapTimer = 0;
+    // Calculate running gaps
+    const sorted = [...TRACK_DRIVERS].sort((a, b) => b.progress - a.progress);
+    sorted.forEach((d, idx) => {
+      d.pos = idx + 1;
+      if (idx === 0) d.gap = 'LEADER';
+      else {
+        const gapVal = ((sorted[0].progress - d.progress + 1) % 1) * 88;
+        d.gap = `+${gapVal.toFixed(3)}s`;
+      }
+    });
+    renderTrackLeaderboard();
+  }
+
+  trackAnimFrame = requestAnimationFrame(animateTrackLoop);
+}
+
+function addIncidentMessage(flag) {
+  const feed = $('tiFeed');
+  if (!feed) return;
+  const timeStr = new Date().toTimeString().slice(0, 5);
+  const msgs = {
+    green: { tag: 'green', text: 'TRACK CLEAR — Green flag waved. DRS enabled.' },
+    yellow: { tag: 'yellow', text: 'YELLOW FLAG SECTOR 2 — Incident reported, no overtaking.' },
+    sc: { tag: 'sc', text: 'SAFETY CAR DEPLOYED — Pack delta enabled, pit lane open.' },
+    vsc: { tag: 'sc', text: 'VIRTUAL SAFETY CAR — Reduce speed to prescribed delta.' },
+    red: { tag: 'red', text: 'RED FLAG — Session suspended. All cars enter pit lane.' }
+  };
+  const m = msgs[flag] || msgs.green;
+  const div = document.createElement('div');
+  div.className = 'ti-item';
+  div.innerHTML = `<span class="ti-time">${timeStr}</span><span class="ti-tag ${m.tag}">${flag.toUpperCase()}</span> ${m.text}`;
+  feed.prepend(div);
+  while (feed.children.length > 5) feed.lastElementChild.remove();
+}
+
+async function syncLiveTiming() {
+  try {
+    const res = await fetchWithTimeout(`${PUBLIC_API}/api/live/timing`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) return;
+
+    if (data.currentLap && data.totalLaps) {
+      trackCurrentLap = data.currentLap;
+      trackTotalLaps = data.totalLaps;
+      const lapCounter = $('trackLapCounter');
+      if (lapCounter) lapCounter.textContent = `LAP ${trackCurrentLap} / ${trackTotalLaps}`;
+    }
+
+    if (data.status && data.status !== 'Off Track') {
+      const livePill = $('trackLiveStatus');
+      if (livePill) livePill.textContent = `● LIVE F1 TIMING (${data.status.toUpperCase()})`;
+    }
+
+    // Match competitors if provided by ESPN
+    if (Array.isArray(data.competitors) && data.competitors.length > 0) {
+      data.competitors.forEach((c) => {
+        const d = TRACK_DRIVERS.find((x) =>
+          x.name.toLowerCase().includes((c.shortName || '').toLowerCase()) ||
+          (c.name && x.name.toLowerCase().includes(c.name.toLowerCase()))
+        );
+        if (d && c.position) d.pos = c.position;
+      });
+      renderTrackLeaderboard();
+      updateFocusedTelemetryCard();
+    }
+  } catch (_) {}
+}

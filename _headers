@@ -34,6 +34,9 @@
 /discord
   Cache-Control: public, max-age=0, must-revalidate
 
+/track
+  Cache-Control: public, max-age=0, must-revalidate
+
 /maintenance.css
   Cache-Control: public, max-age=3600, must-revalidate
 

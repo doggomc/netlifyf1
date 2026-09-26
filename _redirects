@@ -6,4 +6,6 @@
 /info/   /index.html   200
 /discord    /index.html   200
 /discord/   /index.html   200
+/track      /index.html   200
+/track/     /index.html   200
 # Everything else that doesn't exist falls through to /404.html (Netlify default).

@@ -493,6 +493,201 @@
 
 </div><!-- /viewDiscord -->
 
+<!-- ══ VIEW: TRACK (EXPERIMENTAL) ══ -->
+<div class="view view-track" id="viewTrack" data-view="track" hidden>
+<section class="sec sub-sec" id="trackViewSec">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
+        <span class="eyebrow">Beta Experimental</span>
+        <h2>Live 2D <span class="accent">Track Map</span></h2>
+        <div class="rule" style="width:140px"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="pill mono" id="trackLiveStatus">● LIVE RADAR</div>
+        <div class="pill mono" id="trackLapCounter">LAP 14 / 51</div>
+      </div>
+    </div>
+
+    <!-- Track Control Bar -->
+    <div class="track-toolbar rv d1">
+      <div class="track-toolbar-left">
+        <div class="track-sel-wrap">
+          <label for="trackCircuitSelect" class="sr-only">Select Circuit</label>
+          <select id="trackCircuitSelect" class="track-select">
+            <option value="baku" selected>Baku City Circuit (Azerbaijan)</option>
+            <option value="monza">Autodromo Nazionale Monza (Italy)</option>
+            <option value="silverstone">Silverstone Circuit (Great Britain)</option>
+            <option value="spa">Circuit de Spa-Francorchamps (Belgium)</option>
+            <option value="monaco">Circuit de Monaco (Monaco)</option>
+          </select>
+        </div>
+        <div class="track-info-chips">
+          <span class="chip-metric" id="trackLengthChip">6.003 km</span>
+          <span class="chip-metric" id="trackTurnsChip">20 Turns</span>
+          <span class="chip-metric" id="trackDrsChip">2 DRS Zones</span>
+        </div>
+      </div>
+
+      <div class="track-toolbar-right">
+        <div class="track-flag-selector" role="group" aria-label="Track Flag Condition">
+          <button type="button" class="flag-btn green active" data-flag="green" title="Green Flag (Racing Speed)">GREEN</button>
+          <button type="button" class="flag-btn yellow" data-flag="yellow" title="Yellow Flag (Caution)">YELLOW</button>
+          <button type="button" class="flag-btn sc" data-flag="sc" title="Safety Car">SC</button>
+          <button type="button" class="flag-btn vsc" data-flag="vsc" title="Virtual Safety Car">VSC</button>
+          <button type="button" class="flag-btn red" data-flag="red" title="Red Flag (Pit Lane)">RED</button>
+        </div>
+        <div class="track-speed-selector" role="group" aria-label="Playback Speed">
+          <button type="button" class="speed-btn active" data-speed="1">1×</button>
+          <button type="button" class="speed-btn" data-speed="2">2×</button>
+          <button type="button" class="speed-btn" data-speed="4">4×</button>
+          <button type="button" class="speed-btn" id="trackPauseBtn" title="Pause / Resume">⏸</button>
+        </div>
+        <button type="button" class="track-action-btn" id="trackResetFocusBtn" title="Reset Car Focus">⤢</button>
+      </div>
+    </div>
+
+    <!-- Main Track Arena Grid -->
+    <div class="track-grid rv d2">
+      <!-- Radar Canvas Area -->
+      <div class="track-canvas-card">
+        <div class="track-canvas-header">
+          <div class="track-weather">
+            <span class="tw-item"><b>TRACK</b> <span id="twTrackTemp">38°C</span></span>
+            <span class="tw-item"><b>AIR</b> <span id="twAirTemp">24°C</span></span>
+            <span class="tw-item"><b>WIND</b> <span id="twWind">14 km/h</span></span>
+            <span class="tw-item"><b>RAIN</b> <span id="twRain">0%</span></span>
+          </div>
+          <div class="track-focus-pill" id="trackFocusPill" hidden>
+            Tracking: <strong id="trackFocusName">Lando Norris</strong>
+            <button type="button" id="trackClearFocus" class="track-unfocus-x" aria-label="Stop tracking driver">&times;</button>
+          </div>
+        </div>
+
+        <div class="track-svg-container" id="trackSvgContainer">
+          <svg id="trackSvg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <filter id="trackGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <pattern id="radarGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1" />
+              </pattern>
+            </defs>
+
+            <!-- Grid background -->
+            <rect width="1000" height="600" fill="url(#radarGrid)" />
+
+            <!-- Track layers -->
+            <g id="trackLayers"></g>
+
+            <!-- Cars Layer -->
+            <g id="trackCarsLayer"></g>
+
+            <!-- Targeting Reticle Layer -->
+            <g id="trackReticleLayer" style="pointer-events:none"></g>
+          </svg>
+
+          <!-- Interactive hover badge -->
+          <div class="car-tooltip" id="carTooltip" hidden></div>
+        </div>
+
+        <!-- Legend / Footer -->
+        <div class="track-legend">
+          <div class="legend-item"><span class="legend-line asphalt"></span> Racing Line</div>
+          <div class="legend-item"><span class="legend-line drs"></span> DRS Zone</div>
+          <div class="legend-item"><span class="legend-line pit"></span> Pit Lane</div>
+          <div class="legend-item"><span class="legend-dot start"></span> Start / Finish</div>
+          <div class="legend-item"><span class="legend-hint">💡 Click any car or leaderboard row to lock camera</span></div>
+        </div>
+      </div>
+
+      <!-- Live Pit-Wall Telemetry Sidebar -->
+      <div class="track-sidebar">
+        <!-- Telemetry Card for Focused Driver -->
+        <div class="driver-telemetry-card" id="driverTelemetryCard">
+          <div class="dt-head">
+            <div class="dt-driver-info">
+              <span class="dt-pos" id="dtPos">P1</span>
+              <div>
+                <div class="dt-name" id="dtName">Lando Norris</div>
+                <div class="dt-team" id="dtTeam">McLaren Formula 1 Team</div>
+              </div>
+            </div>
+            <div class="dt-number" id="dtNumber">4</div>
+          </div>
+
+          <div class="dt-gauges">
+            <div class="gauge-box">
+              <span class="gb-label">SPEED</span>
+              <span class="gb-val" id="dtSpeed">318 <small>km/h</small></span>
+              <div class="gauge-bar"><div class="gb-fill speed" id="dtSpeedBar" style="width:88%"></div></div>
+            </div>
+            <div class="gauge-box">
+              <span class="gb-label">GEAR</span>
+              <span class="gb-val" id="dtGear">8</span>
+              <div class="gauge-bar"><div class="gb-fill gear" id="dtGearBar" style="width:100%"></div></div>
+            </div>
+          </div>
+
+          <div class="dt-pedals">
+            <div class="pedal-row">
+              <span class="pr-label">THROTTLE</span>
+              <div class="pr-bar"><div class="pr-fill throttle" id="dtThrottle" style="width:96%"></div></div>
+              <span class="pr-val" id="dtThrottleVal">96%</span>
+            </div>
+            <div class="pedal-row">
+              <span class="pr-label">BRAKE</span>
+              <div class="pr-bar"><div class="pr-fill brake" id="dtBrake" style="width:0%"></div></div>
+              <span class="pr-val" id="dtBrakeVal">0%</span>
+            </div>
+          </div>
+
+          <div class="dt-meta-row">
+            <div class="dt-meta-item">
+              <span class="dm-k">TYRE</span>
+              <span class="dm-v tyre-badge hard" id="dtTyre">HARD (14L)</span>
+            </div>
+            <div class="dt-meta-item">
+              <span class="dm-k">DRS</span>
+              <span class="dm-v drs-badge active" id="dtDrs">OPEN</span>
+            </div>
+            <div class="dt-meta-item">
+              <span class="dm-k">INTERVAL</span>
+              <span class="dm-v" id="dtInterval">LEADER</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="track-leaderboard-card">
+          <div class="tl-head">
+            <span class="tl-title">TIMING TOWER</span>
+            <span class="tl-sub" id="tlSub">22 CARS RUNNING</span>
+          </div>
+          <div class="track-leaderboard" id="trackLeaderboard" role="list">
+            <!-- Dynamic rows P1 - P22 -->
+          </div>
+        </div>
+
+        <!-- Pit-Wall Radio / Incident Wire -->
+        <div class="track-incident-card">
+          <div class="ti-head">RACE CONTROL WIRE</div>
+          <div class="ti-feed" id="tiFeed">
+            <div class="ti-item"><span class="ti-time">14:02</span><span class="ti-tag green">GREEN</span> Track clear, DRS enabled.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</div><!-- /viewTrack -->
+
 <!-- ══ MODALS ══ -->
 <div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
   <div class="sheet">
@@ -566,6 +761,12 @@
           <button data-panel="termsPanel" data-route="info">Terms of Service</button>
           <button data-panel="privacyPanel" data-route="info">Privacy Policy</button>
           <button data-panel="faqPanel" data-route="info">FAQ</button>
+        </div>
+      </div>
+      <div id="footExperimental">
+        <h4>Experimental</h4>
+        <div class="foot-links">
+          <a href="/track" data-route="track">Live Track Map</a>
         </div>
       </div>
     </div>
