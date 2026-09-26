@@ -4660,10 +4660,12 @@ body.view-swapping {
 .perf-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
 }
 
 .perf-table {
   width: 100%;
+  min-width: 660px;
   border-collapse: collapse;
   font-family: 'JetBrains Mono', monospace;
   font-size: .75rem;
@@ -4676,7 +4678,7 @@ body.view-swapping {
 }
 
 .perf-table th {
-  padding: 10px 14px;
+  padding: 10px 12px;
   font-size: .58rem;
   font-weight: 700;
   letter-spacing: .16em;
@@ -4686,7 +4688,7 @@ body.view-swapping {
 }
 
 .perf-table td {
-  padding: 10px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   vertical-align: middle;
   white-space: nowrap;
@@ -4791,11 +4793,26 @@ body.view-swapping {
   border: 1px solid rgba(168, 85, 247, 0.35);
 }
 
-.td-pts {
+.th-pts, .td-pts {
+  width: 76px;
+  min-width: 76px;
+  text-align: right !important;
+  padding-right: 20px !important;
+}
+
+.th-q, .td-q {
+  width: 82px;
+  min-width: 82px;
+  text-align: center !important;
+  font-weight: 600;
+}
+
+.th-best, .td-best {
+  width: 96px;
+  min-width: 96px;
+  text-align: right !important;
+  padding-right: 20px !important;
   font-weight: 800;
-  color: #fff;
-  text-align: right;
-  width: 60px;
 }
 
 .pts-badge {

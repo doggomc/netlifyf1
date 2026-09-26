@@ -560,7 +560,7 @@
 
         <div class="perf-table-wrap">
           <table class="perf-table" aria-label="Official Driver Classification">
-            <thead>
+            <thead id="perfTableHead">
               <tr>
                 <th class="th-pos">POS</th>
                 <th class="th-driver">DRIVER</th>
@@ -588,19 +588,19 @@
           </div>
           <div class="psc-metrics">
             <div class="psc-metric-box">
-              <span class="pm-label">WINNING TIME</span>
+              <span class="pm-label" id="perfLabelTime">WINNING TIME</span>
               <span class="pm-val mono" id="perfWinningTime">-</span>
             </div>
             <div class="psc-metric-box">
-              <span class="pm-label">SAFETY CARS</span>
+              <span class="pm-label" id="perfLabelSafety">SAFETY CARS</span>
               <span class="pm-val mono" id="perfScCount">-</span>
             </div>
             <div class="psc-metric-box">
-              <span class="pm-label">MAX SPEED</span>
+              <span class="pm-label" id="perfLabelSpeed">MAX SPEED</span>
               <span class="pm-val mono" id="perfTopSpeed">-</span>
             </div>
             <div class="psc-metric-box">
-              <span class="pm-label">FINISH RATE</span>
+              <span class="pm-label" id="perfLabelFinish">FINISH RATE</span>
               <span class="pm-val mono" id="perfFinishRate">-</span>
             </div>
           </div>

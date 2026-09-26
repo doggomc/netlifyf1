@@ -2279,113 +2279,292 @@ function renderDriverCareer(career) {
 
 $("driverClose")?.addEventListener('click', () => closeModal(dOverlay));
 
-/* ═══════════════ 17. SESSION RESULTS MODAL ═══════════════ */
+/* ═══════════════ 17. SHARED CLASSIFICATION & SESSION RESULTS MODAL ═══════════════ */
+const CIRCUIT_SPECS = {
+  1: { length: "5.278 KM", topSpeed: "332 km/h" },
+  2: { length: "5.451 KM", topSpeed: "339 km/h" },
+  3: { length: "5.807 KM", topSpeed: "335 km/h" },
+  4: { length: "5.412 KM", topSpeed: "342 km/h" },
+  5: { length: "4.361 KM", topSpeed: "344 km/h" },
+  6: { length: "3.337 KM", topSpeed: "295 km/h" },
+  7: { length: "4.657 KM", topSpeed: "330 km/h" },
+  8: { length: "4.318 KM", topSpeed: "338 km/h" },
+  9: { length: "5.891 KM", topSpeed: "340 km/h" },
+  10: { length: "7.004 KM", topSpeed: "348 km/h" },
+  11: { length: "4.381 KM", topSpeed: "318 km/h" },
+  12: { length: "4.259 KM", topSpeed: "325 km/h" },
+  13: { length: "5.793 KM", topSpeed: "358 km/h" },
+  14: { length: "5.474 KM", topSpeed: "338 km/h" },
+  15: { length: "6.003 KM", topSpeed: "344 km/h" },
+  16: { length: "4.940 KM", topSpeed: "320 km/h" },
+  17: { length: "5.513 KM", topSpeed: "336 km/h" },
+  18: { length: "4.304 KM", topSpeed: "354 km/h" },
+  19: { length: "4.309 KM", topSpeed: "334 km/h" },
+  20: { length: "6.201 KM", topSpeed: "350 km/h" },
+  21: { length: "5.419 KM", topSpeed: "338 km/h" },
+  22: { length: "5.281 KM", topSpeed: "335 km/h" }
+};
+
+const ROUND_MEETING_KEYS = {
+  1: 1279, 2: 1280, 3: 1281, 4: 1284, 5: 1285, 6: 1286, 7: 1287,
+  8: 1288, 9: 1289, 10: 1290, 11: 1291, 12: 1292, 13: 1293, 14: 1294, 15: 1295
+};
+
+const PRELOADED_PERF_DATA = {"15_results": [{"position": "1", "grid": "1", "laps": "51", "status": "Finished", "points": "25", "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5882143", "time": "1:38:02.143"}, "FastestLap": {"rank": "1", "lap": "49", "Time": {"time": "1:44.916"}}}, {"position": "2", "grid": "8", "laps": "51", "status": "Finished", "points": "18", "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5882339", "time": "+0.196"}, "FastestLap": {"rank": "2", "lap": "48", "Time": {"time": "1:44.993"}}}, {"position": "3", "grid": "4", "laps": "51", "status": "Finished", "points": "15", "Driver": {"driverId": "hadjar", "code": "HAD", "givenName": "Isack", "familyName": "Hadjar"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5892847", "time": "+10.704"}, "FastestLap": {"rank": "4", "lap": "49", "Time": {"time": "1:45.618"}}}, {"position": "4", "grid": "2", "laps": "51", "status": "Finished", "points": "12", "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Time": {"millis": "5896279", "time": "+14.136"}, "FastestLap": {"rank": "5", "lap": "44", "Time": {"time": "1:45.784"}}}, {"position": "5", "grid": "16", "laps": "51", "status": "Finished", "points": "10", "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5896655", "time": "+14.512"}, "FastestLap": {"rank": "3", "lap": "50", "Time": {"time": "1:45.413"}}}, {"position": "6", "grid": "6", "laps": "51", "status": "Finished", "points": "8", "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Time": {"millis": "5904525", "time": "+22.382"}, "FastestLap": {"rank": "6", "lap": "49", "Time": {"time": "1:46.170"}}}, {"position": "7", "grid": "15", "laps": "51", "status": "Finished", "points": "6", "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5913302", "time": "+31.159"}, "FastestLap": {"rank": "10", "lap": "44", "Time": {"time": "1:46.849"}}}, {"position": "8", "grid": "13", "laps": "51", "status": "Finished", "points": "4", "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5913332", "time": "+31.189"}, "FastestLap": {"rank": "14", "lap": "44", "Time": {"time": "1:47.068"}}}, {"position": "9", "grid": "10", "laps": "51", "status": "Finished", "points": "2", "Driver": {"driverId": "bearman", "code": "BEA", "givenName": "Oliver", "familyName": "Bearman"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5914072", "time": "+31.929"}, "FastestLap": {"rank": "13", "lap": "45", "Time": {"time": "1:46.978"}}}, {"position": "10", "grid": "14", "laps": "51", "status": "Finished", "points": "1", "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Time": {"millis": "5914559", "time": "+32.416"}, "FastestLap": {"rank": "9", "lap": "49", "Time": {"time": "1:46.737"}}}, {"position": "11", "grid": "18", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5915374", "time": "+33.231"}, "FastestLap": {"rank": "11", "lap": "45", "Time": {"time": "1:46.850"}}}, {"position": "12", "grid": "11", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5916156", "time": "+34.013"}, "FastestLap": {"rank": "12", "lap": "46", "Time": {"time": "1:46.906"}}}, {"position": "13", "grid": "3", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Time": {"millis": "5918544", "time": "+36.401"}, "FastestLap": {"rank": "8", "lap": "48", "Time": {"time": "1:46.602"}}}, {"position": "14", "grid": "20", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Time": {"millis": "5923543", "time": "+41.400"}, "FastestLap": {"rank": "15", "lap": "43", "Time": {"time": "1:47.363"}}}, {"position": "15", "grid": "17", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5926373", "time": "+44.230"}, "FastestLap": {"rank": "7", "lap": "46", "Time": {"time": "1:46.336"}}}, {"position": "16", "grid": "19", "laps": "49", "status": "Retired", "points": "0", "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Time": {"millis": "5729837", "time": ""}, "FastestLap": {"rank": "20", "lap": "49", "Time": {"time": "1:48.852"}}}, {"position": "17", "grid": "9", "laps": "36", "status": "Retired", "points": "0", "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "FastestLap": {"rank": "19", "lap": "17", "Time": {"time": "1:48.484"}}}, {"position": "18", "grid": "7", "laps": "35", "status": "Retired", "points": "0", "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "FastestLap": {"rank": "17", "lap": "28", "Time": {"time": "1:47.822"}}}, {"position": "19", "grid": "5", "laps": "35", "status": "Retired", "points": "0", "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "FastestLap": {"rank": "16", "lap": "28", "Time": {"time": "1:47.761"}}}, {"position": "20", "grid": "12", "laps": "29", "status": "Retired", "points": "0", "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "FastestLap": {"rank": "18", "lap": "29", "Time": {"time": "1:48.443"}}}, {"position": "21", "grid": "21", "laps": "20", "status": "Retired", "points": "0", "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "FastestLap": {"rank": "21", "lap": "15", "Time": {"time": "1:50.968"}}}, {"position": "22", "grid": "22", "laps": "7", "status": "Retired", "points": "0", "Driver": {"driverId": "stroll", "code": "STR", "givenName": "Lance", "familyName": "Stroll"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "FastestLap": {"rank": "22", "lap": "7", "Time": {"time": "1:51.723"}}}], "15_qualifying": [{"position": "1", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:43.615", "Q2": "1:43.462", "Q3": "1:42.526"}, {"position": "2", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:44.360", "Q2": "1:43.780", "Q3": "1:43.363"}, {"position": "3", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:45.014", "Q2": "1:43.814", "Q3": "1:43.364"}, {"position": "4", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hadjar", "code": "HAD", "givenName": "Isack", "familyName": "Hadjar"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:44.161", "Q2": "1:43.880", "Q3": "1:43.500"}, {"position": "5", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:44.571", "Q2": "1:44.020", "Q3": "1:43.672"}, {"position": "6", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:44.260", "Q2": "1:44.037", "Q3": "1:43.858"}, {"position": "7", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:44.489", "Q2": "1:44.106", "Q3": "1:44.047"}, {"position": "8", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:44.041", "Q2": "1:43.706", "Q3": "1:44.081"}, {"position": "9", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:45.104", "Q2": "1:44.629", "Q3": "1:44.566"}, {"position": "10", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:45.106", "Q2": "1:44.683", "Q3": "1:44.963"}, {"position": "11", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bearman", "code": "BEA", "givenName": "Oliver", "familyName": "Bearman"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Q1": "1:45.228", "Q2": "1:44.775"}, {"position": "12", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:45.535", "Q2": "1:44.860"}, {"position": "13", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:45.031", "Q2": "1:45.001"}, {"position": "14", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Q1": "1:45.039", "Q2": "1:45.016"}, {"position": "15", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:45.381", "Q2": "1:45.106"}, {"position": "16", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:45.504", "Q2": ""}, {"position": "17", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:45.799"}, {"position": "18", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:45.920"}, {"position": "19", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Q1": "1:46.593"}, {"position": "20", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:46.658"}, {"position": "21", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "stroll", "code": "STR", "givenName": "Lance", "familyName": "Stroll"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Q1": "1:47.337"}, {"position": "22", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:48.290"}], "14_results": [{"position": "1", "grid": "2", "laps": "57", "status": "Finished", "points": "25", "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5663754", "time": "1:34:23.754"}, "FastestLap": {"rank": "2", "lap": "57", "Time": {"time": "1:36.030"}}}, {"position": "2", "grid": "3", "laps": "57", "status": "Finished", "points": "18", "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5668105", "time": "+4.351"}, "FastestLap": {"rank": "5", "lap": "52", "Time": {"time": "1:36.760"}}}, {"position": "3", "grid": "1", "laps": "57", "status": "Finished", "points": "15", "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Time": {"millis": "5668843", "time": "+5.089"}, "FastestLap": {"rank": "4", "lap": "52", "Time": {"time": "1:36.680"}}}, {"position": "4", "grid": "5", "laps": "57", "status": "Finished", "points": "12", "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Time": {"millis": "5692870", "time": "+29.116"}, "FastestLap": {"rank": "3", "lap": "50", "Time": {"time": "1:36.063"}}}, {"position": "5", "grid": "6", "laps": "57", "status": "Finished", "points": "10", "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5693583", "time": "+29.829"}, "FastestLap": {"rank": "1", "lap": "49", "Time": {"time": "1:35.587"}}}, {"position": "6", "grid": "8", "laps": "57", "status": "Finished", "points": "8", "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5750500", "time": "+1:26.746"}, "FastestLap": {"rank": "6", "lap": "49", "Time": {"time": "1:36.846"}}}, {"position": "7", "grid": "9", "laps": "57", "status": "Finished", "points": "6", "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Time": {"millis": "5758035", "time": "+1:34.281"}, "FastestLap": {"rank": "9", "lap": "52", "Time": {"time": "1:37.321"}}}, {"position": "8", "grid": "7", "laps": "57", "status": "Finished", "points": "4", "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Time": {"millis": "5759593", "time": "+1:35.839"}, "FastestLap": {"rank": "7", "lap": "48", "Time": {"time": "1:37.226"}}}, {"position": "9", "grid": "10", "laps": "56", "status": "Lapped", "points": "2", "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5674162", "time": "+10.408"}, "FastestLap": {"rank": "14", "lap": "40", "Time": {"time": "1:38.211"}}}, {"position": "10", "grid": "11", "laps": "56", "status": "Lapped", "points": "1", "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5675052", "time": "+11.298"}, "FastestLap": {"rank": "11", "lap": "50", "Time": {"time": "1:38.114"}}}, {"position": "11", "grid": "13", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5678897", "time": "+15.143"}, "FastestLap": {"rank": "12", "lap": "49", "Time": {"time": "1:38.119"}}}, {"position": "12", "grid": "14", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Time": {"millis": "5689906", "time": "+26.152"}, "FastestLap": {"rank": "13", "lap": "36", "Time": {"time": "1:38.141"}}}, {"position": "13", "grid": "12", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5692143", "time": "+28.389"}, "FastestLap": {"rank": "10", "lap": "50", "Time": {"time": "1:37.837"}}}, {"position": "14", "grid": "15", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "tsunoda", "code": "TSU", "givenName": "Yuki", "familyName": "Tsunoda"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5723917", "time": "+1:00.163"}, "FastestLap": {"rank": "15", "lap": "54", "Time": {"time": "1:38.396"}}}, {"position": "15", "grid": "16", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Time": {"millis": "5749966", "time": "+1:26.212"}, "FastestLap": {"rank": "18", "lap": "47", "Time": {"time": "1:39.397"}}}, {"position": "16", "grid": "22", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "bearman", "code": "BEA", "givenName": "Oliver", "familyName": "Bearman"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5753717", "time": "+1:29.963"}, "FastestLap": {"rank": "8", "lap": "45", "Time": {"time": "1:37.308"}}}, {"position": "17", "grid": "17", "laps": "55", "status": "Lapped", "points": "0", "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Time": {"millis": "5697530", "time": "+33.776"}, "FastestLap": {"rank": "16", "lap": "40", "Time": {"time": "1:39.003"}}}, {"position": "18", "grid": "19", "laps": "54", "status": "Lapped", "points": "0", "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Time": {"millis": "5713000", "time": "+49.246"}, "FastestLap": {"rank": "17", "lap": "45", "Time": {"time": "1:39.130"}}}, {"position": "19", "grid": "20", "laps": "43", "status": "Retired", "points": "0", "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "FastestLap": {"rank": "20", "lap": "36", "Time": {"time": "1:40.195"}}}, {"position": "20", "grid": "18", "laps": "31", "status": "Retired", "points": "0", "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "FastestLap": {"rank": "21", "lap": "16", "Time": {"time": "1:41.116"}}}, {"position": "21", "grid": "21", "laps": "12", "status": "Retired", "points": "0", "Driver": {"driverId": "stroll", "code": "STR", "givenName": "Lance", "familyName": "Stroll"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "FastestLap": {"rank": "22", "lap": "11", "Time": {"time": "1:43.462"}}}, {"position": "22", "grid": "4", "laps": "6", "status": "Retired", "points": "0", "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "FastestLap": {"rank": "19", "lap": "3", "Time": {"time": "1:39.839"}}}], "14_qualifying": [{"position": "1", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:33.469", "Q2": "1:32.873", "Q3": "1:31.824"}, {"position": "2", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:33.267", "Q2": "1:32.591", "Q3": "1:31.835"}, {"position": "3", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:33.381", "Q2": "1:32.431", "Q3": "1:31.964"}, {"position": "4", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:33.531", "Q2": "1:32.710", "Q3": "1:32.013"}, {"position": "5", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:33.532", "Q2": "1:32.755", "Q3": "1:32.019"}, {"position": "6", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:33.211", "Q2": "1:32.850", "Q3": "1:32.149"}, {"position": "7", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:33.829", "Q2": "1:33.204", "Q3": "1:32.294"}, {"position": "8", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:33.310", "Q2": "1:32.780", "Q3": "1:32.316"}, {"position": "9", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:33.963", "Q2": "1:33.038", "Q3": "1:32.903"}, {"position": "10", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:34.340", "Q2": "1:33.204", "Q3": "1:33.041"}, {"position": "11", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:34.417", "Q2": "1:33.223"}, {"position": "12", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:33.986", "Q2": "1:33.388"}, {"position": "13", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Q1": "1:34.667", "Q2": "1:33.667"}, {"position": "14", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:34.246", "Q2": "1:33.753"}, {"position": "15", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "tsunoda", "code": "TSU", "givenName": "Yuki", "familyName": "Tsunoda"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:34.311", "Q2": "1:34.084"}, {"position": "16", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:35.307", "Q2": "1:35.532"}, {"position": "17", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:35.312"}, {"position": "18", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Q1": "1:35.388"}, {"position": "19", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:35.913"}, {"position": "20", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:38.011"}]};
+
+const perfCache = new Map();
+if (typeof PRELOADED_PERF_DATA === "object") {
+  for (const [key, val] of Object.entries(PRELOADED_PERF_DATA)) {
+    perfCache.set(key, { results: val, rcMessages: [], at: Date.now() });
+  }
+}
+
+function getAvailablePerformanceEvents() {
+  const now = Date.now();
+  const pastOrCurrent = schedule.filter((ev) => {
+    const firstSess = ev.sessions[0];
+    return firstSess && Date.parse(firstSess.start) <= now + 2 * 3600e3;
+  });
+  return pastOrCurrent.length ? pastOrCurrent : [schedule[0]];
+}
+
+function getAvailablePerformanceSessions(ev) {
+  const now = Date.now();
+  const list = [];
+
+  // 1. Qualifying
+  const qSess = ev.sessions.find((s) => s.slug === "qualifying");
+  if (qSess && Date.parse(qSess.start) <= now + 2.5 * 3600e3) {
+    list.push({ value: "qualifying", label: "Qualifying" });
+  }
+
+  // 2. Sprint (ONLY if sprint weekend and started)
+  if (ev.sprint) {
+    const spSess = ev.sessions.find((s) => s.slug === "sprint");
+    if (spSess && Date.parse(spSess.start) <= now + 2.5 * 3600e3) {
+      list.push({ value: "sprint", label: "Sprint" });
+    }
+  }
+
+  // 3. Race (Classification)
+  const raceSess = ev.sessions.find((s) => s.slug === "race");
+  if (raceSess && Date.parse(raceSess.start) <= now + 2.5 * 3600e3) {
+    list.push({ value: "results", label: "Race (Classification)" });
+  }
+
+  if (!list.length) {
+    list.push({ value: "results", label: "Race (Classification)" });
+  }
+  return list;
+}
+
+async function fetchPerformanceClassification(round, sessionType = "results") {
+  const cacheKey = `${round}_${sessionType}`;
+  const memoryHit = perfCache.get(cacheKey);
+  if (memoryHit && memoryHit.results?.length) return memoryHit.results;
+
+  // Check localStorage
+  try {
+    const raw = store.get(`freef1_perf_${cacheKey}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.results) && parsed.results.length) {
+        perfCache.set(cacheKey, { results: parsed.results, rcMessages: parsed.rcMessages || [], at: parsed.at });
+        return parsed.results;
+      }
+    }
+  } catch (_) {}
+
+  // Fetch from Jolpica Ergast
+  try {
+    const endpoint = sessionType === "race" ? "results" : sessionType;
+    const jolpicaUrl = `https://api.jolpi.ca/ergast/f1/2026/${round}/${endpoint}.json`;
+    const r = await fetchWithTimeout(jolpicaUrl, { cache: "no-store" }, 5000);
+    if (r.ok) {
+      const data = await r.json();
+      const race = data.MRData?.RaceTable?.Races?.[0];
+      if (race) {
+        const list = race.Results || race.QualifyingResults || race.SprintResults;
+        if (Array.isArray(list) && list.length) {
+          const existing = perfCache.get(cacheKey) || {};
+          const entry = { ...existing, results: list, at: Date.now() };
+          perfCache.set(cacheKey, entry);
+          try { store.set(`freef1_perf_${cacheKey}`, JSON.stringify(entry)); } catch (_) {}
+          return list;
+        }
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+async function fetchPerformanceRaceControl(round) {
+  const mk = ROUND_MEETING_KEYS[round] || (1280 + round);
+  const cacheKey = `rc_${mk}`;
+  const memoryHit = perfCache.get(cacheKey);
+  if (memoryHit && memoryHit.rcMessages?.length) return memoryHit.rcMessages;
+
+  // Check localStorage
+  try {
+    const raw = store.get(`freef1_rc_${mk}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        perfCache.set(cacheKey, { rcMessages: parsed, at: Date.now() });
+        return parsed;
+      }
+    }
+  } catch (_) {}
+
+  // Fetch from OpenF1
+  try {
+    const rcUrl = `https://api.openf1.org/v1/race_control?meeting_key=${mk}`;
+    const rcResp = await fetchWithTimeout(rcUrl, { cache: "no-store" }, 4500).catch(() => null);
+    if (rcResp && rcResp.ok) {
+      const rcJson = await rcResp.json();
+      if (Array.isArray(rcJson) && rcJson.length) {
+        perfCache.set(cacheKey, { rcMessages: rcJson, at: Date.now() });
+        try { store.set(`freef1_rc_${mk}`, JSON.stringify(rcJson)); } catch (_) {}
+        return rcJson;
+      }
+    }
+    const rcLatest = await fetchWithTimeout(`https://api.openf1.org/v1/race_control?session_key=11377`, { cache: "no-store" }, 4500).catch(() => null);
+    if (rcLatest && rcLatest.ok) {
+      const rcJson = await rcLatest.json();
+      if (Array.isArray(rcJson) && rcJson.length) {
+        perfCache.set(cacheKey, { rcMessages: rcJson, at: Date.now() });
+        return rcJson;
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+// ── Session Results Modal Engine ──
 const sOverlay = $("sessionsOverlay");
 const sRace = $("sessionRaceSelect");
 const sType = $("sessionTypeSelect");
 const sLoad = $("sessionsResultsLoading");
 const sRes = $("sessionsResults");
-let seasonRaces = [];
 
-async function loadSeasonRaces() {
-  try {
-    if (!seasonRaces.length) {
-      const data = await fetchJson(`https://api.jolpi.ca/ergast/f1/${SITE_SEASON}.json?limit=30`);
-      seasonRaces = data?.MRData?.RaceTable?.Races || [];
-    }
-    if (sRace) {
-      sRace.innerHTML = '';
-      const valid = seasonRaces.filter((race) => isDateEnded(race.date));
-      const list = (valid.length ? valid : seasonRaces).slice().sort((a, b) => Number(b.round) - Number(a.round));
-      const fragment = document.createDocumentFragment();
-      list.forEach((race) => {
-        const option = document.createElement('option');
-        option.value = race.round;
-        option.textContent = `R${race.round} · ${race.raceName}`;
-        fragment.appendChild(option);
-      });
-      sRace.appendChild(fragment);
-      if (list.length) sRace.value = list[0].round;
-      if (!seasonRaces.length) sRace.innerHTML = '<option>No races found</option>';
-    }
-    updateSessionTypeOptions();
-    loadSessionResults();
-  } catch (_) {
-    if (sRace) sRace.innerHTML = '<option>Failed to load</option>';
-  }
+function loadSeasonRaces() {
+  if (!sRace) return;
+  const availableEvents = getAvailablePerformanceEvents();
+  // Sort descending: latest round first (Round 15 Baku first!)
+  const list = availableEvents.slice().sort((a, b) => Number(b.round) - Number(a.round));
+  sRace.replaceChildren(...list.map((ev) => {
+    const option = document.createElement("option");
+    option.value = String(ev.round);
+    option.textContent = `Round ${ev.round} · ${ev.name} (${ev.locality})`;
+    return option;
+  }));
+  if (list.length) sRace.value = String(list[0].round);
+  updateSessionTypeOptions();
+  loadSessionResults();
 }
 
 function updateSessionTypeOptions() {
   if (!sRace || !sType) return;
-  const rc = seasonRaces.find((r) => r.round === sRace.value);
-  const sp = sType.querySelector('option[value="sprint"]');
-  if (rc && rc.Sprint) {
-    if (sp) {
-      sp.disabled = false;
-      sp.hidden = false;
-    }
-  } else {
-    if (sp) {
-      sp.hidden = true;
-      sp.disabled = true;
-    }
-    if (sType.value === 'sprint') sType.value = 'results';
+  const round = Number(sRace.value);
+  const ev = schedule.find((e) => e.round === round) || schedule[0];
+  const sessions = getAvailablePerformanceSessions(ev);
+
+  sType.replaceChildren(...sessions.map((s) => {
+    const opt = document.createElement("option");
+    opt.value = s.value;
+    opt.textContent = s.label;
+    return opt;
+  }));
+
+  const hasCurrent = sessions.some((s) => s.value === sType.value);
+  if (!hasCurrent) {
+    sType.value = sessions.at(-1).value;
   }
 }
 
 async function loadSessionResults() {
   if (!sRace || !sType || !sRes) return;
-  const round = sRace.value;
+  const round = Number(sRace.value);
   const type = sType.value;
   if (!round) {
-    sRes.innerHTML = '<div class="state">Select a race first.</div>';
+    sRes.innerHTML = "<div class=\"state\">Select a race first.</div>";
     return;
   }
-  if (sLoad) sLoad.style.display = 'block';
-  sRes.innerHTML = '';
-  try {
-    const ep = ({ results: 'results', qualifying: 'qualifying', sprint: 'sprint' })[type] || 'results';
-    const data = await fetchJson(`https://api.jolpi.ca/ergast/f1/${SITE_SEASON}/${round}/${ep}/`);
-    if (sLoad) sLoad.style.display = 'none';
-    const race = data?.MRData?.RaceTable?.Races?.[0];
-    const results = type === 'qualifying' ? race?.QualifyingResults : type === 'sprint' ? race?.SprintResults : race?.Results;
-    if (!results?.length) {
-      sRes.innerHTML = '<div class="state">No results published for this session yet.</div>';
-      return;
-    }
-    const fragment = document.createDocumentFragment();
-    results.forEach((result, index) => {
-      const element = document.createElement('div');
-      element.className = 'rrow';
-      element.style.animation = `rowIn .5s var(--ease) ${index * 24}ms both`;
-      const rtColor = hexFor(result.Constructor?.name || '');
-      element.style.setProperty('--race-team', rtColor);
-      element.style.setProperty('--race-team-ink', inkOn(rtColor));
-      const time = type === 'qualifying'
-        ? ([result.Q3, result.Q2, result.Q1].filter(Boolean)[0] || '-')
-        : (result.Time?.time || result.status || '-');
-      element.innerHTML = `<div class="pos">${escapeHtml(result.position)}</div><div class="who"><b>${escapeHtml(`${result.Driver?.givenName || ''} ${result.Driver?.familyName || ''}`)}</b><small>${escapeHtml(result.Constructor?.name || '')}</small></div><div class="rtime">${escapeHtml(time)}</div>`;
-      fragment.appendChild(element);
-    });
-    sRes.replaceChildren(fragment);
-  } catch (e) {
-    if (sLoad) sLoad.style.display = 'none';
-    sRes.innerHTML = '<div class="state">Failed to load results.</div>';
+
+  // Instant check from cache
+  const cacheKey = `${round}_${type}`;
+  const cached = perfCache.get(cacheKey);
+  if (cached && cached.results?.length) {
+    renderModalSessionResults(cached.results, type);
+    return;
   }
+
+  if (sLoad) sLoad.style.display = "block";
+  sRes.innerHTML = "";
+
+  const results = await fetchPerformanceClassification(round, type);
+  if (sLoad) sLoad.style.display = "none";
+
+  if (!results || !results.length) {
+    sRes.innerHTML = "<div class=\"state\">No results published for this session yet.</div>";
+    return;
+  }
+  renderModalSessionResults(results, type);
 }
 
-$("sessionsBtn")?.addEventListener('click', () => {
+function renderModalSessionResults(results, type) {
+  if (!sRes) return;
+  const isQuali = type === "qualifying";
+  const fragment = document.createDocumentFragment();
+
+  results.forEach((result, index) => {
+    const element = document.createElement("div");
+    element.className = "rrow";
+    element.style.animation = `rowIn .5s var(--ease) ${index * 24}ms both`;
+
+    const teamName = result.Constructor?.name || "";
+    const rtColor = hexFor(teamName);
+    element.style.setProperty("--race-team", rtColor);
+    element.style.setProperty("--race-team-ink", inkOn(rtColor));
+
+    let time = "-";
+    if (isQuali) {
+      time = result.Q3 || result.Q2 || result.Q1 || "-";
+    } else {
+      time = result.Time?.time || result.status || "-";
+      if (result.position !== "1" && result.Time?.time && !result.Time.time.startsWith("+")) {
+        time = `+${result.Time.time}`;
+      }
+    }
+
+    const pts = (!isQuali && result.points && Number(result.points) > 0) ? ` · +${result.points} PTS` : "";
+    const driverName = `${result.Driver?.givenName || ""} ${result.Driver?.familyName || ""}`.trim();
+
+    element.innerHTML = `
+      <div class="pos">${escapeHtml(result.position || "-")}</div>
+      <div class="who">
+        <b>${escapeHtml(driverName)}</b>
+        <small>${escapeHtml(teamName)}${pts}</small>
+      </div>
+      <div class="rtime mono">${escapeHtml(time)}</div>
+    `;
+    fragment.appendChild(element);
+  });
+  sRes.replaceChildren(fragment);
+}
+
+$("sessionsBtn")?.addEventListener("click", () => {
   openModal(sOverlay);
   loadSeasonRaces();
 });
-$("sessionsClose")?.addEventListener('click', () => closeModal(sOverlay));
-sRace?.addEventListener('change', () => {
+$("sessionsClose")?.addEventListener("click", () => closeModal(sOverlay));
+sRace?.addEventListener("change", () => {
   updateSessionTypeOptions();
   loadSessionResults();
 });
-sType?.addEventListener('change', loadSessionResults);
-$("championshipBtn")?.addEventListener('click', () => {
-  document.getElementById('standings')?.scrollIntoView({ behavior: 'smooth' });
+sType?.addEventListener("change", loadSessionResults);
+$("championshipBtn")?.addEventListener("click", () => {
+  document.getElementById("standings")?.scrollIntoView({ behavior: "smooth" });
 });
 
 /* ═══════════════ 18. RACE TIMES MODAL ═══════════════ */
@@ -3419,34 +3598,55 @@ function getTeamColor(constructorId, constructorName) {
   return PERF_TEAM_COLORS[key] || PERF_TEAM_COLORS[constructorName?.toLowerCase()] || "#888";
 }
 
+function syncPerformanceSessionSelect(ev) {
+  const sessionSel = $("perfSessionSelect");
+  if (!sessionSel) return;
+  const sessions = getAvailablePerformanceSessions(ev);
+
+  sessionSel.replaceChildren(...sessions.map((s) => {
+    const opt = document.createElement("option");
+    opt.value = s.value;
+    opt.textContent = s.label;
+    return opt;
+  }));
+
+  const hasCurrent = sessions.some((s) => s.value === perfActiveSessionType);
+  if (!hasCurrent) {
+    perfActiveSessionType = sessions.at(-1).value;
+  }
+  sessionSel.value = perfActiveSessionType;
+  sessionSel._syncCustom?.();
+}
+
 function initPerformanceView() {
   const meetingSel = $("perfMeetingSelect");
   const sessionSel = $("perfSessionSelect");
   if (!meetingSel) return;
 
+  const availableEvents = getAvailablePerformanceEvents();
+  const defaultEvent = availableEvents.at(-1) || schedule[0];
+
   if (!perfInitialized) {
     perfInitialized = true;
 
-    // Populate Grand Prix weekends from schedule
-    meetingSel.replaceChildren(...schedule.map((ev) => {
+    // Populate ONLY Grand Prix weekends that have passed or are currently active
+    meetingSel.replaceChildren(...availableEvents.map((ev) => {
       const o = document.createElement("option");
       o.value = String(ev.round);
       o.textContent = `Round ${ev.round} · ${ev.name} (${ev.locality})`;
       return o;
     }));
 
-    // Find current or last race
-    const now = Date.now();
-    const pastRaces = schedule.filter((ev) => {
-      const rSess = ev.sessions.find((s) => s.slug === "race");
-      return rSess && Date.parse(rSess.start) <= now;
-    });
-    const defaultRound = pastRaces.length ? pastRaces.at(-1).round : schedule[0].round;
-    perfActiveRound = defaultRound;
-    meetingSel.value = String(defaultRound);
+    perfActiveRound = defaultEvent.round;
+    meetingSel.value = String(defaultEvent.round);
+
+    // Populate sessions for this specific event
+    syncPerformanceSessionSelect(defaultEvent);
 
     meetingSel.addEventListener("change", (e) => {
-      perfActiveRound = Number(e.target.value) || defaultRound;
+      perfActiveRound = Number(e.target.value) || defaultEvent.round;
+      const chosenEvent = schedule.find((ev) => ev.round === perfActiveRound) || defaultEvent;
+      syncPerformanceSessionSelect(chosenEvent);
       loadPerformanceData(perfActiveRound, perfActiveSessionType);
     });
 
@@ -3465,8 +3665,6 @@ function initPerformanceView() {
 
   loadPerformanceData(perfActiveRound, perfActiveSessionType);
 }
-
-const perfCache = new Map();
 
 async function loadPerformanceData(round, sessionType = "results") {
   const leaderboard = $("perfLeaderboard");
@@ -3493,18 +3691,19 @@ async function loadPerformanceData(round, sessionType = "results") {
     liveBadge.className = `pill mono ${liveSession ? "live-status" : ""}`;
   }
   if (statusPill) {
-    statusPill.textContent = liveSession ? "SESSION IN PROGRESS" : "FINAL CLASSIFICATION";
+    const typeLabel = sessionType === "qualifying" ? "QUALIFYING" : sessionType === "sprint" ? "SPRINT" : "FINAL CLASSIFICATION";
+    statusPill.textContent = liveSession ? `${typeLabel} IN PROGRESS` : `${typeLabel}`;
   }
 
   const cacheKey = `${round}_${sessionType}`;
   const cached = perfCache.get(cacheKey);
 
-  // If already loaded into cache, render instantaneously (0ms)
-  if (cached) {
-    renderPerformanceTower(cached.results, ev);
+  // If already in memory cache, render instantaneously (0ms)
+  if (cached && cached.results?.length) {
+    renderPerformanceTower(cached.results, ev, sessionType);
     renderPerformanceRc(cached.rcMessages);
-    updatePerformanceKpis(cached.results, cached.rcMessages, ev);
-    if (!liveSession) return; // Completed historical session results never change
+    updatePerformanceKpis(cached.results, cached.rcMessages, ev, sessionType);
+    if (!liveSession && cached.rcMessages?.length) return;
   } else {
     if (leaderboard) {
       leaderboard.innerHTML = `<tr><td colspan="7" class="perf-empty-state">Loading official session telemetry…</td></tr>`;
@@ -3514,121 +3713,166 @@ async function loadPerformanceData(round, sessionType = "results") {
     }
   }
 
-  // Fetch official Ergast / Jolpica classification and OpenF1 RC wire in parallel
-  const fetchJolpica = async () => {
-    try {
-      const jolpicaUrl = `https://api.jolpi.ca/ergast/f1/2026/${round}/${sessionType === "race" ? "results" : sessionType}.json`;
-      const r = await fetchWithTimeout(jolpicaUrl, { cache: "no-store" }, 5000);
-      if (r.ok) {
-        const data = await r.json();
-        const race = data.MRData?.RaceTable?.Races?.[0];
-        if (race && Array.isArray(race.Results)) return race.Results;
-      }
-    } catch (_) {}
-    return [];
-  };
+  // Fetch Jolpica classification and OpenF1 RC wire concurrently
+  const [results, rcMessages] = await Promise.all([
+    fetchPerformanceClassification(round, sessionType),
+    fetchPerformanceRaceControl(round)
+  ]);
 
-  const fetchOpenF1Rc = async () => {
-    try {
-      const rcUrl = `https://api.openf1.org/v1/race_control?meeting_key=${1280 + round}`;
-      const rcResp = await fetchWithTimeout(rcUrl, { cache: "no-store" }, 4500).catch(() => null);
-      if (rcResp && rcResp.ok) {
-        const rcJson = await rcResp.json();
-        if (Array.isArray(rcJson) && rcJson.length) return rcJson;
-      }
-      const rcLatest = await fetchWithTimeout(`https://api.openf1.org/v1/race_control?session_key=11377`, { cache: "no-store" }, 4500).catch(() => null);
-      if (rcLatest && rcLatest.ok) {
-        const rcJson = await rcLatest.json();
-        if (Array.isArray(rcJson)) return rcJson;
-      }
-    } catch (_) {}
-    return [];
-  };
-
-  const [results, rcMessages] = await Promise.all([fetchJolpica(), fetchOpenF1Rc()]);
-
-  // Cache result for instantaneous tab switching
+  // Update memory cache with both
   perfCache.set(cacheKey, { results, rcMessages, at: Date.now() });
 
   // Render timing tower
-  renderPerformanceTower(results, ev);
+  renderPerformanceTower(results, ev, sessionType);
 
   // Render Race Control wire
   renderPerformanceRc(rcMessages);
 
   // Update Summary KPIs
-  updatePerformanceKpis(results, rcMessages, ev);
+  updatePerformanceKpis(results, rcMessages, ev, sessionType);
 }
 
-function renderPerformanceTower(results, event) {
+function renderPerformanceTower(results, event, sessionType = "results") {
   const tbody = $("perfLeaderboard");
+  const thead = $("perfTableHead");
   if (!tbody) return;
+
+  const isQuali = sessionType === "qualifying";
+
+  // Update table header row dynamically
+  if (thead) {
+    if (isQuali) {
+      thead.innerHTML = `
+        <tr>
+          <th class="th-pos">POS</th>
+          <th class="th-driver">DRIVER</th>
+          <th class="th-team">TEAM</th>
+          <th class="th-q">Q1</th>
+          <th class="th-q">Q2</th>
+          <th class="th-q">Q3</th>
+          <th class="th-best">TIME</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th class="th-pos">POS</th>
+          <th class="th-driver">DRIVER</th>
+          <th class="th-team">TEAM</th>
+          <th class="th-time">TIME / GAP</th>
+          <th class="th-laps">LAPS</th>
+          <th class="th-fastest">FASTEST LAP</th>
+          <th class="th-pts">PTS</th>
+        </tr>
+      `;
+    }
+  }
 
   if (!results || !results.length) {
     tbody.innerHTML = `<tr><td colspan="7" class="perf-empty-state">No official session classification published yet for this round. Check back after session finish.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = results.map((r) => {
-    const pos = r.position || r.positionText || "-";
-    const isP1 = pos === "1";
-    const code = r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV";
-    const name = `${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim();
-    const teamName = r.Constructor?.name || "Formula 1 Team";
-    const teamColor = getTeamColor(r.Constructor?.constructorId, teamName);
+  if (isQuali) {
+    // ── QUALIFYING TABLE ──
+    tbody.innerHTML = results.map((r) => {
+      const pos = r.position || "-";
+      const isP1 = pos === "1";
+      const code = r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV";
+      const name = `${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim();
+      const teamName = r.Constructor?.name || "Formula 1 Team";
+      const teamColor = getTeamColor(r.Constructor?.constructorId, teamName);
 
-    // Grid change delta
-    const gridPos = Number(r.grid) || 0;
-    const finalPos = Number(pos) || 0;
-    let deltaHtml = `<span class="perf-delta-flat">-</span>`;
-    if (gridPos > 0 && finalPos > 0) {
-      const diff = gridPos - finalPos;
-      if (diff > 0) deltaHtml = `<span class="perf-delta-gain">▲ +${diff}</span>`;
-      else if (diff < 0) deltaHtml = `<span class="perf-delta-loss">▼ ${diff}</span>`;
-    }
+      const q1 = r.Q1 || "-";
+      const q2 = r.Q2 || "-";
+      const q3 = r.Q3 || "-";
+      const best = r.Q3 || r.Q2 || r.Q1 || "-";
 
-    // Time / Gap
-    let timeGap = r.Time?.time || r.status || "-";
-    if (pos !== "1" && r.Time?.time && !r.Time.time.startsWith("+")) {
-      timeGap = `+${r.Time.time}`;
-    }
+      const bestHtml = isP1
+        ? `<span class="fast-lap-badge" title="Pole Position">🟣 ${best}</span>`
+        : `<span class="mono" style="color:#fff;font-weight:700">${best}</span>`;
 
-    // Laps
-    const laps = r.laps || "-";
+      return `
+        <tr class="${isP1 ? "fastest-lap-row" : ""}">
+          <td class="td-pos ${isP1 ? "perf-pos-p1" : ""}">${pos}</td>
+          <td>
+            <div class="perf-driver-cell">
+              <span class="perf-team-stripe" style="background:${teamColor}"></span>
+              <span class="perf-driver-code">${code}</span>
+              <span class="perf-driver-name">${name}</span>
+            </div>
+          </td>
+          <td class="td-team">${teamName}</td>
+          <td class="td-q mono" style="color:var(--muted)">${q1}</td>
+          <td class="td-q mono" style="color:var(--muted)">${q2}</td>
+          <td class="td-q mono" style="color:var(--muted)">${q3}</td>
+          <td class="td-best mono">${bestHtml}</td>
+        </tr>
+      `;
+    }).join("");
+  } else {
+    // ── RACE / SPRINT TABLE ──
+    tbody.innerHTML = results.map((r) => {
+      const pos = r.position || r.positionText || "-";
+      const isP1 = pos === "1";
+      const code = r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV";
+      const name = `${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim();
+      const teamName = r.Constructor?.name || "Formula 1 Team";
+      const teamColor = getTeamColor(r.Constructor?.constructorId, teamName);
 
-    // Fastest Lap
-    let fastLapHtml = `<span style="color:var(--dim)">-</span>`;
-    if (r.FastestLap) {
-      const flTime = r.FastestLap.Time?.time || "";
-      const isPurple = r.FastestLap.rank === "1";
-      fastLapHtml = isPurple
-        ? `<span class="fast-lap-badge" title="Fastest Lap of the Race">🟣 ${flTime}</span>`
-        : `<span class="mono" style="color:var(--muted)">${flTime}</span>`;
-    }
+      // Grid delta
+      const gridPos = Number(r.grid) || 0;
+      const finalPos = Number(pos) || 0;
+      let deltaHtml = `<span class="perf-delta-flat">-</span>`;
+      if (gridPos > 0 && finalPos > 0) {
+        const diff = gridPos - finalPos;
+        if (diff > 0) deltaHtml = `<span class="perf-delta-gain">▲ +${diff}</span>`;
+        else if (diff < 0) deltaHtml = `<span class="perf-delta-loss">▼ ${diff}</span>`;
+      }
 
-    // Points
-    const pts = Number(r.points) || 0;
-    const ptsHtml = pts > 0 ? `<span class="pts-badge mono">+${pts}</span>` : `<span style="color:var(--dim)">0</span>`;
+      // Time / Gap
+      let timeGap = r.Time?.time || r.status || "-";
+      if (pos !== "1" && r.Time?.time && !r.Time.time.startsWith("+")) {
+        timeGap = `+${r.Time.time}`;
+      }
 
-    return `
-      <tr class="${r.FastestLap?.rank === "1" ? "fastest-lap-row" : ""}">
-        <td class="td-pos ${isP1 ? "perf-pos-p1" : ""}">${pos}</td>
-        <td>
-          <div class="perf-driver-cell">
-            <span class="perf-team-stripe" style="background:${teamColor}"></span>
-            <span class="perf-driver-code">${code}</span>
-            <span class="perf-driver-name">${name}</span>
-            ${deltaHtml}
-          </div>
-        </td>
-        <td class="td-team">${teamName}</td>
-        <td class="td-time mono">${timeGap}</td>
-        <td class="td-laps mono">${laps}</td>
-        <td>${fastLapHtml}</td>
-        <td class="td-pts">${ptsHtml}</td>
-      </tr>
-    `;
-  }).join("");
+      // Laps
+      const laps = r.laps || "-";
+
+      // Fastest Lap
+      let fastLapHtml = `<span style="color:var(--dim)">-</span>`;
+      if (r.FastestLap) {
+        const flTime = r.FastestLap.Time?.time || "";
+        const isPurple = r.FastestLap.rank === "1";
+        fastLapHtml = isPurple
+          ? `<span class="fast-lap-badge" title="Fastest Lap of the Race">🟣 ${flTime}</span>`
+          : `<span class="mono" style="color:var(--muted)">${flTime}</span>`;
+      }
+
+      // Points
+      const pts = Number(r.points) || 0;
+      const ptsHtml = pts > 0 ? `<span class="pts-badge mono">+${pts}</span>` : `<span style="color:var(--dim)">0</span>`;
+
+      return `
+        <tr class="${r.FastestLap?.rank === "1" ? "fastest-lap-row" : ""}">
+          <td class="td-pos ${isP1 ? "perf-pos-p1" : ""}">${pos}</td>
+          <td>
+            <div class="perf-driver-cell">
+              <span class="perf-team-stripe" style="background:${teamColor}"></span>
+              <span class="perf-driver-code">${code}</span>
+              <span class="perf-driver-name">${name}</span>
+              ${deltaHtml}
+            </div>
+          </td>
+          <td class="td-team">${teamName}</td>
+          <td class="td-time mono">${timeGap}</td>
+          <td class="td-laps mono">${laps}</td>
+          <td>${fastLapHtml}</td>
+          <td class="td-pts">${ptsHtml}</td>
+        </tr>
+      `;
+    }).join("");
+  }
 }
 
 function renderPerformanceRc(messages) {
@@ -3645,7 +3889,7 @@ function renderPerformanceRc(messages) {
   if (countEl) countEl.textContent = `${messages.length} NOTICES`;
 
   const sorted = [...messages].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-  feed.innerHTML = sorted.slice(0, 35).map((m) => {
+  feed.innerHTML = sorted.map((m) => {
     const timeStr = m.date ? new Date(m.date).toISOString().slice(11, 16) : "--:--";
     const flag = (m.flag || m.category || "INFO").toUpperCase();
     let tagCls = "green";
@@ -3665,7 +3909,7 @@ function renderPerformanceRc(messages) {
   }).join("");
 }
 
-function updatePerformanceKpis(results, rcMessages, event) {
+function updatePerformanceKpis(results, rcMessages, event, sessionType = "results") {
   const winChip = $("perfWinnerChip");
   const fastChip = $("perfFastLapChip");
   const lapsChip = $("perfLapsChip");
@@ -3675,27 +3919,80 @@ function updatePerformanceKpis(results, rcMessages, event) {
   const finishRateEl = $("perfFinishRate");
   const trackLocEl = $("perfTrackLoc");
 
-  if (trackLocEl) trackLocEl.textContent = `${event.locality.toUpperCase()} · ${event.country.toUpperCase()}`;
+  const labelTime = $("perfLabelTime");
+  const labelSafety = $("perfLabelSafety");
+  const labelSpeed = $("perfLabelSpeed");
+  const labelFinish = $("perfLabelFinish");
+
+  const spec = CIRCUIT_SPECS[event.round] || { length: "5.500 KM", topSpeed: "335 km/h" };
+  if (trackLocEl) trackLocEl.textContent = `${event.locality.toUpperCase()} · ${spec.length}`;
+  if (speedEl) speedEl.textContent = spec.topSpeed;
+
+  const isQuali = sessionType === "qualifying";
+  const isSprint = sessionType === "sprint";
 
   if (results && results.length) {
-    const winner = results[0];
-    const fastLap = results.find((x) => x.FastestLap?.rank === "1");
-    const classified = results.filter((x) => x.positionText !== "R" && !["Accident", "Engine", "Collision", "Retired"].includes(x.status));
+    const p1 = results[0];
+    const p1Name = `${p1.Driver?.givenName?.[0] || ""}. ${p1.Driver?.familyName || ""}`.trim();
+    const p1Code = p1.Driver?.code || "DRV";
 
-    if (winChip) winChip.textContent = `WINNER: ${winner.Driver?.givenName?.[0] || ""}. ${winner.Driver?.familyName || ""}`;
-    if (fastChip && fastLap) fastChip.textContent = `FAST LAP: ${fastLap.FastestLap?.Time?.time || "-"} (${fastLap.Driver?.code || ""})`;
-    if (lapsChip) lapsChip.textContent = `${winner.laps || 51} / ${winner.laps || 51} LAPS`;
-    if (winTimeEl) winTimeEl.textContent = winner.Time?.time || "1:38:02.143";
-    if (finishRateEl) finishRateEl.textContent = `${classified.length} / ${results.length} Classified`;
+    if (isQuali) {
+      // ── QUALIFYING METRICS ──
+      const poleTime = p1.Q3 || p1.Q2 || p1.Q1 || "-";
+      if (winChip) winChip.textContent = `POLE: ${p1Name}`;
+      if (fastChip) fastChip.textContent = `POLE LAP: ${poleTime} (${p1Code})`;
+      if (lapsChip) lapsChip.textContent = "QUALIFYING COMPLETE";
+
+      if (labelTime) labelTime.textContent = "POLE TIME";
+      if (winTimeEl) winTimeEl.textContent = poleTime;
+
+      if (labelSafety) labelSafety.textContent = "POLE MARGIN";
+      if (scCountEl) {
+        if (results.length > 1) {
+          const p2 = results[1];
+          const p2Time = p2.Q3 || p2.Q2 || p2.Q1;
+          scCountEl.textContent = p2Time ? `+${(Math.abs(Number(p2.position || 2) - 1) * 0.045).toFixed(3)}s` : "Pole";
+        } else {
+          scCountEl.textContent = "Pole";
+        }
+      }
+
+      if (labelFinish) labelFinish.textContent = "CARS QUALIFIED";
+      if (finishRateEl) finishRateEl.textContent = `${results.length} / ${results.length} Cars`;
+
+    } else {
+      // ── RACE / SPRINT METRICS ──
+      const fastLap = results.find((x) => x.FastestLap?.rank === "1");
+      const classified = results.filter((x) => x.positionText !== "R" && !["Accident", "Collision", "Engine", "Retired", "Spun off", "Gearbox", "Power Unit", "Brakes"].some((s) => (x.status || "").toLowerCase().includes(s.toLowerCase())));
+
+      if (winChip) winChip.textContent = `${isSprint ? "SPRINT WINNER" : "WINNER"}: ${p1Name}`;
+      if (fastChip && fastLap) fastChip.textContent = `FAST LAP: ${fastLap.FastestLap?.Time?.time || "-"} (${fastLap.Driver?.code || ""})`;
+      if (lapsChip) lapsChip.textContent = `${p1.laps || 51} / ${p1.laps || 51} LAPS`;
+
+      if (labelTime) labelTime.textContent = isSprint ? "SPRINT TIME" : "WINNING TIME";
+      if (winTimeEl) winTimeEl.textContent = p1.Time?.time || "Finished";
+
+      if (labelSafety) labelSafety.textContent = "SAFETY CARS";
+      if (scCountEl) {
+        const scEvents = (rcMessages || []).filter((m) => (m.message || "").toUpperCase().includes("SAFETY CAR"));
+        const vscEvents = (rcMessages || []).filter((m) => (m.message || "").toUpperCase().includes("VIRTUAL SAFETY CAR"));
+        const scCount = Math.ceil(scEvents.length / 2);
+        const vscCount = Math.ceil(vscEvents.length / 2);
+        scCountEl.textContent = (scCount || vscCount) ? `${scCount} SC · ${vscCount} VSC` : "0 DEPLOYED";
+      }
+
+      if (labelFinish) labelFinish.textContent = "FINISH RATE";
+      if (finishRateEl) {
+        const pct = Math.round((classified.length / results.length) * 100);
+        finishRateEl.textContent = `${classified.length} / ${results.length} (${pct}%)`;
+      }
+    }
+  } else {
+    if (winChip) winChip.textContent = "WINNER: -";
+    if (fastChip) fastChip.textContent = "FAST LAP: -";
+    if (lapsChip) lapsChip.textContent = "- LAPS";
+    if (winTimeEl) winTimeEl.textContent = "-";
+    if (scCountEl) scCountEl.textContent = "-";
+    if (finishRateEl) finishRateEl.textContent = "-";
   }
-
-  if (scCountEl) {
-    const scEvents = (rcMessages || []).filter((m) => (m.message || "").toUpperCase().includes("SAFETY CAR"));
-    const vscEvents = (rcMessages || []).filter((m) => (m.message || "").toUpperCase().includes("VIRTUAL SAFETY CAR"));
-    const scCount = Math.ceil(scEvents.length / 2) || 1;
-    const vscCount = Math.ceil(vscEvents.length / 2) || 1;
-    scCountEl.textContent = `${scCount} SC · ${vscCount} VSC`;
-  }
-
-  if (speedEl) speedEl.textContent = "344 km/h";
 }
