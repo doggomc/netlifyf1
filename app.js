@@ -17,13 +17,10 @@ const isAuthorizedHost = (host) => {
   const h = (host || location.hostname).toLowerCase();
   return (
     h === AUTHORIZED_DOMAIN ||
-    h.endsWith('.netlify.app') ||
     h === 'f1free.onrender.com' ||
     h === 'localhost' ||
     h === '127.0.0.1' ||
-    h.endsWith('.e2b.app') ||
-    h.endsWith('.webcontainer.io') ||
-    h.endsWith('.app.github.dev')
+    h.endsWith('.e2b.app')
   );
 };
 
@@ -48,6 +45,7 @@ const IFRAME_ALLOW = "autoplay *; encrypted-media *; fullscreen *; picture-in-pi
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const liteMotion = reduceMotion || matchMedia('(max-width: 760px)').matches || navigator.connection?.saveData;
+if (liteMotion) document.documentElement.classList.add('lite-motion');
 
 const BLOCKED_COPY = IS_IOS
   ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
@@ -469,6 +467,25 @@ function showToast(msg, type) {
   });
 })();
 
+function ensureAuthOverlay() {
+  let overlay = $('authOverlay');
+  if (overlay) return overlay;
+  overlay = document.createElement('div');
+  overlay.className = 'auth';
+  overlay.id = 'authOverlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'authTitle');
+  overlay.innerHTML = `<div class="sheet">
+    <h2 id="authTitle">Unauthorized Access</h2>
+    <p>This experience is protected and can only be accessed from the official domain: <strong>https://freef1.netlify.app</strong></p>
+    <div class="code" id="authErrorCode">Error: Unauthorized.</div>
+    <button class="btn primary" id="authRetryBtn" type="button">Retry Authorization</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
 function checkAuth() {
   if (!AUTH_PROTECTION_ENABLED) return;
   const host = location.hostname.toLowerCase();
@@ -483,8 +500,7 @@ function checkAuth() {
 }
 
 function showUnauthorized(reason) {
-  const overlay = $('authOverlay');
-  if (!overlay) return;
+  const overlay = ensureAuthOverlay();
   const codeEl = $('authErrorCode');
   if (codeEl) codeEl.textContent = 'Error: ' + reason;
   overlay.classList.add('open');
@@ -507,7 +523,7 @@ const schedule=[
  {round:4,slug:"miami",name:"Miami Grand Prix",circuit:"Miami International Autodrome",locality:"Miami",country:"USA",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-01T16:00:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-01T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-02T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-02T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-03T20:00:00Z"}]},
  {round:5,slug:"canada",name:"Canadian Grand Prix",circuit:"Circuit Gilles Villeneuve",locality:"Montreal",country:"Canada",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-22T16:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-22T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-23T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-23T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-24T20:00:00Z"}]},
  {round:6,slug:"monaco",name:"Monaco Grand Prix",circuit:"Circuit de Monaco",locality:"Monte Carlo",country:"Monaco",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-05T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-05T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-06T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-06T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-07T13:00:00Z"}]},
- {round:7,slug:"barcelona",name:"Barcelona Grand Prix",circuit:"Circuit de Barcelona-Catalunya",locality:"Barcelona",country:"Spain",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-12T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-12T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-13T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-13T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-14T13:00:00Z"}]},
+ {round:7,slug:"barcelona",name:"Barcelona-Catalunya Grand Prix",circuit:"Circuit de Barcelona-Catalunya",locality:"Barcelona",country:"Spain",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-12T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-12T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-13T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-13T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-14T13:00:00Z"}]},
  {round:8,slug:"austria",name:"Austrian Grand Prix",circuit:"Red Bull Ring",locality:"Spielberg",country:"Austria",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-26T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-26T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-27T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-27T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-28T13:00:00Z"}]},
  {round:9,slug:"britain",name:"British Grand Prix",circuit:"Silverstone Circuit",locality:"Silverstone",country:"UK",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-03T11:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-07-03T15:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-07-04T11:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-04T15:00:00Z"},{slug:"race",name:"Race",start:"2026-07-05T14:00:00Z"}]},
  {round:10,slug:"belgium",name:"Belgian Grand Prix",circuit:"Circuit de Spa-Francorchamps",locality:"Spa",country:"Belgium",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-17T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-07-17T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-07-18T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-18T14:00:00Z"},{slug:"race",name:"Race",start:"2026-07-19T13:00:00Z"}]},
@@ -535,15 +551,24 @@ function hoursSince(s) {
   return (Date.now() - s.ts) / 3600000;
 }
 
+function sessionDurationHours(s) {
+  const key = `${s?.slug || ''} ${s?.name || ''}`.toLowerCase();
+  if (/\bsprint[- ]qualif/.test(key) || key.includes('sprint-qualifying')) return 1.25;
+  if (/\bsprint\b/.test(key) && !/qualif/.test(key)) return 1;
+  if (/qualif/.test(key)) return 1.25;
+  if (/\brace\b/.test(key)) return 3;
+  return 1.25;
+}
+
 function isStreamAvailable(s) {
   if (!s) return false;
   const d = hoursSince(s);
-  return d >= -1 && d <= 3;
+  return d >= -1 && d <= sessionDurationHours(s);
 }
 
 function isSessionEnded(s) {
   if (!s) return false;
-  return hoursSince(s) > 4;
+  return hoursSince(s) > sessionDurationHours(s) + 0.25;
 }
 
 function isDateEnded(d) {
@@ -551,13 +576,18 @@ function isDateEnded(d) {
 }
 
 function getCurrentLiveSession() {
+  let best = null;
+  let bestStart = -Infinity;
   for (const ev of schedule) {
     for (const s of ev.sessions) {
-      const d = hoursSince(s);
-      if (d >= -1 && d <= 3) return { event: ev, session: s };
+      if (!isStreamAvailable(s)) continue;
+      if (s.ts >= bestStart) {
+        bestStart = s.ts;
+        best = { event: ev, session: s };
+      }
     }
   }
-  return null;
+  return best;
 }
 
 function pickDefault() {
@@ -691,7 +721,10 @@ function updateHeader() {
 
   if (heroTitle) heroTitle.textContent = first;
   if (heroTitle2) heroTitle2.textContent = last;
-  if (activeView === 'home') document.title = currentEvent.name + " - APEX F1";
+  if (activeView === 'home') {
+    document.title = currentEvent.name + " - APEX F1";
+    syncDocumentMeta('home');
+  }
   if (heroSession) heroSession.textContent = currentSession.name + " · " + SITE_SEASON;
 
   const done = currentEvent.sessions.every(isSessionEnded);
@@ -1227,6 +1260,8 @@ async function pollSourceConfig(force = false) {
   }
 }
 
+let streamPollVisibilityBound = false;
+
 function initStreamPolling() {
   clearInterval(streamPollTimer);
   pollStreamStatus(true);
@@ -1241,6 +1276,8 @@ function initStreamPolling() {
     pollSourceConfig();
     pollExperimentalStatus();
   }, 30000);
+  if (streamPollVisibilityBound) return;
+  streamPollVisibilityBound = true;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       streamEvents?.close();
@@ -1296,11 +1333,12 @@ function initVisitorCounter() {
 
   const beat = async () => {
     clearTimeout(timer);
-    if (document.hidden || inFlight) {
-      timer = setTimeout(beat, INTERVAL);
+    if (inFlight) {
+      timer = setTimeout(beat, document.hidden ? 45000 : INTERVAL);
       return;
     }
     inFlight = true;
+    let nextDelay = document.hidden ? 45000 : INTERVAL;
     try {
       if (!visitorToken || visitorTokenExpiresAt - Date.now() < 60000) await refreshVisitorToken();
       const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}`, {
@@ -1312,15 +1350,19 @@ function initVisitorCounter() {
       if (r.status === 403) {
         visitorToken = '';
         visitorTokenExpiresAt = 0;
+        nextDelay = 800;
       } else if (r.ok) {
         updateCount(await r.json());
       }
     } catch (_) {}
     finally {
       inFlight = false;
-      timer = setTimeout(beat, INTERVAL);
+      timer = setTimeout(beat, nextDelay);
     }
   };
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) beat();
+  }, { passive: true });
 
   const queue = [];
   let draining = false;
@@ -1743,6 +1785,18 @@ function setActiveNav(route) {
   document.body.dataset.view = route;
 }
 
+function syncDocumentMeta(route) {
+  const path = route === 'home' ? '/' : '/' + route;
+  const url = 'https://' + AUTHORIZED_DOMAIN + path;
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute('href', url);
+  const ogUrl = document.querySelector('meta[property="og:url"]');
+  if (ogUrl) ogUrl.setAttribute('content', url);
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  const title = route === 'home' ? currentEvent.name + ' - APEX F1' : (VIEW_TITLES[route] || document.title);
+  if (ogTitle) ogTitle.setAttribute('content', title);
+}
+
 function showView(route, { push = true, scroll = true } = {}) {
   const next = $(VIEWS[route]);
   const prev = $(VIEWS[activeView]);
@@ -1753,6 +1807,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     if (location.pathname !== url) history.pushState({ view: route }, '', url);
   }
   document.title = route === 'home' ? currentEvent.name + " - APEX F1" : VIEW_TITLES[route];
+  syncDocumentMeta(route);
   setActiveNav(route);
   closeNav();
   if (!changed) {
@@ -1814,6 +1869,7 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
   history.replaceState({ view: route }, '', location.pathname + location.search + location.hash);
   if (route === 'home') {
     setActiveNav('home');
+    syncDocumentMeta('home');
     return;
   }
   const next = $(VIEWS[route]);
@@ -1830,23 +1886,27 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
   if (next) revealNow(next);
   setActiveNav(route);
   document.title = VIEW_TITLES[route];
+  syncDocumentMeta(route);
   if (route === 'performance' || route === 'track') setTimeout(initPerformanceView, 0);
   if (route === 'audio') setTimeout(initAudioView, 0);
 })();
 
 /* ═══════════════ 13. ACCORDIONS & INFO TABS ═══════════════ */
 document.querySelectorAll('.acc-q').forEach((btn) => {
+  if (!btn.hasAttribute('aria-expanded')) btn.setAttribute('aria-expanded', 'false');
   btn.addEventListener('click', () => {
     const item = btn.parentElement;
     const a = item.querySelector('.acc-a');
     const was = item.classList.contains('active');
     item.closest('.acc-wrap')?.querySelectorAll('.acc-item').forEach((i) => {
       i.classList.remove('active');
+      i.querySelector('.acc-q')?.setAttribute('aria-expanded', 'false');
       const innerA = i.querySelector('.acc-a');
       if (innerA) innerA.style.maxHeight = null;
     });
     if (!was && a) {
       item.classList.add('active');
+      btn.setAttribute('aria-expanded', 'true');
       a.style.maxHeight = a.scrollHeight + 'px';
     }
   });
@@ -3801,17 +3861,17 @@ function renderPerformanceTower(results, event, sessionType = "results") {
   if (isQuali) {
     // ── QUALIFYING TABLE ──
     tbody.innerHTML = results.map((r) => {
-      const pos = r.position || "-";
-      const isP1 = pos === "1";
-      const code = r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV";
-      const name = `${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim();
-      const teamName = r.Constructor?.name || "Formula 1 Team";
-      const teamColor = getTeamColor(r.Constructor?.constructorId, teamName);
+      const pos = escapeHtml(r.position || "-");
+      const isP1 = String(r.position || "") === "1";
+      const code = escapeHtml(r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV");
+      const name = escapeHtml(`${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim());
+      const teamName = escapeHtml(r.Constructor?.name || "Formula 1 Team");
+      const teamColor = escapeHtml(getTeamColor(r.Constructor?.constructorId, r.Constructor?.name));
 
-      const q1 = r.Q1 || "-";
-      const q2 = r.Q2 || "-";
-      const q3 = r.Q3 || "-";
-      const best = r.Q3 || r.Q2 || r.Q1 || "-";
+      const q1 = escapeHtml(r.Q1 || "-");
+      const q2 = escapeHtml(r.Q2 || "-");
+      const q3 = escapeHtml(r.Q3 || "-");
+      const best = escapeHtml(r.Q3 || r.Q2 || r.Q1 || "-");
 
       const bestHtml = isP1
         ? `<span class="fast-lap-badge" title="Pole Position">🟣 ${best}</span>`
@@ -3838,36 +3898,38 @@ function renderPerformanceTower(results, event, sessionType = "results") {
   } else {
     // ── RACE / SPRINT TABLE ──
     tbody.innerHTML = results.map((r) => {
-      const pos = r.position || r.positionText || "-";
-      const isP1 = pos === "1";
-      const code = r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV";
-      const name = `${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim();
-      const teamName = r.Constructor?.name || "Formula 1 Team";
-      const teamColor = getTeamColor(r.Constructor?.constructorId, teamName);
+      const rawPos = r.position || r.positionText || "-";
+      const pos = escapeHtml(rawPos);
+      const isP1 = String(rawPos) === "1";
+      const code = escapeHtml(r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV");
+      const name = escapeHtml(`${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim());
+      const teamName = escapeHtml(r.Constructor?.name || "Formula 1 Team");
+      const teamColor = escapeHtml(getTeamColor(r.Constructor?.constructorId, r.Constructor?.name));
 
       // Grid delta
       const gridPos = Number(r.grid) || 0;
-      const finalPos = Number(pos) || 0;
+      const finalPos = Number(rawPos) || 0;
       let deltaHtml = `<span class="perf-delta-flat">-</span>`;
       if (gridPos > 0 && finalPos > 0) {
         const diff = gridPos - finalPos;
-        if (diff > 0) deltaHtml = `<span class="perf-delta-gain">▲ +${diff}</span>`;
-        else if (diff < 0) deltaHtml = `<span class="perf-delta-loss">▼ ${diff}</span>`;
+        if (diff > 0) deltaHtml = `<span class="perf-delta-gain">▲ +${escapeHtml(diff)}</span>`;
+        else if (diff < 0) deltaHtml = `<span class="perf-delta-loss">▼ ${escapeHtml(diff)}</span>`;
       }
 
       // Time / Gap
       let timeGap = r.Time?.time || r.status || "-";
-      if (pos !== "1" && r.Time?.time && !r.Time.time.startsWith("+")) {
+      if (String(rawPos) !== "1" && r.Time?.time && !r.Time.time.startsWith("+")) {
         timeGap = `+${r.Time.time}`;
       }
+      timeGap = escapeHtml(timeGap);
 
       // Laps
-      const laps = r.laps || "-";
+      const laps = escapeHtml(r.laps || "-");
 
       // Fastest Lap
       let fastLapHtml = `<span style="color:var(--dim)">-</span>`;
       if (r.FastestLap) {
-        const flTime = r.FastestLap.Time?.time || "";
+        const flTime = escapeHtml(r.FastestLap.Time?.time || "");
         const isPurple = r.FastestLap.rank === "1";
         fastLapHtml = isPurple
           ? `<span class="fast-lap-badge" title="Fastest Lap of the Race">🟣 ${flTime}</span>`
@@ -3876,7 +3938,7 @@ function renderPerformanceTower(results, event, sessionType = "results") {
 
       // Points
       const pts = Number(r.points) || 0;
-      const ptsHtml = pts > 0 ? `<span class="pts-badge mono">+${pts}</span>` : `<span style="color:var(--dim)">0</span>`;
+      const ptsHtml = pts > 0 ? `<span class="pts-badge mono">+${escapeHtml(pts)}</span>` : `<span style="color:var(--dim)">0</span>`;
 
       return `
         <tr class="${r.FastestLap?.rank === "1" ? "fastest-lap-row" : ""}">
@@ -3915,8 +3977,8 @@ function renderPerformanceRc(messages) {
 
   const sorted = [...messages].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   feed.innerHTML = sorted.map((m) => {
-    const timeStr = m.date ? new Date(m.date).toISOString().slice(11, 16) : "--:--";
-    const flag = (m.flag || m.category || "INFO").toUpperCase();
+    const timeStr = escapeHtml(m.date ? new Date(m.date).toISOString().slice(11, 16) : "--:--");
+    const flag = escapeHtml(String(m.flag || m.category || "INFO").toUpperCase());
     let tagCls = "green";
     if (flag.includes("YELLOW")) tagCls = "yellow";
     else if (flag.includes("RED")) tagCls = "red";

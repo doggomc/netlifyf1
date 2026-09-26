@@ -8,6 +8,7 @@
   <meta name="robots" content="noindex, follow">
   <meta name="description" content="That page ran wide. Head back to the APEX F1 cockpit.">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <title>404 - Off Track · APEX F1</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -135,6 +136,23 @@
           }, 380);
         }, 5200);
       }
+    })();
+  </script>
+  <script>
+    (function () {
+      var editable = 'input,textarea,select,[contenteditable="true"]';
+      function isEditable(t) { return t && t.closest && t.closest(editable); }
+      ['contextmenu', 'selectstart', 'dragstart'].forEach(function (evt) {
+        document.addEventListener(evt, function (e) { if (!isEditable(e.target)) e.preventDefault(); });
+      });
+      document.addEventListener('copy', function (e) { if (!isEditable(e.target)) e.preventDefault(); });
+      document.addEventListener('keydown', function (e) {
+        var key = (e.key || '').toLowerCase();
+        var mod = e.ctrlKey || e.metaKey;
+        if (!isEditable(e.target) && (key === 'f12' || (mod && ['u', 's', 'p'].indexOf(key) >= 0))) {
+          e.preventDefault();
+        }
+      });
     })();
   </script>
 </body>

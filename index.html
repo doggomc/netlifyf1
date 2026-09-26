@@ -18,6 +18,7 @@
 <meta name="twitter:description" content="Every session, every source and championship telemetry in one race-weekend cockpit.">
 <meta name="twitter:image" content="https://freef1.netlify.app/assets/hero-apex-1200.webp?v=20260918-hero1">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"APEX F1 Live","url":"https://freef1.netlify.app/","description":"An independent, ad-free Formula racing weekend companion."}</script>
 <style>
     .site-state-gate {
@@ -122,34 +123,23 @@
 <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 <link rel="dns-prefetch" href="https://f1free.onrender.com">
 <link rel="dns-prefetch" href="https://api.jolpi.ca">
-<link rel="dns-prefetch" href="https://api.openf1.org">
 <link rel="dns-prefetch" href="https://media.formula1.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://f1free.onrender.com" crossorigin>
 <link rel="preconnect" href="https://api.jolpi.ca" crossorigin>
 <link rel="preconnect" href="https://media.formula1.com">
-<link rel="preconnect" href="https://api.openf1.org" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260924-cockpit1">
+<link rel="stylesheet" href="/app.css?v=20260927-fix2">
 </head>
 <body>
+<a class="skip-link" href="#watch">Skip to cockpit</a>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
 
 <div class="progress" id="progress"></div>
-<canvas id="speedCanvas"></canvas>
-<div class="scanlines"></div><div class="vignette"></div><div class="grain"></div>
-
-<!-- ══ AUTH ══ -->
-<div class="auth" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-  <div class="sheet">
-    <h2 id="authTitle">Unauthorized Access</h2>
-    <p style="color:#B8BDC5;font-size:.88rem;margin-top:12px">This experience is protected and can only be accessed from the official domain: <strong>https://freef1.netlify.app</strong></p>
-    <div class="code" id="authErrorCode">Error: Unauthorized.</div>
-    <button class="btn primary" id="authRetryBtn">Retry Authorization</button>
-  </div>
-</div>
+<canvas id="speedCanvas" aria-hidden="true"></canvas>
+<div class="scanlines" aria-hidden="true"></div><div class="vignette" aria-hidden="true"></div><div class="grain" aria-hidden="true"></div>
 
 <!-- ══ NAV ══ -->
 <nav class="nav" id="nav">
@@ -185,14 +175,14 @@
     <img src="/assets/hero-apex.jpg?v=20260918-hero1" alt="Abstract sleek aerodynamic apex curves on a dark background" width="1600" height="900" fetchpriority="high" decoding="async">
   </picture></div>
   <div class="hero-inner">
-    <span class="eyebrow" id="heroRound">Season 2026</span>
+    <span class="eyebrow" id="heroRound">2026 Season</span>
     <h1 class="display">
-      <span class="l"><span id="heroTitle">Hungarian</span></span>
+      <span class="l"><span id="heroTitle">Season</span></span>
       <span class="l"><span><em id="heroTitle2">Grand Prix</em></span></span>
     </h1>
     <p class="hero-sub">Every session. Every source. One immaculate cockpit. Live timing companion, championship telemetry and multi-feed switching - engineered for people who watch every lap.</p>
     <div class="hero-meta">
-      <div class="pill mono" id="heroSession">Qualifying · 2026</div>
+      <div class="pill mono" id="heroSession">Session · 2026</div>
       <div class="pill next mono" id="countdown" title="Next session">Next: --:--:--</div>
     </div>
     <div class="hero-cta">
@@ -404,11 +394,11 @@
       <!-- TERMS -->
       <div class="panel active" id="termsPanel" role="tabpanel" aria-labelledby="termsTab">
         <div class="panel-head"><h2>Terms of Service</h2></div>
-        <p class="stamp">Last updated: July 2026</p>
+        <p class="stamp">Last updated: September 2026</p>
         <div class="acc-wrap">
           <div class="acc-item"><button class="acc-q">1. Acceptance of Terms<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>By accessing or using this website, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use this website. We reserve the right to modify these terms at any time, and your continued use of the site following any changes indicates your acceptance of the new terms.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">2. No Affiliation with Formula 1<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>This website is not affiliated with, endorsed by, or connected to Formula One Licensing B.V., Formula One World Championship Limited, the Fédération Internationale de l'Automobile (FIA), or any of their respective subsidiaries, affiliates, or related entities. The names "Formula 1," "F1," "Formula One," and all related marks are trademarks of Formula One Licensing B.V. Any use of such marks is for descriptive purposes only and does not imply any endorsement or affiliation.</p><p>We are an independent service and have no official partnership, sponsorship, or commercial relationship with Formula 1, the FIA, or any official motorsport governing body. All references to racing events, drivers, teams, and circuits are provided for informational and descriptive purposes only.</p></div></div></div>
-          <div class="acc-item"><button class="acc-q">3. No Streaming or Broadcasting Services<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>This website does not host, stream, broadcast, transmit, or distribute any video, audio, or multimedia content of any kind. We do not provide live or recorded coverage of any sporting event, including Formula 1 races, qualifying sessions, or practice sessions.</p><p>Any embedded content displayed on this website is served by third-party services and is not under our control. We do not create, produce, or modify any streaming content. We are merely a directory or interface that links to publicly available content hosted on external servers and platforms that we do not own, operate, or manage.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">3. No Streaming or Broadcasting Services<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>This website does not host video or audio files on our own origin. We do not store race footage on our servers.</p><p>The cockpit may display third-party embeds. Those players are served by external hosts we do not own or operate. We do not create or modify that media. Availability, quality and legality of third-party sources are outside our control.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">4. No Content Ownership<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We claim no ownership over any content displayed through or linked from this website. All video, audio, imagery, text, graphics, logos, trademarks, and other intellectual property displayed belong to their respective owners. We do not assert any rights to such content and make no claim to any copyrights, trademarks, or other intellectual property rights.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">5. Limitation of Liability<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>This website is provided on an "as is" and "as available" basis without warranties of any kind, either express or implied. To the fullest extent permitted by applicable law, we expressly disclaim all warranties, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement.</p><p>In no event shall we, our directors, officers, employees, agents, affiliates, or contributors be liable for any direct, indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, use, goodwill, or other intangible losses, resulting from:</p><ul><li>Your access to or use of or inability to access or use the website;</li><li>Any content obtained from the website;</li><li>Any unauthorized access to or use of our servers or personal information stored therein;</li><li>Any bugs, viruses, trojan horses, or similar harmful code transmitted to or through the website;</li><li>Any errors or omissions in the website's content or functionality;</li><li>Any interruption or cessation of transmission to or from the website;</li><li>Any defamatory, offensive, or illegal conduct of any user or third party.</li></ul></div></div></div>
           <div class="acc-item"><button class="acc-q">6. Third-Party Content and Links<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>This website may contain links to third-party websites, services, or resources that are not owned or controlled by us. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party websites or services. You acknowledge and agree that we shall not be responsible or liable for any damage or loss caused by your use of any such third-party content or services.</p><p>The inclusion of any link does not imply our endorsement, recommendation, or approval of the linked website or its content. We encourage you to review the terms of service and privacy policies of any third-party websites you visit.</p></div></div></div>
@@ -426,11 +416,11 @@
       <!-- PRIVACY -->
       <div class="panel" id="privacyPanel" role="tabpanel" aria-labelledby="privacyTab">
         <div class="panel-head"><h2>Privacy Policy</h2></div>
-        <p class="stamp">Last updated: July 2026</p>
+        <p class="stamp">Last updated: September 2026</p>
         <div class="acc-wrap">
           <div class="acc-item"><button class="acc-q">1. Information We Collect<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not require registration or ask for details such as your name, email address, phone number, or postal address.</p><p>To operate the live visitor counter and protect the service, the backend temporarily processes a random browser identifier, IP address, basic device/browser information, referring page, and approximate location. Approximate location is requested from the HTTPS geolocation provider configured by the service and is not included in the permanent unique-count set. Active-session records expire after a short inactivity period. The random identifier may persist locally, and a one-way keyed hash of it may be retained in our hosted data store so a returning browser is not counted again after a server restart. The raw identifier and IP address are not placed in that permanent unique-count set.</p></div></div></div>
-          <div class="acc-item"><button class="acc-q">2. Cookies and Tracking Technologies<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising cookies, web beacons, or cross-site profiling. We use local storage only for functional preferences such as your chosen team livery, and a random visitor-counter identifier. Embedded third-party video providers may apply their own cookies or storage under their own policies.</p></div></div></div>
-          <div class="acc-item"><button class="acc-q">3. Log Files and Analytics<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising analytics or build behavioral profiles. The service processes short-lived operational telemetry for active-session counts, service health, abuse prevention, and the admin dashboard. It also retains a one-way keyed identifier hash solely for the cumulative unique-visitor total. Hosting, data-store, and embedded-content providers may maintain standard security and access logs.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">2. Cookies and Tracking Technologies<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising cookies, web beacons, or cross-site profiling. We use local storage only for functional preferences such as your chosen team livery, and a random visitor-counter identifier. Embedded third-party video providers may apply their own cookies or storage under their own policies. Typefaces are loaded from Google Fonts (fonts.googleapis.com / fonts.gstatic.com) so those services receive a standard request from your browser.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">3. Log Files and Analytics<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising analytics or build behavioral profiles. The service processes operational telemetry for active-session counts, service health, abuse prevention, and the admin dashboard. Aggregated anonymous counters (page views, device family, country, feed/livery picks, session duration buckets) are retained for up to 14 days at hourly granularity and 90 days at daily granularity. A one-way keyed identifier hash is retained solely for the cumulative unique-visitor total. Individual IP addresses, user-agent strings and visitor IDs are not stored in those aggregates. Hosting, data-store, and embedded-content providers may maintain standard security and access logs.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">4. Data Sharing and Disclosure<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not sell, rent, or monetize visitor information and have no data-broker or advertising relationships. Requests necessarily pass through our hosting providers, and optional video/data features contact the third-party providers described on this page.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">5. Third-Party Services<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>While we minimize first-party data and use it only for service operation, third-party services embedded on or linked from this website may have their own data collection practices. We strongly encourage you to review the privacy policies of any third-party services you access through links on this website. We are not responsible for the privacy practices of any third-party websites or services.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">6. Data Security<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We minimize retained data, expire active-session records quickly, protect the cumulative counter with one-way keyed hashes, restrict admin access, and take reasonable precautions to protect the website and backend. No internet service can guarantee absolute security.</p></div></div></div>
@@ -446,7 +436,7 @@
         <div class="panel-head"><h2>Frequently Asked Questions</h2></div>
         <p class="stamp">Have a question? We've got answers.</p>
         <div class="acc-wrap">
-          <div class="acc-item"><button class="acc-q">Do you track my activity on this website?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising analytics or track you across websites. We process privacy-minimized session telemetry to run the active visitor count, service health, and protected admin dashboard. A one-way keyed hash of the random local identifier is retained only to keep the cumulative unique-visitor total accurate across server restarts.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">Do you track my activity on this website?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising analytics or track you across websites. We process privacy-minimized session telemetry to run the active visitor count, service health, and protected admin dashboard, plus aggregated anonymous usage counters retained for up to 90 days. A one-way keyed hash of the random local identifier is retained only to keep the cumulative unique-visitor total accurate across server restarts.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Do you sell my data?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>No. We do not sell or monetize visitor information, and we have no advertising or data-broker partnerships. Network requests are still handled by our hosting and optional third-party content providers.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Do you use cookies or tracking technologies?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising cookies, web beacons, or cross-site profiling. We use local storage only for functional settings such as your team livery, and the random identifier used by the live visitor counter.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">Are you affiliated with Formula 1 or the FIA?<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>No. We are an independent website and have no affiliation, endorsement, or connection with Formula One Licensing B.V., the Fédération Internationale de l'Automobile (FIA), or any other official motorsport governing body. We are not sponsored by, partnered with, or connected to any official Formula 1 entity.</p></div></div></div>
@@ -817,6 +807,6 @@
 </footer>
 
 
-<script src="/app.js?v=20260912-livery2" defer></script>
+<script src="/app.js?v=20260927-fix2" defer></script>
 </body>
 </html>

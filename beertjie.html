@@ -1081,5 +1081,22 @@
       }, { passive: true });
     })();
   </script>
+  <script>
+    (function () {
+      var editable = 'input,textarea,select,[contenteditable="true"]';
+      function isEditable(t) { return t && t.closest && t.closest(editable); }
+      ['contextmenu', 'selectstart', 'dragstart'].forEach(function (evt) {
+        document.addEventListener(evt, function (e) { if (!isEditable(e.target)) e.preventDefault(); });
+      });
+      document.addEventListener('copy', function (e) { if (!isEditable(e.target)) e.preventDefault(); });
+      document.addEventListener('keydown', function (e) {
+        var key = (e.key || '').toLowerCase();
+        var mod = e.ctrlKey || e.metaKey;
+        if (!isEditable(e.target) && (key === 'f12' || (mod && ['u', 's', 'p'].indexOf(key) >= 0))) {
+          e.preventDefault();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
