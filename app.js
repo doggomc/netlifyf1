@@ -2475,8 +2475,8 @@ function radioRcSavePrefs(patch) {
 
 function openf1(path, params, ttlMs) {
   const queryStr = new URLSearchParams(params).toString();
-  const primaryUrl = `${OPENF1_API}/${path}?${queryStr}`;
   const directUrl = `https://api.openf1.org/v1/${path}?${queryStr}`;
+  const primaryUrl = `${OPENF1_API}/${path}?${queryStr}`;
   const cacheKey = `${path}?${queryStr}`;
 
   const hit = radioRc.cache.get(cacheKey);
@@ -2488,26 +2488,37 @@ function openf1(path, params, ttlMs) {
     radioRc.lastRequestAt = Date.now();
     let r = null;
 
-    // 1. Try primary endpoint (proxy on Render or same origin)
+    // 1. Direct OpenF1 query (instant response on Netlify/browsers, CORS enabled)
     try {
-      r = await fetchWithTimeout(primaryUrl, { cache: 'no-store' }, 6500);
-      if (!r.ok && (r.status === 404 || r.status >= 500)) {
-        r = null;
+      r = await fetchWithTimeout(directUrl, { cache: 'no-store' }, 4500);
+      if (!r.ok && (r.status === 401 || r.status === 429 || r.status >= 500)) {
+        // Fall back to backend proxy if 401 (live lock) or rate limited
+        if (OPENF1_API && !OPENF1_API.includes(location.origin)) {
+          const proxyR = await fetchWithTimeout(primaryUrl, { cache: 'no-store' }, 4500).catch(() => null);
+          if (proxyR && proxyR.ok) r = proxyR;
+        }
       }
     } catch (_) {
       r = null;
     }
 
-    // 2. Direct fallback to OpenF1 if primary proxy is down, sleeping, or on preview host
-    if (!r) {
+    // 2. If direct query failed, try primary proxy
+    if (!r && OPENF1_API) {
       try {
-        r = await fetchWithTimeout(directUrl, { cache: 'no-store' }, 6500);
+        r = await fetchWithTimeout(primaryUrl, { cache: 'no-store' }, 4500);
       } catch (_) {
         if (hit && hit.data) return hit.data;
         const e = new Error('Telemetry standby · waiting for session transmission');
         e.code = 'net';
         throw e;
       }
+    }
+
+    if (!r) {
+      if (hit && hit.data) return hit.data;
+      const e = new Error('Telemetry standby · waiting for session transmission');
+      e.code = 'net';
+      throw e;
     }
 
     if (r.status === 401) {
@@ -2536,7 +2547,8 @@ function openf1(path, params, ttlMs) {
       throw e;
     }
 
-    return r.json();
+    const json = await r.json();
+    return json;
   };
 
   const promise = radioRc.chain.then(run, run).then((data) => {
@@ -2580,7 +2592,7 @@ async function radioRcLoadSessions() {
     sessions = [];
   }
   if (!Array.isArray(sessions) || !sessions.length) {
-    // Upstream unreachable or pre-season: synthesize from embedded official 2026 calendar
+    // Upstream unreachable: synthesize from embedded official 2026 calendar
     let sKey = 11200;
     sessions = [];
     schedule.forEach((ev) => {
@@ -2620,12 +2632,13 @@ async function radioRcLoadSessions() {
   if (!radioRc.meetings.length) throw new Error('No sessions published yet this season');
 
   const prefs = radioRcPrefs();
+  const pastOrLiveSessions = radioRc.sessions.filter((s) => Date.parse(s.date_start) - 30 * 60e3 <= now);
   const live = radioRc.sessions.find(radioRcIsLiveWindow);
-  const latest = radioRc.sessions.at(-1);
-  let target = live || latest;
+  const latestPast = pastOrLiveSessions.length ? pastOrLiveSessions.at(-1) : radioRc.sessions[0];
+  let target = live || latestPast || radioRc.sessions[0];
   if (!live && prefs.sessionKey) {
     const remembered = radioRc.sessions.find((s) => s.session_key === prefs.sessionKey);
-    if (remembered && remembered.meeting_key === latest.meeting_key) target = remembered;
+    if (remembered) target = remembered;
   }
   if (radioRcEventSel) {
     radioRcEventSel.replaceChildren(...radioRc.meetings.map((m) => {
@@ -2685,10 +2698,14 @@ async function radioRcSelectSession(sessionKey, { retry = false } = {}) {
   let nextRefresh = 0;
 
   try {
-    const drivers = await openf1('drivers', { session_key: sessionKey }, 6 * 3600e3);
-    const radio = await openf1('team_radio', { session_key: sessionKey }, ttl);
-    const rc = await openf1('race_control', { session_key: sessionKey }, ttl);
+    const rawDrivers = await openf1('drivers', { session_key: sessionKey }, 6 * 3600e3);
+    const rawRadio = await openf1('team_radio', { session_key: sessionKey }, ttl);
+    const rawRc = await openf1('race_control', { session_key: sessionKey }, ttl);
     if (token !== radioRc.loadToken) return;
+
+    const drivers = Array.isArray(rawDrivers) ? rawDrivers : [];
+    const radio = Array.isArray(rawRadio) ? rawRadio : [];
+    const rc = Array.isArray(rawRc) ? rawRc : [];
 
     radioRc.drivers = new Map(drivers.map((d) => [d.driver_number, d]));
     radioRc.radio = radio.map((r) => ({ ...r, ts: Date.parse(r.date) })).filter((r) => r.recording_url).sort((a, b) => b.ts - a.ts);
@@ -2697,11 +2714,17 @@ async function radioRcSelectSession(sessionKey, { retry = false } = {}) {
     radioRcRenderRadio();
     radioRcRenderRc();
 
-    if (live && !radio.length && !rc.length) {
-      radioRcSetStatus('Session live · polling telemetry feeds (every 10s)', 'live');
-      if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">Session in progress. Team radio clips will appear here as soon as they are broadcast.</li>';
-      if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty">Monitoring race control flags and steward messages…</li>';
-      nextRefresh = 10e3;
+    if (!radio.length && !rc.length) {
+      if (live) {
+        radioRcSetStatus('Session live · polling telemetry feeds (every 10s)', 'live');
+        if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">Session in progress. Team radio clips will appear here as soon as they are broadcast.</li>';
+        if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty">Monitoring race control flags and steward messages…</li>';
+        nextRefresh = 10e3;
+      } else {
+        radioRcSetStatus(label, '');
+        if (radioRcRadioList) radioRcRadioList.innerHTML = '<li class="radio-rc-empty">No team radio recorded for this session.</li>';
+        if (radioRcRcList) radioRcRcList.innerHTML = '<li class="radio-rc-empty">No race control messages for this session.</li>';
+      }
     } else if (live) {
       nextRefresh = 8e3;
     }
