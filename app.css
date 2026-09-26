@@ -3043,17 +3043,27 @@ footer {
 
 .foot-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
   gap: 34px;
   padding: 52px 0 34px;
 }
 
-@media(max-width:760px) {
+.foot-grid.no-experimental {
+  grid-template-columns: 1.4fr 1fr 1fr;
+}
+
+@media(max-width:960px) {
+.foot-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+}
+
+@media(max-width:640px) {
 .foot-grid {
     grid-template-columns: 1fr;
     gap: 26px;
   }
-
 }
 
 .foot-grid h4 {
@@ -4595,3 +4605,655 @@ body.view-swapping {
   }
 
 }
+
+/* ═══════════════ 14. PERFORMANCE & TIMING TOWER ═══════════════ */
+.view-performance {
+  padding-bottom: 80px;
+}
+
+.perf-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+  margin-top: 24px;
+  align-items: start;
+}
+
+@media(max-width: 1040px) {
+  .perf-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.perf-tower-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+.perf-tower-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.pth-left h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 4px;
+}
+
+.pth-left .mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .84rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.perf-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+}
+
+.perf-table {
+  width: 100%;
+  min-width: 660px;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .75rem;
+  text-align: left;
+}
+
+.perf-table thead {
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid var(--line);
+}
+
+.perf-table th {
+  padding: 10px 12px;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.perf-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.perf-table tbody tr {
+  transition: background .15s var(--ease);
+}
+
+.perf-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.perf-table tr.fastest-lap-row td {
+  background: rgba(168, 85, 247, 0.04);
+}
+
+.th-pos, .td-pos {
+  width: 44px;
+  text-align: center;
+  font-weight: 800;
+  font-size: .88rem;
+  color: var(--muted);
+}
+
+.perf-pos-p1 {
+  color: var(--team, #e10600) !important;
+  font-weight: 900;
+}
+
+.perf-driver-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.perf-team-stripe {
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.perf-driver-code {
+  font-weight: 800;
+  font-size: .82rem;
+  color: #fff;
+  letter-spacing: .04em;
+}
+
+.perf-driver-name {
+  color: var(--muted);
+  font-size: .74rem;
+  margin-left: 4px;
+}
+
+.perf-delta-gain {
+  font-size: .62rem;
+  font-weight: 700;
+  color: var(--green);
+  margin-left: auto;
+}
+
+.perf-delta-loss {
+  font-size: .62rem;
+  font-weight: 700;
+  color: var(--red);
+  margin-left: auto;
+}
+
+.perf-delta-flat {
+  font-size: .62rem;
+  color: var(--dim);
+  margin-left: auto;
+}
+
+.td-team {
+  color: var(--muted);
+  font-size: .74rem;
+}
+
+.td-time {
+  font-weight: 700;
+  color: #fff;
+}
+
+.td-laps {
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+.fast-lap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: .68rem;
+  font-weight: 800;
+  background: rgba(168, 85, 247, 0.16);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.th-pts, .td-pts {
+  width: 76px;
+  min-width: 76px;
+  text-align: right !important;
+  padding-right: 20px !important;
+}
+
+.th-q, .td-q {
+  width: 82px;
+  min-width: 82px;
+  text-align: center !important;
+  font-weight: 600;
+}
+
+.th-best, .td-best {
+  width: 96px;
+  min-width: 96px;
+  text-align: right !important;
+  padding-right: 20px !important;
+  font-weight: 800;
+}
+
+.pts-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: .68rem;
+}
+
+/* Sidebar */
+.perf-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.perf-summary-card {
+  padding: 18px 20px;
+}
+
+.psc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.psc-head h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.psc-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.psc-metric-box {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px;
+}
+
+.pm-label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .54rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.pm-val {
+  display: block;
+  font-size: .88rem;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 4px;
+}
+
+.perf-incident-card {
+  padding: 18px 20px;
+}
+
+.perf-empty-state {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .8rem;
+}
+
+.ti-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.ti-head h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.ti-head .mono {
+  font-size: .6rem;
+  color: var(--dim);
+}
+
+.ti-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .68rem;
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.ti-item {
+  color: var(--muted);
+  line-height: 1.45;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.ti-time {
+  color: var(--dim);
+  margin-right: 6px;
+}
+
+.ti-tag {
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: .56rem;
+  margin-right: 6px;
+}
+
+.ti-tag.green { background: rgba(0, 213, 126, 0.2); color: var(--green); }
+.ti-tag.yellow { background: rgba(255, 176, 32, 0.2); color: var(--amber); }
+.ti-tag.sc { background: rgba(255, 212, 0, 0.2); color: #ffd400; }
+.ti-tag.red { background: rgba(225, 6, 0, 0.2); color: var(--red); }
+
+/* ═══════════════ 15. AUDIO & LIVE COMMENTARY ═══════════════ */
+.view-audio {
+  padding-bottom: 80px;
+}
+
+.audio-station-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.audio-station-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .75rem;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.audio-station-btn:hover {
+  background: var(--surface);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.audio-station-btn.active {
+  background: rgba(225, 6, 0, 0.15);
+  border-color: var(--team, #e10600);
+  color: #fff;
+  font-weight: 700;
+}
+
+.audio-station-btn .station-badge-live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00d57e;
+  box-shadow: 0 0 6px #00d57e;
+}
+
+.audio-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  margin-top: 24px;
+  align-items: start;
+}
+
+@media(max-width: 1040px) {
+  .audio-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.audio-player-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.audio-player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.station-pulse-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .84rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e10600;
+  box-shadow: 0 0 8px #e10600;
+  animation: audioPulse 1.6s infinite ease-in-out;
+}
+
+@keyframes audioPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.aph-sub {
+  display: block;
+  font-size: .68rem;
+  color: var(--dim);
+  margin-top: 2px;
+}
+
+.aph-right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audio-visualizer-container {
+  padding: 24px 20px;
+  background: radial-gradient(circle at 50% 30%, rgba(225, 6, 0, 0.08) 0%, rgba(0, 0, 0, 0.4) 100%);
+  border-bottom: 1px solid var(--line);
+}
+
+.audio-eq-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  height: 54px;
+  padding: 0 10px 10px;
+}
+
+.eq-bar {
+  width: 6px;
+  min-height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--team, #e10600) 0%, rgba(225, 6, 0, 0.3) 100%);
+  animation: eqBounce 1.2s infinite ease-in-out;
+}
+
+@keyframes eqBounce {
+  0%, 100% { height: 6px; }
+  50% { height: 46px; }
+}
+
+.audio-meta-deck {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.amd-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(225, 6, 0, 0.12);
+  border: 1px solid rgba(225, 6, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--team, #e10600);
+  flex-shrink: 0;
+}
+
+.amd-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.amd-info h4 {
+  font-size: .88rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 3px;
+}
+
+.amd-info p {
+  font-size: .74rem;
+  color: var(--muted);
+}
+
+.audio-frame-wrap {
+  width: 100%;
+  position: relative;
+  background: #000;
+  transition: all .25s ease;
+}
+
+.audio-frame-wrap.radio-mode {
+  height: 140px;
+  overflow: hidden;
+  opacity: 0.95;
+}
+
+.audio-frame-wrap.monitor-mode {
+  aspect-ratio: 16 / 9;
+  height: auto;
+}
+
+.audio-frame-wrap iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.audio-player-footer {
+  padding: 12px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.apf-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .68rem;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+}
+
+.audio-scanner-card {
+  padding: 18px 20px;
+}
+
+.asc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.asc-head h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.asc-desc {
+  font-size: .72rem;
+  color: var(--dim);
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.asc-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.asc-clip {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px;
+  transition: border-color .15s ease;
+}
+
+.asc-clip:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.asc-clip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.asc-clip-driver {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .74rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.asc-clip-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .62rem;
+  color: var(--dim);
+}
+
+.asc-clip audio {
+  width: 100%;
+  height: 28px;
+  margin-top: 4px;
+}
+
+
+
