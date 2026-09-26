@@ -500,22 +500,30 @@
     <div class="sec-head rv">
       <div>
         <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
-        <span class="eyebrow">Beta Experimental</span>
+        <span class="eyebrow">Cockpit Telemetry</span>
         <h2>Live 2D <span class="accent">Track Map</span></h2>
         <div class="rule" style="width:140px"></div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="pill mono" id="trackLiveStatus">● LIVE RADAR</div>
+        <div class="pill mono live-status" id="trackLiveStatus">● LIVE RADAR</div>
         <div class="pill mono" id="trackLapCounter">LAP 14 / 51</div>
       </div>
     </div>
 
-    <!-- Track Control Bar -->
-    <div class="track-toolbar rv d1">
-      <div class="track-toolbar-left">
-        <div class="track-sel-wrap">
-          <label for="trackCircuitSelect" class="sr-only">Select Circuit</label>
-          <select id="trackCircuitSelect" class="track-select">
+    <!-- Track Control Deck -->
+    <div class="card deck-box rv d1" style="margin-top:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+        <h3>Circuit &amp; Simulation Controls</h3>
+        <div class="track-info-chips">
+          <span class="chip-metric" id="trackLengthChip">6.003 km</span>
+          <span class="chip-metric" id="trackTurnsChip">20 Turns</span>
+          <span class="chip-metric" id="trackDrsChip">2 DRS Zones</span>
+        </div>
+      </div>
+      <div class="selects">
+        <div class="sel">
+          <label for="trackCircuitSelect">Grand Prix Circuit</label>
+          <select id="trackCircuitSelect">
             <option value="baku" selected>Baku City Circuit (Azerbaijan)</option>
             <option value="monza">Autodromo Nazionale Monza (Italy)</option>
             <option value="silverstone">Silverstone Circuit (Great Britain)</option>
@@ -523,35 +531,38 @@
             <option value="monaco">Circuit de Monaco (Monaco)</option>
           </select>
         </div>
-        <div class="track-info-chips">
-          <span class="chip-metric" id="trackLengthChip">6.003 km</span>
-          <span class="chip-metric" id="trackTurnsChip">20 Turns</span>
-          <span class="chip-metric" id="trackDrsChip">2 DRS Zones</span>
-        </div>
       </div>
-
-      <div class="track-toolbar-right">
-        <div class="track-flag-selector" role="group" aria-label="Track Flag Condition">
-          <button type="button" class="flag-btn green active" data-flag="green" title="Green Flag (Racing Speed)">GREEN</button>
-          <button type="button" class="flag-btn yellow" data-flag="yellow" title="Yellow Flag (Caution)">YELLOW</button>
-          <button type="button" class="flag-btn sc" data-flag="sc" title="Safety Car">SC</button>
-          <button type="button" class="flag-btn vsc" data-flag="vsc" title="Virtual Safety Car">VSC</button>
-          <button type="button" class="flag-btn red" data-flag="red" title="Red Flag (Pit Lane)">RED</button>
+      <div class="track-controls-strip">
+        <div class="control-group">
+          <span class="control-label">FLAG CONDITION</span>
+          <div class="tabs" role="group" aria-label="Track Flag Condition">
+            <button type="button" class="tab flag-btn green active" data-flag="green" title="Green Flag (Racing Speed)">GREEN</button>
+            <button type="button" class="tab flag-btn yellow" data-flag="yellow" title="Yellow Flag (Caution)">YELLOW</button>
+            <button type="button" class="tab flag-btn sc" data-flag="sc" title="Safety Car">SC</button>
+            <button type="button" class="tab flag-btn vsc" data-flag="vsc" title="Virtual Safety Car">VSC</button>
+            <button type="button" class="tab flag-btn red" data-flag="red" title="Red Flag (Pit Lane)">RED</button>
+          </div>
         </div>
-        <div class="track-speed-selector" role="group" aria-label="Playback Speed">
-          <button type="button" class="speed-btn active" data-speed="1">1×</button>
-          <button type="button" class="speed-btn" data-speed="2">2×</button>
-          <button type="button" class="speed-btn" data-speed="4">4×</button>
-          <button type="button" class="speed-btn" id="trackPauseBtn" title="Pause / Resume">⏸</button>
+        <div class="control-group">
+          <span class="control-label">RADAR SPEED</span>
+          <div class="tabs" role="group" aria-label="Playback Speed">
+            <button type="button" class="tab speed-btn active" data-speed="1">1×</button>
+            <button type="button" class="tab speed-btn" data-speed="2">2×</button>
+            <button type="button" class="tab speed-btn" data-speed="4">4×</button>
+            <button type="button" class="tab speed-btn" id="trackPauseBtn" title="Pause / Resume">⏸</button>
+          </div>
         </div>
-        <button type="button" class="track-action-btn" id="trackResetFocusBtn" title="Reset Car Focus">⤢</button>
+        <div class="control-group">
+          <span class="control-label">RADAR VIEW</span>
+          <button type="button" class="btn btn-sm" id="trackResetFocusBtn" title="Reset Car Focus" style="padding:6px 14px;font-family:'JetBrains Mono';font-size:.68rem">RESET FOCUS</button>
+        </div>
       </div>
     </div>
 
     <!-- Main Track Arena Grid -->
     <div class="track-grid rv d2">
       <!-- Radar Canvas Area -->
-      <div class="track-canvas-card">
+      <div class="card track-canvas-card">
         <div class="track-canvas-header">
           <div class="track-weather">
             <span class="tw-item"><b>TRACK</b> <span id="twTrackTemp">38°C</span></span>
@@ -559,7 +570,7 @@
             <span class="tw-item"><b>WIND</b> <span id="twWind">14 km/h</span></span>
             <span class="tw-item"><b>RAIN</b> <span id="twRain">0%</span></span>
           </div>
-          <div class="track-focus-pill" id="trackFocusPill" hidden>
+          <div class="track-focus-pill pill mono" id="trackFocusPill" hidden>
             Tracking: <strong id="trackFocusName">Lando Norris</strong>
             <button type="button" id="trackClearFocus" class="track-unfocus-x" aria-label="Stop tracking driver">&times;</button>
           </div>
@@ -603,14 +614,14 @@
           <div class="legend-item"><span class="legend-line drs"></span> DRS Zone</div>
           <div class="legend-item"><span class="legend-line pit"></span> Pit Lane</div>
           <div class="legend-item"><span class="legend-dot start"></span> Start / Finish</div>
-          <div class="legend-item"><span class="legend-hint">💡 Click any car or leaderboard row to lock camera</span></div>
+          <div class="legend-item"><span class="legend-hint">💡 Click any car or timing row to lock camera</span></div>
         </div>
       </div>
 
       <!-- Live Pit-Wall Telemetry Sidebar -->
       <div class="track-sidebar">
         <!-- Telemetry Card for Focused Driver -->
-        <div class="driver-telemetry-card" id="driverTelemetryCard">
+        <div class="card driver-telemetry-card" id="driverTelemetryCard">
           <div class="dt-head">
             <div class="dt-driver-info">
               <span class="dt-pos" id="dtPos">P1</span>
@@ -619,7 +630,7 @@
                 <div class="dt-team" id="dtTeam">McLaren Formula 1 Team</div>
               </div>
             </div>
-            <div class="dt-number" id="dtNumber">4</div>
+            <div class="dt-number mono" id="dtNumber">4</div>
           </div>
 
           <div class="dt-gauges">
@@ -639,12 +650,12 @@
             <div class="pedal-row">
               <span class="pr-label">THROTTLE</span>
               <div class="pr-bar"><div class="pr-fill throttle" id="dtThrottle" style="width:96%"></div></div>
-              <span class="pr-val" id="dtThrottleVal">96%</span>
+              <span class="pr-val mono" id="dtThrottleVal">96%</span>
             </div>
             <div class="pedal-row">
               <span class="pr-label">BRAKE</span>
               <div class="pr-bar"><div class="pr-fill brake" id="dtBrake" style="width:0%"></div></div>
-              <span class="pr-val" id="dtBrakeVal">0%</span>
+              <span class="pr-val mono" id="dtBrakeVal">0%</span>
             </div>
           </div>
 
@@ -659,16 +670,16 @@
             </div>
             <div class="dt-meta-item">
               <span class="dm-k">INTERVAL</span>
-              <span class="dm-v" id="dtInterval">LEADER</span>
+              <span class="dm-v mono" id="dtInterval">LEADER</span>
             </div>
           </div>
         </div>
 
         <!-- Leaderboard -->
-        <div class="track-leaderboard-card">
+        <div class="card track-leaderboard-card">
           <div class="tl-head">
-            <span class="tl-title">TIMING TOWER</span>
-            <span class="tl-sub" id="tlSub">22 CARS RUNNING</span>
+            <h4>Timing Tower</h4>
+            <span class="mono" id="tlSub">22 CARS RUNNING</span>
           </div>
           <div class="track-leaderboard" id="trackLeaderboard" role="list">
             <!-- Dynamic rows P1 - P22 -->
@@ -676,10 +687,13 @@
         </div>
 
         <!-- Pit-Wall Radio / Incident Wire -->
-        <div class="track-incident-card">
-          <div class="ti-head">RACE CONTROL WIRE</div>
+        <div class="card track-incident-card">
+          <div class="ti-head">
+            <h4>Race Control Wire</h4>
+            <span class="mono">LIVE BROADCAST</span>
+          </div>
           <div class="ti-feed" id="tiFeed">
-            <div class="ti-item"><span class="ti-time">14:02</span><span class="ti-tag green">GREEN</span> Track clear, DRS enabled.</div>
+            <div class="ti-item"><span class="ti-time mono">14:02</span><span class="ti-tag green">GREEN</span> Track clear, DRS enabled.</div>
           </div>
         </div>
       </div>

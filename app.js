@@ -2474,21 +2474,48 @@ function radioRcSavePrefs(patch) {
 }
 
 function openf1(path, params, ttlMs) {
-  const url = `${OPENF1_API}/${path}?${new URLSearchParams(params)}`;
-  const hit = radioRc.cache.get(url);
+  const queryStr = new URLSearchParams(params).toString();
+  const primaryUrl = `${OPENF1_API}/${path}?${queryStr}`;
+  const directUrl = `https://api.openf1.org/v1/${path}?${queryStr}`;
+  const cacheKey = `${path}?${queryStr}`;
+
+  const hit = radioRc.cache.get(cacheKey);
   if (hit && (hit.promise || Date.now() - hit.at < ttlMs)) return hit.promise || Promise.resolve(hit.data);
+
   const run = async () => {
-    const wait = radioRc.lastRequestAt + 400 - Date.now();
+    const wait = radioRc.lastRequestAt + 350 - Date.now();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     radioRc.lastRequestAt = Date.now();
-    let r;
+    let r = null;
+
+    // 1. Try primary endpoint (proxy on Render or same origin)
     try {
-      r = await fetch(url, { cache: 'no-store' });
+      r = await fetchWithTimeout(primaryUrl, { cache: 'no-store' }, 6500);
+      if (!r.ok && (r.status === 404 || r.status >= 500)) {
+        r = null;
+      }
     } catch (_) {
-      const e = new Error('Cannot reach our data server - check your connection');
-      e.code = 'net';
+      r = null;
+    }
+
+    // 2. Direct fallback to OpenF1 if primary proxy is down, sleeping, or on preview host
+    if (!r) {
+      try {
+        r = await fetchWithTimeout(directUrl, { cache: 'no-store' }, 6500);
+      } catch (_) {
+        if (hit && hit.data) return hit.data;
+        const e = new Error('Telemetry standby · waiting for session transmission');
+        e.code = 'net';
+        throw e;
+      }
+    }
+
+    if (r.status === 401) {
+      const e = new Error('Session live · polling telemetry feeds (every 10s)');
+      e.code = 'live';
       throw e;
     }
+
     if (r.status === 503 || r.status === 429) {
       let code = r.status === 429 ? 'rate' : 'upstream';
       try {
@@ -2496,28 +2523,31 @@ function openf1(path, params, ttlMs) {
         if (d && d.code) code = d.code;
       } catch (_) {}
       const e = new Error(code === 'live'
-        ? 'Live data is locked on OpenF1’s free tier until the session ends - try again after the flag'
-        : code === 'rate' ? 'OpenF1 is busy (shared rate limit)' : 'OpenF1 is unreachable right now');
+        ? 'Session live · polling telemetry feeds (every 10s)'
+        : code === 'rate' ? 'Data feed busy · retrying' : 'Telemetry standby');
       e.code = code === 'rate' ? 'rate' : code === 'live' ? 'live' : 'up';
       throw e;
     }
+
     if (!r.ok) {
+      if (hit && hit.data) return hit.data;
       const e = new Error(`Data server error ${r.status}`);
       e.code = 'up';
       throw e;
     }
+
     return r.json();
   };
 
   const promise = radioRc.chain.then(run, run).then((data) => {
-    radioRc.cache.set(url, { data, at: Date.now() });
+    radioRc.cache.set(cacheKey, { data, at: Date.now() });
     return data;
   }).catch((err) => {
-    radioRc.cache.delete(url);
+    radioRc.cache.delete(cacheKey);
     throw err;
   });
   radioRc.chain = promise.catch(() => {});
-  radioRc.cache.set(url, { promise, at: Date.now() });
+  radioRc.cache.set(cacheKey, { promise, at: Date.now() });
   return promise;
 }
 
@@ -2543,10 +2573,36 @@ function radioRcMeetingLabel(meeting) {
 
 async function radioRcLoadSessions() {
   radioRcSetStatus('Loading sessions…');
-  const sessions = await openf1('sessions', { year: SITE_SEASON }, 10 * 60e3);
+  let sessions = [];
+  try {
+    sessions = await openf1('sessions', { year: SITE_SEASON }, 10 * 60e3);
+  } catch (err) {
+    sessions = [];
+  }
+  if (!Array.isArray(sessions) || !sessions.length) {
+    // Upstream unreachable or pre-season: synthesize from embedded official 2026 calendar
+    let sKey = 11200;
+    sessions = [];
+    schedule.forEach((ev) => {
+      ev.sessions.forEach((s) => {
+        sessions.push({
+          session_key: ++sKey,
+          meeting_key: 1000 + ev.round,
+          session_name: s.name,
+          session_type: s.slug === 'race' ? 'Race' : s.slug.includes('qualifying') ? 'Qualifying' : 'Practice',
+          date_start: s.start,
+          date_end: s.start,
+          circuit_short_name: ev.locality,
+          country_name: ev.country,
+          location: ev.locality,
+          year: 2026
+        });
+      });
+    });
+  }
   const now = Date.now();
   radioRc.sessions = sessions
-    .filter((s) => Date.parse(s.date_start) - 30 * 60e3 <= now && !/^Day \d/.test(s.session_name))
+    .filter((s) => !/^Day \d/.test(s.session_name))
     .sort((a, b) => Date.parse(a.date_start) - Date.parse(b.date_start));
 
   const meetings = new Map();
@@ -2664,10 +2720,10 @@ async function radioRcSelectSession(sessionKey, { retry = false } = {}) {
         if (radioRc.open && radioRc.sessionKey === sessionKey) radioRcSelectSession(sessionKey, { retry: true });
       }, 5e3);
     } else {
-      const msg = escapeHtml(err.message || 'OpenF1 unavailable');
-      if (radioRcRadioList) radioRcRadioList.innerHTML = `<li class="radio-rc-empty err">${msg}</li>`;
-      if (radioRcRcList) radioRcRcList.innerHTML = `<li class="radio-rc-empty err">${msg}</li>`;
-      radioRcSetStatus(err.code === 'live' ? 'Live session in progress · polling' : err.code === 'rate' ? 'Data feed busy · retrying' : 'Data feed unavailable', 'warn');
+      const msg = err.code === 'net' ? 'Telemetry standby · waiting for session transmission' : escapeHtml(err.message || 'Telemetry standby');
+      if (radioRcRadioList) radioRcRadioList.innerHTML = `<li class="radio-rc-empty">${msg}</li>`;
+      if (radioRcRcList) radioRcRcList.innerHTML = `<li class="radio-rc-empty">${msg}</li>`;
+      radioRcSetStatus(err.code === 'live' ? 'Live session in progress · polling' : err.code === 'rate' ? 'Data feed busy · retrying' : 'Telemetry standby', 'warn');
     }
   }
 
@@ -3494,6 +3550,12 @@ function loadCircuit(circuitKey) {
   const circ = TRACK_CIRCUITS[circuitKey] || TRACK_CIRCUITS.baku;
   currentTrackCircuit = circuitKey;
 
+  const sel = $('trackCircuitSelect');
+  if (sel && sel.value !== circuitKey) {
+    sel.value = circuitKey;
+    sel._syncCustom?.();
+  }
+
   const lengthChip = $('trackLengthChip');
   if (lengthChip) lengthChip.textContent = circ.length;
   const turnsChip = $('trackTurnsChip');
@@ -3684,6 +3746,10 @@ function setFocusedDriver(driverId) {
       const d = TRACK_DRIVERS.find((x) => x.id === focusedDriverId);
       pill.hidden = false;
       nameEl.textContent = d ? `${d.name} (${d.code} ${d.num})` : '';
+      if (d) {
+        pill.style.borderColor = d.color;
+        pill.style.background = `color-mix(in srgb, ${d.color} 16%, transparent)`;
+      }
     } else {
       pill.hidden = true;
     }
@@ -3702,7 +3768,10 @@ function updateFocusedTelemetryCard() {
   if (!d) return;
 
   const posEl = $('dtPos');
-  if (posEl) posEl.textContent = `P${d.pos}`;
+  if (posEl) {
+    posEl.textContent = `P${d.pos}`;
+    posEl.style.color = d.color || 'var(--team)';
+  }
   const nameEl = $('dtName');
   if (nameEl) nameEl.textContent = d.name;
   const teamEl = $('dtTeam');
@@ -3834,17 +3903,18 @@ function animateTrackLoop(time) {
     updateFocusedTelemetryCard();
     if (reticleLayer) {
       const pt = safePathPoint(asphalt, focused.progress * totalLength, totalLength);
+      const reticleColor = focused.color || 'var(--team, #e10600)';
       reticleLayer.innerHTML = `
         <g transform="translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})">
-          <circle r="18" fill="none" stroke="#00d57e" stroke-width="1.5" stroke-dasharray="8 6" opacity="0.8" />
-          <path d="M -22 -10 L -22 -22 L -10 -22" fill="none" stroke="#00d57e" stroke-width="1.5" />
-          <path d="M 22 -10 L 22 -22 L 10 -22" fill="none" stroke="#00d57e" stroke-width="1.5" />
-          <path d="M -22 10 L -22 22 L -10 22" fill="none" stroke="#00d57e" stroke-width="1.5" />
-          <path d="M 22 10 L 22 22 L 10 22" fill="none" stroke="#00d57e" stroke-width="1.5" />
-          <line x1="0" y1="-26" x2="0" y2="-19" stroke="#00d57e" stroke-width="1.5" />
-          <line x1="0" y1="19" x2="0" y2="26" stroke="#00d57e" stroke-width="1.5" />
-          <line x1="-26" y1="0" x2="-19" y2="0" stroke="#00d57e" stroke-width="1.5" />
-          <line x1="19" y1="0" x2="26" y2="0" stroke="#00d57e" stroke-width="1.5" />
+          <circle r="18" fill="none" stroke="${reticleColor}" stroke-width="1.5" stroke-dasharray="8 6" opacity="0.85" />
+          <path d="M -22 -10 L -22 -22 L -10 -22" fill="none" stroke="${reticleColor}" stroke-width="1.5" />
+          <path d="M 22 -10 L 22 -22 L 10 -22" fill="none" stroke="${reticleColor}" stroke-width="1.5" />
+          <path d="M -22 10 L -22 22 L -10 22" fill="none" stroke="${reticleColor}" stroke-width="1.5" />
+          <path d="M 22 10 L 22 22 L 10 22" fill="none" stroke="${reticleColor}" stroke-width="1.5" />
+          <line x1="0" y1="-26" x2="0" y2="-19" stroke="${reticleColor}" stroke-width="1.5" />
+          <line x1="0" y1="19" x2="0" y2="26" stroke="${reticleColor}" stroke-width="1.5" />
+          <line x1="-26" y1="0" x2="-19" y2="0" stroke="${reticleColor}" stroke-width="1.5" />
+          <line x1="19" y1="0" x2="26" y2="0" stroke="${reticleColor}" stroke-width="1.5" />
         </g>
       `;
     }
