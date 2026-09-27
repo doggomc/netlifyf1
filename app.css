@@ -5201,6 +5201,11 @@ body.view-swapping {
   background: var(--surface);
 }
 
+/* .btn sets its own display, which would defeat the hidden attribute. */
+.live247-controls [hidden] {
+  display: none;
+}
+
 /* ── 24/7 click-shield (Bouncer gate) — scoped to the 24/7 player ── */
 .live247-gate {
   position: absolute;

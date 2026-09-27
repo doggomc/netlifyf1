@@ -668,14 +668,16 @@ const LIVE247_STATIONS = [
     label: 'Sky UK',
     sub: '24/7 Sky Sports F1 feed',
     url: 'https://strmfree.st/embed/racing/skyf1',
-    rp: 'origin-when-cross-origin'
+    rp: 'origin-when-cross-origin',
+    hideTransport: true
   },
   {
     id: 'wikisport',
     label: 'WikiSport',
     sub: '24/7 international feed',
     url: 'https://wikisport.info/strm/f1.php',
-    rp: 'origin-when-cross-origin'
+    rp: 'origin-when-cross-origin',
+    hideTransport: true
   }
 ];
 
@@ -4224,7 +4226,7 @@ function makeLive247Gate() {
     </button>
     <p class="live247-gate-note">${LIVE247_TOUCH
       ? 'Shields up — taps land here, not on the feed&rsquo;s ad traps. Tap Shield any time to re-cover the player.'
-      : 'Shields up — clicks land here, not on the feed&rsquo;s ad traps. Keys (Space, &larr;/&rarr;, M, F) drive the player once started.'}</p>`;
+      : 'Shields up — clicks land here, not on the feed&rsquo;s ad traps. Press Start to hand control to the player.'}</p>`;
   gate.querySelector('#live247GateBtn').addEventListener('click', () => openLive247Shield({ announce: true }));
   return gate;
 }
@@ -4291,7 +4293,7 @@ function openLive247Shield({ announce = false } = {}) {
     trackEvent('live247_gate_open', live247StationId);
     showToast(LIVE247_TOUCH
       ? 'Tap Shield any time to re-cover the player. In fullscreen use Exit — tapping the video can trip the feed\u2019s ad traps.'
-      : 'Keys drive the real player — Space: play/pause · ←/→: seek · M: mute · F: fullscreen. The feed\u2019s traps steal clicks, not keys.', 'info');
+      : 'Player controls are live. Click Shield any time to re-cover the player.', 'info');
   }
 }
 
@@ -4411,6 +4413,10 @@ function loadLive247Station(stationId, { auto = false } = {}) {
   const wrap = $('live247FrameWrap');
   if (!wrap) return;
   clearTimeout(live247RecoverTimer);
+  /* Flaky feeds don't get Play/Stop transport — channel chips + Reload cover them. */
+  const showTransport = !station.hideTransport;
+  if ($('live247PlayBtn')) $('live247PlayBtn').hidden = !showTransport;
+  if ($('live247StopBtn')) $('live247StopBtn').hidden = !showTransport;
   wrap.replaceChildren();
   const iframe = makeLive247Iframe(station);
   iframe.title = station.label + ' 24/7';
@@ -4461,9 +4467,6 @@ function setupLive247Controls() {
     }
     if (live247ShieldArmed) openLive247Shield({ announce: true });
     else armLive247Shield();
-  });
-  $('live247SoundBtn')?.addEventListener('click', () => {
-    showToast('Volume sits on the host player. This page cannot mute a cross-origin embed.', 'warning');
   });
   $('live247FsBtn')?.addEventListener('click', () => {
     /* Fullscreen the WRAP, not the bare iframe: our Exit / Shield bar stays
