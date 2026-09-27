@@ -5276,6 +5276,41 @@ body.view-swapping {
   }
 }
 
+/* ── Fullscreen control bar: our Exit / Shield buttons float over the video
+   so phones (no Escape key) always have a real, labeled way out. ── */
+.live247-fsbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, .72) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.live247-fsbar[hidden] {
+  display: none;
+}
+
+.live247-fsbar-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .68rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .9);
+  margin-right: auto;
+}
+
+.live247-frame-wrap:fullscreen,
+.live247-frame-wrap:-webkit-full-screen {
+  aspect-ratio: auto;
+  width: 100%;
+  height: 100%;
+}
+
 .audio-deck audio {
   position: absolute;
   width: 0;

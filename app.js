@@ -6,7 +6,7 @@
 /* ═══════════════ 1. CONFIGURATION & CONSTANTS ═══════════════ */
 const SITE_SEASON = 2026;
 const AUTHORIZED_DOMAIN = 'freef1.netlify.app';
-const AUTH_PROTECTION_ENABLED = false;
+const AUTH_PROTECTION_ENABLED = true;
 
 const PREVIEW_HOST = location.hostname === 'localhost' ||
   location.hostname === '127.0.0.1' ||
@@ -20,9 +20,24 @@ const isAuthorizedHost = (host) => {
     h === 'f1free.onrender.com' ||
     h === 'localhost' ||
     h === '127.0.0.1' ||
-    h.endsWith('.e2b.app')
+    h.endsWith('.e2b.app') ||
+    isNetlifyPreviewHost(h)
   );
 };
+
+/* Netlify deploy previews & branch deploys of THIS site:
+   deploy-preview-<n>--freef1.netlify.app / <branch>--freef1.netlify.app.
+   Only Netlify can issue the `--freef1.netlify.app` suffix for the site that
+   owns freef1.netlify.app, so these hosts carry the same trust as production.
+   (Do NOT fold these into PREVIEW_HOST: that flag switches API calls to
+   location.origin, which only works where a backend actually shares the
+   origin — localhost / Render / e2b. Netlify previews must keep calling
+   https://f1free.onrender.com.) */
+function isNetlifyPreviewHost(h) {
+  return AUTHORIZED_DOMAIN.endsWith('.netlify.app') &&
+    h.length > AUTHORIZED_DOMAIN.length + 2 &&
+    h.endsWith('--' + AUTHORIZED_DOMAIN);
+}
 
 const PUBLIC_API = PREVIEW_HOST ? location.origin : 'https://f1free.onrender.com';
 const AUTH_API_URL = PREVIEW_HOST ? `${location.origin}/api/auth/verify` : 'https://f1free.onrender.com/api/auth/verify';
@@ -641,18 +656,19 @@ const sources=[
 
 const LIVE247_STATIONS = [
   {
+    id: 'sky-uk-2',
+    label: 'Sky UK 2',
+    sub: '24/7 alternate Sky Sports F1 feed',
+    url: 'https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk',
+    rp: 'strict-origin-when-cross-origin',
+    gate: 'auto'
+  },
+  {
     id: 'sky-uk',
     label: 'Sky UK',
     sub: '24/7 Sky Sports F1 feed',
     url: 'https://strmfree.st/embed/racing/skyf1',
     rp: 'origin-when-cross-origin'
-  },
-  {
-    id: 'sky-uk-2',
-    label: 'Sky UK 2',
-    sub: '24/7 alternate Sky Sports F1 feed',
-    url: 'https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk',
-    rp: 'strict-origin-when-cross-origin'
   },
   {
     id: 'wikisport',
@@ -4131,9 +4147,13 @@ const LIVE247_HALFLOCK_IDS = new Set(); // e.g. new Set(['wikisport'])
 const LIVE247_MANNERS_KEY = 'freef1_247_manners';
 const LIVE247_NEAR_MS = 2500;   // blur this soon after hovering/tapping the player = suspect
 const LIVE247_TOAST_GAP_MS = 8000;
+const LIVE247_ESCALATION_MS = 120000; // after a hijack, force the Start gate this long
+const LIVE247_RECOVER_DELAY_MS = 1200;
+const LIVE247_RECOVER_MAX = 2;        // auto-reloads per hijack burst before we give up
+const LIVE247_TOUCH = matchMedia('(pointer: coarse)').matches;
 
 let live247Initialized = false;
-let live247StationId = 'sky-uk';
+let live247StationId = 'sky-uk-2';   /* most reliable feed: default channel */
 let live247Playing = false;
 let live247ShieldArmed = true;
 let live247LoadToken = 0;
@@ -4141,6 +4161,9 @@ let live247LastNear = 0;
 let live247BlurSuspect = false;
 let live247FocusToastAt = 0;
 let live247KeyHintShown = false;
+let live247LastHijackAt = 0;
+let live247RecoverStreak = 0;
+let live247RecoverTimer = null;
 
 function live247Status(text) {
   const el = $('live247StatusChip');
@@ -4199,9 +4222,43 @@ function makeLive247Gate() {
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
       Start stream
     </button>
-    <p class="live247-gate-note">Shields up — clicks land here, not on the feed&rsquo;s ad traps. Keys (Space, &larr;/&rarr;, M, F) drive the player once started.</p>`;
+    <p class="live247-gate-note">${LIVE247_TOUCH
+      ? 'Shields up — taps land here, not on the feed&rsquo;s ad traps. Tap Shield any time to re-cover the player.'
+      : 'Shields up — clicks land here, not on the feed&rsquo;s ad traps. Keys (Space, &larr;/&rarr;, M, F) drive the player once started.'}</p>`;
   gate.querySelector('#live247GateBtn').addEventListener('click', () => openLive247Shield({ announce: true }));
   return gate;
+}
+
+/* ── Mobile fix: fullscreen the WRAP (video + our UI together) and float a
+   real Exit / Shield bar over it. Phones have no Escape key — the bar IS the
+   escape hatch, and it sits above the feed so ad-trap taps never own the
+   whole screen. ── */
+function makeLive247FsBar(station) {
+  const bar = document.createElement('div');
+  bar.className = 'live247-fsbar';
+  bar.id = 'live247FsBar';
+  bar.hidden = true;
+  bar.innerHTML = `
+    <span class="live247-fsbar-label mono">${escapeHtml(station.label)}</span>
+    <button class="btn sm" id="live247FsShieldBtn" type="button">Shield</button>
+    <button class="btn sm" id="live247FsExitBtn" type="button">Exit</button>`;
+  bar.querySelector('#live247FsShieldBtn').addEventListener('click', () => {
+    if (live247ShieldArmed) openLive247Shield({ announce: true });
+    else armLive247Shield();
+  });
+  bar.querySelector('#live247FsExitBtn').addEventListener('click', () => {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) exit.call(document);
+  });
+  return bar;
+}
+
+function live247SyncFsBar() {
+  const wrap = $('live247FrameWrap');
+  const bar = $('live247FsBar');
+  if (!bar || !wrap) return;
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  bar.hidden = fsEl !== wrap;
 }
 
 function syncLive247ShieldBtn() {
@@ -4229,12 +4286,12 @@ function openLive247Shield({ announce = false } = {}) {
   }
   syncLive247ShieldBtn();
   if (live247Playing) live247Status('LIVE');
-  if (announce) {
+  if (announce && !live247KeyHintShown) {
+    live247KeyHintShown = true;
     trackEvent('live247_gate_open', live247StationId);
-    if (!live247KeyHintShown) {
-      live247KeyHintShown = true;
-      showToast('Keys drive the real player — Space: play/pause · ←/→: seek · M: mute · F: fullscreen. The feed\u2019s traps steal clicks, not keys.', 'info');
-    }
+    showToast(LIVE247_TOUCH
+      ? 'Tap Shield any time to re-cover the player. In fullscreen use Exit — tapping the video can trip the feed\u2019s ad traps.'
+      : 'Keys drive the real player — Space: play/pause · ←/→: seek · M: mute · F: fullscreen. The feed\u2019s traps steal clicks, not keys.', 'info');
   }
 }
 
@@ -4250,11 +4307,26 @@ function live247WatchFrame(f, token) {
 }
 
 function live247FlagHijack() {
+  const now = Date.now();
+  if (now - live247LastHijackAt > LIVE247_ESCALATION_MS) live247RecoverStreak = 0;
+  live247LastHijackAt = now;
+  live247RecoverStreak++;
   live247MannersBump(live247StationId, 'hijack');
   trackEvent('stream_hijack', '247:' + live247StationId);
   renderLive247Chips();
   armLive247Shield();
-  showToast(`The ${live247StationLabel()} ad layer hijacked the player. Shield is back up — press Start stream, or Reload the channel.`, 'error');
+  const canRecover = live247RecoverStreak <= LIVE247_RECOVER_MAX;
+  const label = live247StationLabel();
+  showToast(canRecover
+    ? `The ${label} ad layer hijacked the player — reloading the stream and re-arming the shield.`
+    : `The ${label} ad layer keeps hijacking the player. Shield is on — press Reload or try another channel.`, 'error');
+  if (!canRecover) return;
+  clearTimeout(live247RecoverTimer);
+  const targetId = live247StationId;
+  live247RecoverTimer = setTimeout(() => {
+    if (!live247Playing || live247StationId !== targetId) return;
+    loadLive247Station(targetId);
+  }, LIVE247_RECOVER_DELAY_MS);
 }
 
 /* ── M4b: soft alarm — focus lost moments after being near the player ──
@@ -4296,6 +4368,8 @@ function setupLive247Listeners() {
     }
   });
   window.addEventListener('focus', live247OnRegainFocus);
+  document.addEventListener('fullscreenchange', live247SyncFsBar);
+  document.addEventListener('webkitfullscreenchange', live247SyncFsBar);
 }
 
 function initLive247View() {
@@ -4336,27 +4410,35 @@ function loadLive247Station(stationId, { auto = false } = {}) {
 
   const wrap = $('live247FrameWrap');
   if (!wrap) return;
+  clearTimeout(live247RecoverTimer);
   wrap.replaceChildren();
   const iframe = makeLive247Iframe(station);
   iframe.title = station.label + ' 24/7';
   wrap.appendChild(iframe);
   wrap.appendChild(makeLive247Gate());
+  wrap.appendChild(makeLive247FsBar(station));
   const token = ++live247LoadToken;
   live247WatchFrame(iframe, token);
-  live247KeyHintShown = false;
   live247Playing = true;
-  armLive247Shield();          /* every load starts shielded */
+  live247SyncFsBar();
   trackEvent('live247_load', station.id);
   void auto;
+  /* gate: 'auto' stations (the reliable feeds) start without a Start click —
+     unless the feed hijacked recently, in which case the gate comes back. */
+  const escalating = live247LastHijackAt && (Date.now() - live247LastHijackAt < LIVE247_ESCALATION_MS);
+  if (station.gate === 'auto' && !escalating) openLive247Shield({ announce: true });
+  else armLive247Shield();
 }
 
 function stopLive247() {
   live247LoadToken++;
+  clearTimeout(live247RecoverTimer);
   const wrap = $('live247FrameWrap');
   if (wrap) wrap.replaceChildren();
   live247Playing = false;
   live247ShieldArmed = true;
   syncLive247ShieldBtn();
+  live247SyncFsBar();
   live247Status('STOPPED');
 }
 
@@ -4384,12 +4466,12 @@ function setupLive247Controls() {
     showToast('Volume sits on the host player. This page cannot mute a cross-origin embed.', 'warning');
   });
   $('live247FsBtn')?.addEventListener('click', () => {
+    /* Fullscreen the WRAP, not the bare iframe: our Exit / Shield bar stays
+       visible over the video, which is the whole mobile fix (no Escape key). */
     const wrap = $('live247FrameWrap');
-    const iframe = wrap?.querySelector('iframe');
-    const target = iframe || wrap;
-    if (!target) return;
-    const req = target.requestFullscreen || target.webkitRequestFullscreen;
-    if (req) req.call(target);
+    if (!wrap) return;
+    const req = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+    if (req) req.call(wrap);
     else showToast('Fullscreen is not available in this browser.', 'warning');
   });
 }
