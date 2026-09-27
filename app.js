@@ -17,13 +17,10 @@ const isAuthorizedHost = (host) => {
   const h = (host || location.hostname).toLowerCase();
   return (
     h === AUTHORIZED_DOMAIN ||
-    h.endsWith('.netlify.app') ||
     h === 'f1free.onrender.com' ||
     h === 'localhost' ||
     h === '127.0.0.1' ||
-    h.endsWith('.e2b.app') ||
-    h.endsWith('.webcontainer.io') ||
-    h.endsWith('.app.github.dev')
+    h.endsWith('.e2b.app')
   );
 };
 
@@ -48,6 +45,7 @@ const IFRAME_ALLOW = "autoplay *; encrypted-media *; fullscreen *; picture-in-pi
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const liteMotion = reduceMotion || matchMedia('(max-width: 760px)').matches || navigator.connection?.saveData;
+if (liteMotion) document.documentElement.classList.add('lite-motion');
 
 const BLOCKED_COPY = IS_IOS
   ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
@@ -56,8 +54,8 @@ const BLOCKED_COPY = IS_IOS
 const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
-const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord', performance: 'viewPerformance', track: 'viewPerformance' };
-const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1', performance: 'Performance & Timing - APEX F1', track: 'Performance & Timing - APEX F1' };
+const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord', performance: 'viewPerformance', track: 'viewPerformance', 247: 'view247', audio: 'view247' };
+const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1', performance: 'Performance & Timing - APEX F1', track: 'Performance & Timing - APEX F1', 247: '24/7 Streams - APEX F1', audio: '24/7 Streams - APEX F1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
@@ -469,6 +467,25 @@ function showToast(msg, type) {
   });
 })();
 
+function ensureAuthOverlay() {
+  let overlay = $('authOverlay');
+  if (overlay) return overlay;
+  overlay = document.createElement('div');
+  overlay.className = 'auth';
+  overlay.id = 'authOverlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'authTitle');
+  overlay.innerHTML = `<div class="sheet">
+    <h2 id="authTitle">Unauthorized Access</h2>
+    <p>This experience is protected and can only be accessed from the official domain: <strong>https://freef1.netlify.app</strong></p>
+    <div class="code" id="authErrorCode">Error: Unauthorized.</div>
+    <button class="btn primary" id="authRetryBtn" type="button">Retry Authorization</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
 function checkAuth() {
   if (!AUTH_PROTECTION_ENABLED) return;
   const host = location.hostname.toLowerCase();
@@ -483,8 +500,7 @@ function checkAuth() {
 }
 
 function showUnauthorized(reason) {
-  const overlay = $('authOverlay');
-  if (!overlay) return;
+  const overlay = ensureAuthOverlay();
   const codeEl = $('authErrorCode');
   if (codeEl) codeEl.textContent = 'Error: ' + reason;
   overlay.classList.add('open');
@@ -507,7 +523,7 @@ const schedule=[
  {round:4,slug:"miami",name:"Miami Grand Prix",circuit:"Miami International Autodrome",locality:"Miami",country:"USA",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-01T16:00:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-01T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-02T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-02T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-03T20:00:00Z"}]},
  {round:5,slug:"canada",name:"Canadian Grand Prix",circuit:"Circuit Gilles Villeneuve",locality:"Montreal",country:"Canada",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-22T16:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-22T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-23T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-23T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-24T20:00:00Z"}]},
  {round:6,slug:"monaco",name:"Monaco Grand Prix",circuit:"Circuit de Monaco",locality:"Monte Carlo",country:"Monaco",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-05T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-05T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-06T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-06T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-07T13:00:00Z"}]},
- {round:7,slug:"barcelona",name:"Barcelona Grand Prix",circuit:"Circuit de Barcelona-Catalunya",locality:"Barcelona",country:"Spain",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-12T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-12T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-13T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-13T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-14T13:00:00Z"}]},
+ {round:7,slug:"barcelona",name:"Barcelona-Catalunya Grand Prix",circuit:"Circuit de Barcelona-Catalunya",locality:"Barcelona",country:"Spain",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-12T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-12T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-13T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-13T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-14T13:00:00Z"}]},
  {round:8,slug:"austria",name:"Austrian Grand Prix",circuit:"Red Bull Ring",locality:"Spielberg",country:"Austria",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-26T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-26T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-27T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-27T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-28T13:00:00Z"}]},
  {round:9,slug:"britain",name:"British Grand Prix",circuit:"Silverstone Circuit",locality:"Silverstone",country:"UK",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-03T11:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-07-03T15:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-07-04T11:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-04T15:00:00Z"},{slug:"race",name:"Race",start:"2026-07-05T14:00:00Z"}]},
  {round:10,slug:"belgium",name:"Belgian Grand Prix",circuit:"Circuit de Spa-Francorchamps",locality:"Spa",country:"Belgium",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-17T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-07-17T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-07-18T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-18T14:00:00Z"},{slug:"race",name:"Race",start:"2026-07-19T13:00:00Z"}]},
@@ -516,13 +532,14 @@ const schedule=[
  {round:13,slug:"italy",name:"Italian Grand Prix",circuit:"Autodromo Nazionale di Monza",locality:"Monza",country:"Italy",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-04T10:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-04T14:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-05T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-05T14:00:00Z"},{slug:"race",name:"Race",start:"2026-09-06T13:00:00Z"}]},
  {round:14,slug:"spain",name:"Spanish Grand Prix",circuit:"Madring",locality:"Madrid",country:"Spain",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-11T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-11T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-12T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-12T14:00:00Z"},{slug:"race",name:"Race",start:"2026-09-13T13:00:00Z"}]},
  {round:15,slug:"azerbaijan",name:"Azerbaijan Grand Prix",circuit:"Baku City Circuit",locality:"Baku",country:"Azerbaijan",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-24T08:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-24T12:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-25T08:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-25T12:00:00Z"},{slug:"race",name:"Race",start:"2026-09-26T11:00:00Z"}]},
- {round:16,slug:"singapore",name:"Singapore Grand Prix",circuit:"Marina Bay Street Circuit",locality:"Marina Bay",country:"Singapore",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-09T08:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-10-09T12:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-10-10T09:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-10T13:00:00Z"},{slug:"race",name:"Race",start:"2026-10-11T12:00:00Z"}]},
- {round:17,slug:"usa",name:"United States Grand Prix",circuit:"Circuit of the Americas",locality:"Austin",country:"USA",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-23T17:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-23T21:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-24T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-24T21:00:00Z"},{slug:"race",name:"Race",start:"2026-10-25T20:00:00Z"}]},
- {round:18,slug:"mexico",name:"Mexico City Grand Prix",circuit:"Autódromo Hermanos Rodríguez",locality:"Mexico City",country:"Mexico",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-30T18:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-30T22:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-31T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-31T21:00:00Z"},{slug:"race",name:"Race",start:"2026-11-01T20:00:00Z"}]},
- {round:19,slug:"brazil",name:"Brazilian Grand Prix",circuit:"Autódromo José Carlos Pace",locality:"São Paulo",country:"Brazil",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-06T15:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-06T19:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-07T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-07T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-08T17:00:00Z"}]},
- {round:20,slug:"lasvegas",name:"Las Vegas Grand Prix",circuit:"Las Vegas Strip Street Circuit",locality:"Las Vegas",country:"USA",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-20T00:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-20T04:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-21T00:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-21T04:00:00Z"},{slug:"race",name:"Race",start:"2026-11-22T04:00:00Z"}]},
- {round:21,slug:"qatar",name:"Qatar Grand Prix",circuit:"Losail International Circuit",locality:"Lusail",country:"Qatar",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-27T13:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-27T17:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-28T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-28T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-29T16:00:00Z"}]},
- {round:22,slug:"abudhabi",name:"Abu Dhabi Grand Prix",circuit:"Yas Marina Circuit",locality:"Abu Dhabi",country:"UAE",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-12-04T09:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-12-04T13:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-12-05T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-12-05T14:00:00Z"},{slug:"race",name:"Race",start:"2026-12-06T13:00:00Z"}]}
+ {round:16,slug:"bahrain",name:"Bahrain Grand Prix",circuit:"Sepang International Circuit",locality:"Sepang",country:"Malaysia",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-02T04:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-02T08:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-03T04:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-03T08:00:00Z"},{slug:"race",name:"Race",start:"2026-10-04T07:00:00Z"}]},
+ {round:17,slug:"singapore",name:"Singapore Grand Prix",circuit:"Marina Bay Street Circuit",locality:"Marina Bay",country:"Singapore",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-09T08:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-10-09T12:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-10-10T09:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-10T13:00:00Z"},{slug:"race",name:"Race",start:"2026-10-11T12:00:00Z"}]},
+ {round:18,slug:"usa",name:"United States Grand Prix",circuit:"Circuit of the Americas",locality:"Austin",country:"USA",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-23T17:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-23T21:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-24T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-24T21:00:00Z"},{slug:"race",name:"Race",start:"2026-10-25T20:00:00Z"}]},
+ {round:19,slug:"mexico",name:"Mexico City Grand Prix",circuit:"Autódromo Hermanos Rodríguez",locality:"Mexico City",country:"Mexico",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-30T18:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-30T22:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-31T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-31T21:00:00Z"},{slug:"race",name:"Race",start:"2026-11-01T20:00:00Z"}]},
+ {round:20,slug:"brazil",name:"Brazilian Grand Prix",circuit:"Autódromo José Carlos Pace",locality:"São Paulo",country:"Brazil",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-06T15:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-06T19:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-07T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-07T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-08T17:00:00Z"}]},
+ {round:21,slug:"lasvegas",name:"Las Vegas Grand Prix",circuit:"Las Vegas Strip Street Circuit",locality:"Las Vegas",country:"USA",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-20T00:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-20T04:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-21T00:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-21T04:00:00Z"},{slug:"race",name:"Race",start:"2026-11-22T04:00:00Z"}]},
+ {round:22,slug:"qatar",name:"Qatar Grand Prix",circuit:"Losail International Circuit",locality:"Lusail",country:"Qatar",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-27T13:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-27T17:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-28T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-28T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-29T16:00:00Z"}]},
+ {round:23,slug:"abudhabi",name:"Abu Dhabi Grand Prix",circuit:"Yas Marina Circuit",locality:"Abu Dhabi",country:"UAE",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-12-04T09:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-12-04T13:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-12-05T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-12-05T14:00:00Z"},{slug:"race",name:"Race",start:"2026-12-06T13:00:00Z"}]}
 ];
 
 // Parse session timestamps once into numeric milliseconds.
@@ -535,15 +552,24 @@ function hoursSince(s) {
   return (Date.now() - s.ts) / 3600000;
 }
 
+function sessionDurationHours(s) {
+  const key = `${s?.slug || ''} ${s?.name || ''}`.toLowerCase();
+  if (/\bsprint[- ]qualif/.test(key) || key.includes('sprint-qualifying')) return 1.25;
+  if (/\bsprint\b/.test(key) && !/qualif/.test(key)) return 1;
+  if (/qualif/.test(key)) return 1.25;
+  if (/\brace\b/.test(key)) return 3;
+  return 1.25;
+}
+
 function isStreamAvailable(s) {
   if (!s) return false;
   const d = hoursSince(s);
-  return d >= -1 && d <= 3;
+  return d >= -1 && d <= sessionDurationHours(s);
 }
 
 function isSessionEnded(s) {
   if (!s) return false;
-  return hoursSince(s) > 4;
+  return hoursSince(s) > sessionDurationHours(s) + 0.25;
 }
 
 function isDateEnded(d) {
@@ -551,13 +577,18 @@ function isDateEnded(d) {
 }
 
 function getCurrentLiveSession() {
+  let best = null;
+  let bestStart = -Infinity;
   for (const ev of schedule) {
     for (const s of ev.sessions) {
-      const d = hoursSince(s);
-      if (d >= -1 && d <= 3) return { event: ev, session: s };
+      if (!isStreamAvailable(s)) continue;
+      if (s.ts >= bestStart) {
+        bestStart = s.ts;
+        best = { event: ev, session: s };
+      }
     }
   }
-  return null;
+  return best;
 }
 
 function pickDefault() {
@@ -606,6 +637,30 @@ const sources=[
  {id:"appletv",label:"AppleTV",streamNum:3},
  {id:"dazn",label:"DAZN",streamNum:5},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
+];
+
+const LIVE247_STATIONS = [
+  {
+    id: 'sky-uk',
+    label: 'Sky UK',
+    sub: '24/7 Sky Sports F1 feed',
+    url: 'https://strmfree.st/embed/racing/skyf1',
+    rp: 'origin-when-cross-origin'
+  },
+  {
+    id: 'sky-uk-2',
+    label: 'Sky UK 2',
+    sub: '24/7 alternate Sky Sports F1 feed',
+    url: 'https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk',
+    rp: 'strict-origin-when-cross-origin'
+  },
+  {
+    id: 'wikisport',
+    label: 'WikiSport',
+    sub: '24/7 international feed',
+    url: 'https://wikisport.info/strm/f1.php',
+    rp: 'origin-when-cross-origin'
+  }
 ];
 
 let disabledSources = new Set();
@@ -664,7 +719,10 @@ function updateHeader() {
 
   if (heroTitle) heroTitle.textContent = first;
   if (heroTitle2) heroTitle2.textContent = last;
-  if (activeView === 'home') document.title = currentEvent.name + " - APEX F1";
+  if (activeView === 'home') {
+    document.title = currentEvent.name + " - APEX F1";
+    syncDocumentMeta('home');
+  }
   if (heroSession) heroSession.textContent = currentSession.name + " · " + SITE_SEASON;
 
   const done = currentEvent.sessions.every(isSessionEnded);
@@ -1200,6 +1258,8 @@ async function pollSourceConfig(force = false) {
   }
 }
 
+let streamPollVisibilityBound = false;
+
 function initStreamPolling() {
   clearInterval(streamPollTimer);
   pollStreamStatus(true);
@@ -1214,6 +1274,8 @@ function initStreamPolling() {
     pollSourceConfig();
     pollExperimentalStatus();
   }, 30000);
+  if (streamPollVisibilityBound) return;
+  streamPollVisibilityBound = true;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       streamEvents?.close();
@@ -1269,11 +1331,12 @@ function initVisitorCounter() {
 
   const beat = async () => {
     clearTimeout(timer);
-    if (document.hidden || inFlight) {
-      timer = setTimeout(beat, INTERVAL);
+    if (inFlight) {
+      timer = setTimeout(beat, document.hidden ? 45000 : INTERVAL);
       return;
     }
     inFlight = true;
+    let nextDelay = document.hidden ? 45000 : INTERVAL;
     try {
       if (!visitorToken || visitorTokenExpiresAt - Date.now() < 60000) await refreshVisitorToken();
       const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}`, {
@@ -1285,15 +1348,19 @@ function initVisitorCounter() {
       if (r.status === 403) {
         visitorToken = '';
         visitorTokenExpiresAt = 0;
+        nextDelay = 800;
       } else if (r.ok) {
         updateCount(await r.json());
       }
     } catch (_) {}
     finally {
       inFlight = false;
-      timer = setTimeout(beat, INTERVAL);
+      timer = setTimeout(beat, nextDelay);
     }
   };
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) beat();
+  }, { passive: true });
 
   const queue = [];
   let draining = false;
@@ -1621,7 +1688,35 @@ function updateSessions() {
   ];
   const html = [...items, ...items].map((t) => `<span>${t}</span>`).join("");
   const tickerTrack = $("tickerTrack");
-  if (tickerTrack) tickerTrack.innerHTML = html;
+  if (!tickerTrack) return;
+  tickerTrack.innerHTML = html;
+  // Drive the strip in JS so phones (html.lite-motion), iOS Low Power Mode,
+  // and sticky :hover cannot freeze the CSS animation.
+  if (reduceMotion) return;
+  tickerTrack.style.animation = "none";
+  tickerTrack.style.webkitAnimation = "none";
+  let x = 0;
+  let last = performance.now();
+  let paused = false;
+  const hoverFine = matchMedia("(hover: hover) and (pointer: fine)");
+  const strip = tickerTrack.parentElement;
+  strip?.addEventListener("mouseenter", () => { if (hoverFine.matches) paused = true; });
+  strip?.addEventListener("mouseleave", () => { paused = false; });
+  const LOOP_MS = 34000;
+  function tick(now) {
+    const dt = Math.min(48, now - last);
+    last = now;
+    if (!paused) {
+      const half = tickerTrack.scrollWidth / 2;
+      if (half > 1) {
+        x -= (half / LOOP_MS) * dt;
+        if (x <= -half) x += half;
+        tickerTrack.style.transform = "translate3d(" + x + "px,0,0)";
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 })();
 
 const navEl = $('nav');
@@ -1702,6 +1797,7 @@ let viewSwapTimer = null;
 
 function routeFromPath(path) {
   const seg = (path || '/').replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (seg === 'audio' || seg === '24-7' || seg === '247') return '247';
   return seg in VIEWS ? seg : 'home';
 }
 
@@ -1716,6 +1812,18 @@ function setActiveNav(route) {
   document.body.dataset.view = route;
 }
 
+function syncDocumentMeta(route) {
+  const path = route === 'home' ? '/' : '/' + route;
+  const url = 'https://' + AUTHORIZED_DOMAIN + path;
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute('href', url);
+  const ogUrl = document.querySelector('meta[property="og:url"]');
+  if (ogUrl) ogUrl.setAttribute('content', url);
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  const title = route === 'home' ? currentEvent.name + ' - APEX F1' : (VIEW_TITLES[route] || document.title);
+  if (ogTitle) ogTitle.setAttribute('content', title);
+}
+
 function showView(route, { push = true, scroll = true } = {}) {
   const next = $(VIEWS[route]);
   const prev = $(VIEWS[activeView]);
@@ -1726,6 +1834,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     if (location.pathname !== url) history.pushState({ view: route }, '', url);
   }
   document.title = route === 'home' ? currentEvent.name + " - APEX F1" : VIEW_TITLES[route];
+  syncDocumentMeta(route);
   setActiveNav(route);
   closeNav();
   if (!changed) {
@@ -1753,6 +1862,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     onScroll();
     if (route === 'news') pollNews(true);
     if (route === 'performance' || route === 'track') initPerformanceView();
+    if (route === '247' || route === 'audio') initLive247View();
   }, VIEW_SWAP_MS);
 }
 
@@ -1786,6 +1896,7 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
   history.replaceState({ view: route }, '', location.pathname + location.search + location.hash);
   if (route === 'home') {
     setActiveNav('home');
+    syncDocumentMeta('home');
     return;
   }
   const next = $(VIEWS[route]);
@@ -1802,22 +1913,27 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
   if (next) revealNow(next);
   setActiveNav(route);
   document.title = VIEW_TITLES[route];
-  if (route === 'performance' || route === 'track') initPerformanceView();
+  syncDocumentMeta(route);
+  if (route === 'performance' || route === 'track') setTimeout(initPerformanceView, 0);
+  if (route === '247' || route === 'audio') setTimeout(initLive247View, 0);
 })();
 
 /* ═══════════════ 13. ACCORDIONS & INFO TABS ═══════════════ */
 document.querySelectorAll('.acc-q').forEach((btn) => {
+  if (!btn.hasAttribute('aria-expanded')) btn.setAttribute('aria-expanded', 'false');
   btn.addEventListener('click', () => {
     const item = btn.parentElement;
     const a = item.querySelector('.acc-a');
     const was = item.classList.contains('active');
     item.closest('.acc-wrap')?.querySelectorAll('.acc-item').forEach((i) => {
       i.classList.remove('active');
+      i.querySelector('.acc-q')?.setAttribute('aria-expanded', 'false');
       const innerA = i.querySelector('.acc-a');
       if (innerA) innerA.style.maxHeight = null;
     });
     if (!was && a) {
       item.classList.add('active');
+      btn.setAttribute('aria-expanded', 'true');
       a.style.maxHeight = a.scrollHeight + 'px';
     }
   });
@@ -2296,13 +2412,14 @@ const CIRCUIT_SPECS = {
   13: { length: "5.793 KM", topSpeed: "358 km/h" },
   14: { length: "5.474 KM", topSpeed: "338 km/h" },
   15: { length: "6.003 KM", topSpeed: "344 km/h" },
-  16: { length: "4.940 KM", topSpeed: "320 km/h" },
-  17: { length: "5.513 KM", topSpeed: "336 km/h" },
-  18: { length: "4.304 KM", topSpeed: "354 km/h" },
-  19: { length: "4.309 KM", topSpeed: "334 km/h" },
-  20: { length: "6.201 KM", topSpeed: "350 km/h" },
-  21: { length: "5.419 KM", topSpeed: "338 km/h" },
-  22: { length: "5.281 KM", topSpeed: "335 km/h" }
+  16: { length: "5.543 KM", topSpeed: "330 km/h" },
+  17: { length: "4.940 KM", topSpeed: "320 km/h" },
+  18: { length: "5.513 KM", topSpeed: "336 km/h" },
+  19: { length: "4.304 KM", topSpeed: "354 km/h" },
+  20: { length: "4.309 KM", topSpeed: "334 km/h" },
+  21: { length: "6.201 KM", topSpeed: "350 km/h" },
+  22: { length: "5.419 KM", topSpeed: "338 km/h" },
+  23: { length: "5.281 KM", topSpeed: "335 km/h" }
 };
 
 const ROUND_MEETING_KEYS = {
@@ -2851,22 +2968,13 @@ async function radioRcLoadSessions() {
   radioRc.meetings = [...meetings.values()];
   if (!radioRc.meetings.length) throw new Error('No sessions published yet this season');
 
-  // Default to CURRENT (live) session or LAST RACE that took place
+  // Default to CURRENT (live) session or LAST session that took place
   const live = radioRc.sessions.find(radioRcIsLiveWindow);
   const started = radioRc.sessions.filter((s) => Date.parse(s.date_start) <= now + 30 * 60e3);
-  const pastRaces = started.filter((s) => s.session_type === 'Race' || /\brace\b/i.test(s.session_name));
-  const lastRace = pastRaces.length ? pastRaces.at(-1) : (started.length ? started.at(-1) : radioRc.sessions[0]);
+  const lastSessionOverall = started.length ? started.at(-1) : radioRc.sessions.at(-1);
 
-  let target = live || lastRace || radioRc.sessions[0];
+  const target = live || lastSessionOverall || radioRc.sessions[0];
 
-  const prefs = radioRcPrefs();
-  if (!live && prefs.sessionKey) {
-    const remembered = radioRc.sessions.find((s) => s.session_key === prefs.sessionKey);
-    // Only accept remembered if it has already started (prevents getting stuck on unplayed future sessions)
-    if (remembered && Date.parse(remembered.date_start) <= now + 30 * 60e3) {
-      target = remembered;
-    }
-  }
   if (radioRcEventSel) {
     radioRcEventSel.replaceChildren(...radioRc.meetings.map((m) => {
       const o = document.createElement('option');
@@ -2875,6 +2983,7 @@ async function radioRcLoadSessions() {
       return o;
     }));
     radioRcEventSel.value = String(target.meeting_key);
+    radioRcEventSel._syncCustom?.();
   }
   radioRcFillSessions(target.session_key);
 }
@@ -2889,8 +2998,12 @@ function radioRcFillSessions(preferKey) {
     o.textContent = s.session_name;
     return o;
   }));
-  const raceSession = list.find((s) => s.session_type === 'Race' || /\brace\b/i.test(s.session_name));
-  const pick = list.find((s) => s.session_key === preferKey) || raceSession || list.at(-1);
+
+  const now = Date.now();
+  const startedInMeeting = list.filter((s) => Date.parse(s.date_start) <= now + 30 * 60e3);
+  const lastSessionInMeeting = startedInMeeting.length ? startedInMeeting.at(-1) : list.at(-1);
+
+  const pick = (preferKey && list.find((s) => s.session_key === preferKey)) || lastSessionInMeeting || list.at(-1);
   radioRcSessionSel.value = String(pick.session_key);
   radioRcEventSel._syncCustom?.();
   radioRcSessionSel._syncCustom?.();
@@ -3776,17 +3889,17 @@ function renderPerformanceTower(results, event, sessionType = "results") {
   if (isQuali) {
     // ── QUALIFYING TABLE ──
     tbody.innerHTML = results.map((r) => {
-      const pos = r.position || "-";
-      const isP1 = pos === "1";
-      const code = r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV";
-      const name = `${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim();
-      const teamName = r.Constructor?.name || "Formula 1 Team";
-      const teamColor = getTeamColor(r.Constructor?.constructorId, teamName);
+      const pos = escapeHtml(r.position || "-");
+      const isP1 = String(r.position || "") === "1";
+      const code = escapeHtml(r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV");
+      const name = escapeHtml(`${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim());
+      const teamName = escapeHtml(r.Constructor?.name || "Formula 1 Team");
+      const teamColor = escapeHtml(getTeamColor(r.Constructor?.constructorId, r.Constructor?.name));
 
-      const q1 = r.Q1 || "-";
-      const q2 = r.Q2 || "-";
-      const q3 = r.Q3 || "-";
-      const best = r.Q3 || r.Q2 || r.Q1 || "-";
+      const q1 = escapeHtml(r.Q1 || "-");
+      const q2 = escapeHtml(r.Q2 || "-");
+      const q3 = escapeHtml(r.Q3 || "-");
+      const best = escapeHtml(r.Q3 || r.Q2 || r.Q1 || "-");
 
       const bestHtml = isP1
         ? `<span class="fast-lap-badge" title="Pole Position">🟣 ${best}</span>`
@@ -3813,36 +3926,38 @@ function renderPerformanceTower(results, event, sessionType = "results") {
   } else {
     // ── RACE / SPRINT TABLE ──
     tbody.innerHTML = results.map((r) => {
-      const pos = r.position || r.positionText || "-";
-      const isP1 = pos === "1";
-      const code = r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV";
-      const name = `${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim();
-      const teamName = r.Constructor?.name || "Formula 1 Team";
-      const teamColor = getTeamColor(r.Constructor?.constructorId, teamName);
+      const rawPos = r.position || r.positionText || "-";
+      const pos = escapeHtml(rawPos);
+      const isP1 = String(rawPos) === "1";
+      const code = escapeHtml(r.Driver?.code || r.Driver?.familyName?.slice(0, 3).toUpperCase() || "DRV");
+      const name = escapeHtml(`${r.Driver?.givenName || ""} ${r.Driver?.familyName || ""}`.trim());
+      const teamName = escapeHtml(r.Constructor?.name || "Formula 1 Team");
+      const teamColor = escapeHtml(getTeamColor(r.Constructor?.constructorId, r.Constructor?.name));
 
       // Grid delta
       const gridPos = Number(r.grid) || 0;
-      const finalPos = Number(pos) || 0;
+      const finalPos = Number(rawPos) || 0;
       let deltaHtml = `<span class="perf-delta-flat">-</span>`;
       if (gridPos > 0 && finalPos > 0) {
         const diff = gridPos - finalPos;
-        if (diff > 0) deltaHtml = `<span class="perf-delta-gain">▲ +${diff}</span>`;
-        else if (diff < 0) deltaHtml = `<span class="perf-delta-loss">▼ ${diff}</span>`;
+        if (diff > 0) deltaHtml = `<span class="perf-delta-gain">▲ +${escapeHtml(diff)}</span>`;
+        else if (diff < 0) deltaHtml = `<span class="perf-delta-loss">▼ ${escapeHtml(diff)}</span>`;
       }
 
       // Time / Gap
       let timeGap = r.Time?.time || r.status || "-";
-      if (pos !== "1" && r.Time?.time && !r.Time.time.startsWith("+")) {
+      if (String(rawPos) !== "1" && r.Time?.time && !r.Time.time.startsWith("+")) {
         timeGap = `+${r.Time.time}`;
       }
+      timeGap = escapeHtml(timeGap);
 
       // Laps
-      const laps = r.laps || "-";
+      const laps = escapeHtml(r.laps || "-");
 
       // Fastest Lap
       let fastLapHtml = `<span style="color:var(--dim)">-</span>`;
       if (r.FastestLap) {
-        const flTime = r.FastestLap.Time?.time || "";
+        const flTime = escapeHtml(r.FastestLap.Time?.time || "");
         const isPurple = r.FastestLap.rank === "1";
         fastLapHtml = isPurple
           ? `<span class="fast-lap-badge" title="Fastest Lap of the Race">🟣 ${flTime}</span>`
@@ -3851,7 +3966,7 @@ function renderPerformanceTower(results, event, sessionType = "results") {
 
       // Points
       const pts = Number(r.points) || 0;
-      const ptsHtml = pts > 0 ? `<span class="pts-badge mono">+${pts}</span>` : `<span style="color:var(--dim)">0</span>`;
+      const ptsHtml = pts > 0 ? `<span class="pts-badge mono">+${escapeHtml(pts)}</span>` : `<span style="color:var(--dim)">0</span>`;
 
       return `
         <tr class="${r.FastestLap?.rank === "1" ? "fastest-lap-row" : ""}">
@@ -3890,8 +4005,8 @@ function renderPerformanceRc(messages) {
 
   const sorted = [...messages].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   feed.innerHTML = sorted.map((m) => {
-    const timeStr = m.date ? new Date(m.date).toISOString().slice(11, 16) : "--:--";
-    const flag = (m.flag || m.category || "INFO").toUpperCase();
+    const timeStr = escapeHtml(m.date ? new Date(m.date).toISOString().slice(11, 16) : "--:--");
+    const flag = escapeHtml(String(m.flag || m.category || "INFO").toUpperCase());
     let tagCls = "green";
     if (flag.includes("YELLOW")) tagCls = "yellow";
     else if (flag.includes("RED")) tagCls = "red";
@@ -3995,4 +4110,286 @@ function updatePerformanceKpis(results, rcMessages, event, sessionType = "result
     if (scCountEl) scCountEl.textContent = "-";
     if (finishRateEl) finishRateEl.textContent = "-";
   }
+}
+
+/* ═══════════════ 25. 24/7 STREAMS ═══════════════ */
+/* ═══════════════ 15. 24/7 STREAMS — CLICK-SHIELD TEST BED ═══════════════
+   Scoped ENTIRELY to the 24/7 / Audio view. The Cockpit pipeline
+   (makeStreamIframe / attemptSource / watchFrameNavigation) is untouched —
+   we deliberately do not reuse makeStreamIframe here.
+   Implements the click-shield study on the hostile 24/7 embeds:
+     M2  visible gate ("Bouncer")  — ambient clicks never reach the feed's ad layer
+     M3  keyboard path             — focus + Space/arrows/M/F = the real player controls
+     M2b one-tap Shield toggle     — re-cover the player whenever it's idle
+     M4  alarm                     — iframe-nav watchdog (strong) + focus-loss tripwire (soft)
+     M5  league table              — manners score demotes the noisiest feeds in the list
+   Half-lock (M1 remnant): add a station id to LIVE247_HALFLOCK_IDS to A/B-test
+   sandbox="…allow-popups" (top-redirects stay dead; popups allowed so a host's
+   "Disable sandbox" wall may still pass). Empty set = never sandboxed. */
+
+const LIVE247_HALFLOCK_IDS = new Set(); // e.g. new Set(['wikisport'])
+const LIVE247_MANNERS_KEY = 'freef1_247_manners';
+const LIVE247_NEAR_MS = 2500;   // blur this soon after hovering/tapping the player = suspect
+const LIVE247_TOAST_GAP_MS = 8000;
+
+let live247Initialized = false;
+let live247StationId = 'sky-uk';
+let live247Playing = false;
+let live247ShieldArmed = true;
+let live247LoadToken = 0;
+let live247LastNear = 0;
+let live247BlurSuspect = false;
+let live247FocusToastAt = 0;
+let live247KeyHintShown = false;
+
+function live247Status(text) {
+  const el = $('live247StatusChip');
+  if (el) el.textContent = text;
+}
+
+/* ── M5: manners bookkeeping (localStorage JSON) ── */
+function live247MannersRead() {
+  try {
+    const raw = store.get(LIVE247_MANNERS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function live247MannersBump(stationId, field) {
+  const m = live247MannersRead();
+  const row = m[stationId] || (m[stationId] = { hijack: 0, soft: 0 });
+  row[field] = (row[field] || 0) + 1;
+  try { store.set(LIVE247_MANNERS_KEY, JSON.stringify(m)); } catch (_) {}
+}
+
+function live247MannersScore(stationId) {
+  const row = live247MannersRead()[stationId] || {};
+  return (row.hijack || 0) * 3 + (row.soft || 0);
+}
+
+function live247StationLabel() {
+  return (LIVE247_STATIONS.find((s) => s.id === live247StationId) || {}).label || 'the feed';
+}
+
+/* ── Factory: 24/7 iframes only (Cockpit's makeStreamIframe stays as-is) ── */
+function makeLive247Iframe(station) {
+  const f = document.createElement('iframe');
+  f.src = station.url;
+  f.allow = IFRAME_ALLOW;
+  f.setAttribute('allow', IFRAME_ALLOW);
+  f.allowFullscreen = true;
+  f.referrerPolicy = station.rp || 'no-referrer';
+  f.title = station.label + ' 24/7';
+  if (LIVE247_HALFLOCK_IDS.has(station.id)) {
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+  }
+  return f;
+}
+
+/* ── M2: the Bouncer — a VISIBLE, labeled gate. Never an invisible overlay. ── */
+function makeLive247Gate() {
+  const gate = document.createElement('div');
+  gate.className = 'live247-gate';
+  gate.id = 'live247Gate';
+  gate.innerHTML = `
+    <button class="live247-gate-btn" id="live247GateBtn" type="button">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+      Start stream
+    </button>
+    <p class="live247-gate-note">Shields up — clicks land here, not on the feed&rsquo;s ad traps. Keys (Space, &larr;/&rarr;, M, F) drive the player once started.</p>`;
+  gate.querySelector('#live247GateBtn').addEventListener('click', () => openLive247Shield({ announce: true }));
+  return gate;
+}
+
+function syncLive247ShieldBtn() {
+  const b = $('live247ShieldBtn');
+  if (!b) return;
+  b.setAttribute('aria-pressed', String(live247ShieldArmed));
+  b.textContent = live247ShieldArmed ? 'Shield: on' : 'Shield: off';
+}
+
+function armLive247Shield() {
+  live247ShieldArmed = true;
+  const gate = $('live247Gate');
+  if (gate) gate.hidden = false;
+  syncLive247ShieldBtn();
+  if (live247Playing) live247Status('SHIELDED');
+}
+
+function openLive247Shield({ announce = false } = {}) {
+  live247ShieldArmed = false;
+  const gate = $('live247Gate');
+  if (gate) gate.hidden = true;
+  const f = $('live247FrameWrap')?.querySelector('iframe');
+  if (f) {
+    try { f.focus({ preventScroll: true }); } catch (_) { try { f.focus(); } catch (_) {} }
+  }
+  syncLive247ShieldBtn();
+  if (live247Playing) live247Status('LIVE');
+  if (announce) {
+    trackEvent('live247_gate_open', live247StationId);
+    if (!live247KeyHintShown) {
+      live247KeyHintShown = true;
+      showToast('Keys drive the real player — Space: play/pause · ←/→: seek · M: mute · F: fullscreen. The feed\u2019s traps steal clicks, not keys.', 'info');
+    }
+  }
+}
+
+/* ── M4a: strong alarm — extra iframe load = the ad layer navigated the frame (V4) ── */
+function live247WatchFrame(f, token) {
+  let loads = 0;
+  f.addEventListener('load', () => {
+    if (token !== live247LoadToken || !f.isConnected) return;
+    loads++;
+    if (loads === 1) return;
+    live247FlagHijack();
+  });
+}
+
+function live247FlagHijack() {
+  live247MannersBump(live247StationId, 'hijack');
+  trackEvent('stream_hijack', '247:' + live247StationId);
+  renderLive247Chips();
+  armLive247Shield();
+  showToast(`The ${live247StationLabel()} ad layer hijacked the player. Shield is back up — press Start stream, or Reload the channel.`, 'error');
+}
+
+/* ── M4b: soft alarm — focus lost moments after being near the player ──
+   (Cross-origin iframes hide in-frame clicks from us, so this is a heuristic.
+   Copy stays conditional to avoid blaming innocent tab switches.) */
+function live247NoteNear() {
+  live247LastNear = Date.now();
+  live247BlurSuspect = false;
+}
+
+function live247OnRegainFocus() {
+  if (!live247BlurSuspect) return;
+  live247BlurSuspect = false;
+  if (!live247Playing) return;
+  live247MannersBump(live247StationId, 'soft');
+  trackEvent('live247_focus_loss', live247StationId);
+  renderLive247Chips();
+  const now = Date.now();
+  if (now - live247FocusToastAt < LIVE247_TOAST_GAP_MS) return;
+  live247FocusToastAt = now;
+  showToast(`If an extra tab just opened, that was ${live247StationLabel()}\u2019s ad layer — close it. We can\u2019t close tabs we didn\u2019t open.`, 'warning');
+}
+
+function setupLive247Listeners() {
+  const card = $('live247Card');
+  card?.addEventListener('pointerenter', live247NoteNear);
+  card?.addEventListener('pointerdown', live247NoteNear);
+  window.addEventListener('blur', () => {
+    if (!live247Playing || live247ShieldArmed) return;
+    if (Date.now() - live247LastNear < LIVE247_NEAR_MS) live247BlurSuspect = true;
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (live247Playing && !live247ShieldArmed && Date.now() - live247LastNear < LIVE247_NEAR_MS) {
+        live247BlurSuspect = true;
+      }
+    } else {
+      live247OnRegainFocus();
+    }
+  });
+  window.addEventListener('focus', live247OnRegainFocus);
+}
+
+function initLive247View() {
+  renderLive247Chips();
+  setupLive247Controls();
+  if (!live247Playing) loadLive247Station(live247StationId, { auto: true });
+}
+
+function renderLive247Chips() {
+  const container = $('live247StationChips');
+  if (!container) return;
+  /* M5: league table — polite feeds float up, noisy feeds sink. */
+  const ordered = LIVE247_STATIONS
+    .map((station, i) => ({ station, i, score: live247MannersScore(station.id) }))
+    .sort((a, b) => (a.score - b.score) || (a.i - b.i));
+  container.replaceChildren(...ordered.map(({ station, score }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const noisy = score >= 3;
+    btn.className = `audio-station-btn${station.id === live247StationId ? ' active' : ''}${noisy ? ' noisy' : ''}`;
+    btn.innerHTML = `<span class="station-badge-live"></span><span>${escapeHtml(station.label)}</span>`;
+    if (noisy) btn.title = 'This feed\u2019s ad layer misbehaves the most — it has been moved down the list.';
+    btn.addEventListener('click', () => {
+      live247StationId = station.id;
+      renderLive247Chips();
+      loadLive247Station(station.id, { auto: true });
+    });
+    return btn;
+  }));
+}
+
+function loadLive247Station(stationId, { auto = false } = {}) {
+  const station = LIVE247_STATIONS.find((s) => s.id === stationId) || LIVE247_STATIONS[0];
+  live247StationId = station.id;
+  if ($('live247StationLabel')) $('live247StationLabel').textContent = station.label.toUpperCase();
+  if ($('live247StationSub')) $('live247StationSub').textContent = station.sub;
+  if ($('live247StationChip')) $('live247StationChip').textContent = `CHANNEL: ${station.label}`;
+
+  const wrap = $('live247FrameWrap');
+  if (!wrap) return;
+  wrap.replaceChildren();
+  const iframe = makeLive247Iframe(station);
+  iframe.title = station.label + ' 24/7';
+  wrap.appendChild(iframe);
+  wrap.appendChild(makeLive247Gate());
+  const token = ++live247LoadToken;
+  live247WatchFrame(iframe, token);
+  live247KeyHintShown = false;
+  live247Playing = true;
+  armLive247Shield();          /* every load starts shielded */
+  trackEvent('live247_load', station.id);
+  void auto;
+}
+
+function stopLive247() {
+  live247LoadToken++;
+  const wrap = $('live247FrameWrap');
+  if (wrap) wrap.replaceChildren();
+  live247Playing = false;
+  live247ShieldArmed = true;
+  syncLive247ShieldBtn();
+  live247Status('STOPPED');
+}
+
+function setupLive247Controls() {
+  if (live247Initialized) return;
+  live247Initialized = true;
+  setupLive247Listeners();
+
+  $('live247PlayBtn')?.addEventListener('click', () => {
+    loadLive247Station(live247StationId);
+  });
+  $('live247StopBtn')?.addEventListener('click', stopLive247);
+  $('live247ReloadBtn')?.addEventListener('click', () => {
+    loadLive247Station(live247StationId);
+  });
+  $('live247ShieldBtn')?.addEventListener('click', () => {
+    if (!live247Playing) {
+      showToast('Load a channel first — the shield protects the player.', 'info');
+      return;
+    }
+    if (live247ShieldArmed) openLive247Shield({ announce: true });
+    else armLive247Shield();
+  });
+  $('live247SoundBtn')?.addEventListener('click', () => {
+    showToast('Volume sits on the host player. This page cannot mute a cross-origin embed.', 'warning');
+  });
+  $('live247FsBtn')?.addEventListener('click', () => {
+    const wrap = $('live247FrameWrap');
+    const iframe = wrap?.querySelector('iframe');
+    const target = iframe || wrap;
+    if (!target) return;
+    const req = target.requestFullscreen || target.webkitRequestFullscreen;
+    if (req) req.call(target);
+    else showToast('Fullscreen is not available in this browser.', 'warning');
+  });
 }
