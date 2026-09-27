@@ -6,7 +6,7 @@
 /* ═══════════════ 1. CONFIGURATION & CONSTANTS ═══════════════ */
 const SITE_SEASON = 2026;
 const AUTHORIZED_DOMAIN = 'freef1.netlify.app';
-const AUTH_PROTECTION_ENABLED = true;
+const AUTH_PROTECTION_ENABLED = false;
 
 const PREVIEW_HOST = location.hostname === 'localhost' ||
   location.hostname === '127.0.0.1' ||
