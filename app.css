@@ -64,10 +64,6 @@ html.lite-motion .scanlines {
   display: none;
 }
 
-html.lite-motion .ticker-track {
-  animation: none !important;
-}
-
 body {
   background: var(--ink);
   color: var(--text);
@@ -1433,18 +1429,30 @@ to {
   display: flex;
   gap: 56px;
   width: max-content;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   animation: slide 34s linear infinite;
+  -webkit-animation: slide 34s linear infinite;
 }
 
-.ticker:hover .ticker-track {
-  animation-play-state: paused;
+@media (hover: hover) and (pointer: fine) {
+  .ticker:hover .ticker-track {
+    animation-play-state: paused;
+    -webkit-animation-play-state: paused;
+  }
 }
 
 @keyframes slide {
-to {
-    transform: translateX(-50%);
-  }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
 
+@-webkit-keyframes slide {
+  from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
+  to { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
 }
 
 .ticker span {
