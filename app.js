@@ -54,8 +54,8 @@ const BLOCKED_COPY = IS_IOS
 const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
-const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord', performance: 'viewPerformance', track: 'viewPerformance', audio: 'viewAudio' };
-const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1', performance: 'Performance & Timing - APEX F1', track: 'Performance & Timing - APEX F1', audio: 'Paddock Radio & Audio - APEX F1' };
+const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord', performance: 'viewPerformance', track: 'viewPerformance', 247: 'view247', audio: 'view247' };
+const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1', performance: 'Performance & Timing - APEX F1', track: 'Performance & Timing - APEX F1', 247: '24/7 Streams - APEX F1', audio: '24/7 Streams - APEX F1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
@@ -639,30 +639,27 @@ const sources=[
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
-const AUDIO_STATIONS = [
+const LIVE247_STATIONS = [
   {
     id: 'sky-uk',
-    label: 'Sky UK (Main)',
-    sub: '24/7 Live Commentary & Paddock Feed',
+    label: 'Sky UK',
+    sub: '24/7 Sky Sports F1 feed',
     url: 'https://strmfree.st/embed/racing/skyf1',
-    rp: 'origin-when-cross-origin',
-    desc: 'Primary Sky Sports F1 UK broadcast feed with 24/7 commentary, live race weekends, and technical analysis.'
+    rp: 'origin-when-cross-origin'
   },
   {
     id: 'sky-uk-2',
-    label: 'Sky UK 2 (Backup)',
-    sub: '24/7 Alternate Commentary Relay',
+    label: 'Sky UK 2',
+    sub: '24/7 alternate Sky Sports F1 feed',
     url: 'https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk',
-    rp: 'strict-origin-when-cross-origin',
-    desc: 'Alternate 24/7 Sky Sports F1 feed for continuous audio coverage when primary routing is congested.'
+    rp: 'strict-origin-when-cross-origin'
   },
   {
     id: 'wikisport',
-    label: 'WikiSport F1',
-    sub: '24/7 International Audio Stream',
+    label: 'WikiSport',
+    sub: '24/7 international feed',
     url: 'https://wikisport.info/strm/f1.php',
-    rp: 'origin-when-cross-origin',
-    desc: '24/7 international race coverage and live track commentary.'
+    rp: 'origin-when-cross-origin'
   }
 ];
 
@@ -1800,6 +1797,7 @@ let viewSwapTimer = null;
 
 function routeFromPath(path) {
   const seg = (path || '/').replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (seg === 'audio' || seg === '24-7' || seg === '247') return '247';
   return seg in VIEWS ? seg : 'home';
 }
 
@@ -1864,7 +1862,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     onScroll();
     if (route === 'news') pollNews(true);
     if (route === 'performance' || route === 'track') initPerformanceView();
-    if (route === 'audio') initAudioView();
+    if (route === '247' || route === 'audio') initLive247View();
   }, VIEW_SWAP_MS);
 }
 
@@ -1917,7 +1915,7 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
   document.title = VIEW_TITLES[route];
   syncDocumentMeta(route);
   if (route === 'performance' || route === 'track') setTimeout(initPerformanceView, 0);
-  if (route === 'audio') setTimeout(initAudioView, 0);
+  if (route === '247' || route === 'audio') setTimeout(initLive247View, 0);
 })();
 
 /* ═══════════════ 13. ACCORDIONS & INFO TABS ═══════════════ */
@@ -4114,150 +4112,84 @@ function updatePerformanceKpis(results, rcMessages, event, sessionType = "result
   }
 }
 
-/* ═══════════════ 25. AUDIO & LIVE COMMENTARY ENGINE ═══════════════ */
-let activeAudioStationId = 'sky-uk';
-let audioViewInitialized = false;
-let audioMode = 'radio';
+/* ═══════════════ 25. 24/7 STREAMS ═══════════════ */
+let live247Initialized = false;
+let live247StationId = 'sky-uk';
+let live247Playing = false;
 
-function initAudioView() {
-  renderAudioStationChips();
-  renderAudioEqualizer();
-  setupAudioControls();
-  playAudioStation(activeAudioStationId);
-  loadAudioTeamRadio();
+function live247Status(text) {
+  const el = $('live247StatusChip');
+  if (el) el.textContent = text;
 }
 
-function renderAudioStationChips() {
-  const container = $('audioStationChips');
+function initLive247View() {
+  renderLive247Chips();
+  setupLive247Controls();
+  if (!live247Playing) loadLive247Station(live247StationId, { auto: true });
+}
+
+function renderLive247Chips() {
+  const container = $('live247StationChips');
   if (!container) return;
-  container.replaceChildren(...AUDIO_STATIONS.map((station) => {
+  container.replaceChildren(...LIVE247_STATIONS.map((station) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `audio-station-btn ${station.id === activeAudioStationId ? 'active' : ''}`;
+    btn.className = `audio-station-btn ${station.id === live247StationId ? 'active' : ''}`;
     btn.innerHTML = `<span class="station-badge-live"></span><span>${escapeHtml(station.label)}</span>`;
     btn.addEventListener('click', () => {
-      if (activeAudioStationId === station.id) return;
-      activeAudioStationId = station.id;
-      renderAudioStationChips();
-      playAudioStation(station.id);
+      live247StationId = station.id;
+      renderLive247Chips();
+      loadLive247Station(station.id, { auto: true });
     });
     return btn;
   }));
 }
 
-function renderAudioEqualizer() {
-  const container = $('audioEqBars');
-  if (!container || container.children.length > 0) return;
-  const barCount = 28;
-  for (let i = 0; i < barCount; i++) {
-    const bar = document.createElement('div');
-    bar.className = 'eq-bar';
-    const dur = (0.7 + Math.random() * 0.9).toFixed(2);
-    const delay = (Math.random() * 0.6).toFixed(2);
-    bar.style.animationDuration = `${dur}s`;
-    bar.style.animationDelay = `-${delay}s`;
-    container.appendChild(bar);
-  }
+function loadLive247Station(stationId, { auto = false } = {}) {
+  const station = LIVE247_STATIONS.find((s) => s.id === stationId) || LIVE247_STATIONS[0];
+  live247StationId = station.id;
+  if ($('live247StationLabel')) $('live247StationLabel').textContent = station.label.toUpperCase();
+  if ($('live247StationSub')) $('live247StationSub').textContent = station.sub;
+  if ($('live247StationChip')) $('live247StationChip').textContent = `CHANNEL: ${station.label}`;
+
+  const wrap = $('live247FrameWrap');
+  if (!wrap) return;
+  wrap.replaceChildren();
+  const iframe = makeStreamIframe(station.url, station.rp);
+  iframe.title = station.label + ' 24/7';
+  wrap.appendChild(iframe);
+  live247Playing = true;
+  live247Status(auto ? 'LOADED' : 'PLAY');
 }
 
-function playAudioStation(stationId) {
-  const station = AUDIO_STATIONS.find((s) => s.id === stationId) || AUDIO_STATIONS[0];
-  const stationLabel = $('audioStationLabel');
-  const stationSub = $('audioStationSub');
-  const stationChip = $('audioStationChip');
-  const trackDesc = $('audioTrackDesc');
-  const frameWrap = $('audioFrameWrap');
-
-  if (stationLabel) stationLabel.textContent = station.label.toUpperCase();
-  if (stationSub) stationSub.textContent = station.sub;
-  if (stationChip) stationChip.textContent = `STATION: ${station.label}`;
-  if (trackDesc) trackDesc.textContent = station.desc;
-
-  if (frameWrap) {
-    frameWrap.replaceChildren();
-    const iframe = makeStreamIframe(station.url, station.rp);
-    frameWrap.appendChild(iframe);
-  }
+function stopLive247() {
+  const wrap = $('live247FrameWrap');
+  if (wrap) wrap.replaceChildren();
+  live247Playing = false;
+  live247Status('STOPPED');
 }
 
-function setupAudioControls() {
-  if (audioViewInitialized) return;
-  audioViewInitialized = true;
+function setupLive247Controls() {
+  if (live247Initialized) return;
+  live247Initialized = true;
 
-  const modeBtn = $('audioModeToggleBtn');
-  const reloadBtn = $('audioReloadBtn');
-  const startBtn = $('audioStartBtn');
-  const frameWrap = $('audioFrameWrap');
-
-  modeBtn?.addEventListener('click', () => {
-    if (audioMode === 'radio') {
-      audioMode = 'monitor';
-      modeBtn.textContent = 'Switch to Radio Mode';
-      frameWrap?.classList.remove('radio-mode');
-      frameWrap?.classList.add('monitor-mode');
-    } else {
-      audioMode = 'radio';
-      modeBtn.textContent = 'Switch to Monitor View';
-      frameWrap?.classList.remove('monitor-mode');
-      frameWrap?.classList.add('radio-mode');
-    }
+  $('live247PlayBtn')?.addEventListener('click', () => {
+    loadLive247Station(live247StationId);
   });
-
-  reloadBtn?.addEventListener('click', () => {
-    playAudioStation(activeAudioStationId);
+  $('live247StopBtn')?.addEventListener('click', stopLive247);
+  $('live247ReloadBtn')?.addEventListener('click', () => {
+    loadLive247Station(live247StationId);
   });
-
-  startBtn?.addEventListener('click', () => {
-    const iframe = frameWrap?.querySelector('iframe');
-    if (iframe) {
-      iframe.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      iframe.focus();
-    }
+  $('live247SoundBtn')?.addEventListener('click', () => {
+    showToast('Volume sits on the host player. This page cannot mute a cross-origin embed.', 'warning');
   });
-}
-
-let cachedAudioRadios = null;
-async function loadAudioTeamRadio() {
-  const feed = $('audioScannerFeed');
-  if (!feed) return;
-  if (cachedAudioRadios && cachedAudioRadios.length) {
-    renderAudioTeamRadios(cachedAudioRadios);
-    return;
-  }
-
-  try {
-    const radios = await openf1('team_radio', { session_key: 11377 });
-    if (Array.isArray(radios) && radios.length) {
-      cachedAudioRadios = radios.filter((r) => Boolean(r.recording_url)).slice(-15).reverse();
-      renderAudioTeamRadios(cachedAudioRadios);
-      return;
-    }
-  } catch (_) {}
-
-  feed.innerHTML = '<div class="asc-empty">Radio archive standing by for next live transmission.</div>';
-}
-
-function renderAudioTeamRadios(radios) {
-  const feed = $('audioScannerFeed');
-  if (!feed) return;
-  if (!radios || !radios.length) {
-    feed.innerHTML = '<div class="asc-empty">No radio clips available for this session.</div>';
-    return;
-  }
-
-  feed.replaceChildren(...radios.map((r) => {
-    const card = document.createElement('div');
-    card.className = 'asc-clip';
-    const driverNum = r.driver_number ? `#${r.driver_number}` : 'CAR';
-    const dateStr = r.date ? new Date(r.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'RACE';
-
-    card.innerHTML = `
-      <div class="asc-clip-head">
-        <span class="asc-clip-driver">CAR ${escapeHtml(String(driverNum))} · PIT RADIO</span>
-        <span class="asc-clip-time mono">${escapeHtml(dateStr)}</span>
-      </div>
-      <audio controls preload="none" src="${escapeHtml(r.recording_url)}"></audio>
-    `;
-    return card;
-  }));
+  $('live247FsBtn')?.addEventListener('click', () => {
+    const wrap = $('live247FrameWrap');
+    const iframe = wrap?.querySelector('iframe');
+    const target = iframe || wrap;
+    if (!target) return;
+    const req = target.requestFullscreen || target.webkitRequestFullscreen;
+    if (req) req.call(target);
+    else showToast('Fullscreen is not available in this browser.', 'warning');
+  });
 }

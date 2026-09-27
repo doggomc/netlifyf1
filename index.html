@@ -131,7 +131,7 @@
 <link rel="preconnect" href="https://media.formula1.com">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
-<link rel="stylesheet" href="/app.css?v=20260927-fix3">
+<link rel="stylesheet" href="/app.css?v=20260927-fix6">
 </head>
 <body>
 <a class="skip-link" href="#watch">Skip to cockpit</a>
@@ -612,108 +612,68 @@
 </section>
 </div><!-- /viewPerformance -->
 
-<!-- ══ VIEW: AUDIO (EXPERIMENTAL) ══ -->
-<div class="view view-audio" id="viewAudio" data-view="audio" hidden>
-<section class="sec sub-sec" id="audioViewSec">
+<!-- ══ VIEW: 24/7 (EXPERIMENTAL) ══ -->
+<div class="view view-audio" id="view247" data-view="247" hidden>
+<section class="sec sub-sec" id="live247Sec">
   <div class="wrap">
     <div class="sec-head rv">
       <div>
         <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
-        <span class="eyebrow">24/7 Live Commentary &amp; Radio</span>
-        <h2>Paddock Radio &amp; <span class="accent">Audio</span></h2>
+        <span class="eyebrow">Experimental</span>
+        <h2><span class="accent">24/7</span> Streams</h2>
         <div class="rule" style="width:140px"></div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="pill mono live-status" id="audioLiveBadge">ON AIR · 24/7</div>
-        <div class="pill mono" id="audioFormatBadge">128K STEREO</div>
+        <div class="pill mono live-status" id="live247Badge">ON AIR · 24/7</div>
+        <div class="pill mono" id="live247StatusChip">STANDBY</div>
       </div>
     </div>
 
-    <!-- Station Selector Deck -->
     <div class="card deck-box rv d1" style="margin-top:24px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
-        <h3>24/7 Live Radio Stations</h3>
+        <h3>Channels</h3>
         <div class="track-info-chips">
-          <span class="chip-metric" id="audioStationChip">STATION: Sky Sports F1</span>
-          <span class="chip-metric" id="audioStatusChip">STATUS: Connected</span>
+          <span class="chip-metric" id="live247StationChip">CHANNEL: —</span>
         </div>
       </div>
-      <div class="audio-station-chips" id="audioStationChips">
-        <!-- Station buttons rendered here -->
-      </div>
+      <div class="audio-station-chips" id="live247StationChips"></div>
     </div>
 
-    <!-- Main Audio Console Grid -->
     <div class="audio-grid rv d2">
-      <!-- Audio Player Console Card -->
-      <div class="card audio-player-card" id="audioPlayerCard">
+      <div class="card audio-player-card" id="live247Card">
         <div class="audio-player-head">
           <div class="aph-left">
             <div class="station-pulse-badge">
               <span class="pulse-dot"></span>
-              <span class="mono" id="audioStationLabel">SKY SPORTS F1 (MAIN)</span>
+              <span class="mono" id="live247StationLabel">SKY UK</span>
             </div>
-            <span class="mono aph-sub" id="audioStationSub">24/7 Live Commentary &amp; Paddock Feed</span>
+            <span class="mono aph-sub" id="live247StationSub">24/7 live feed</span>
           </div>
           <div class="aph-right">
-            <button class="btn sm" id="audioModeToggleBtn" type="button">Switch to Monitor View</button>
-            <button class="btn sm" id="audioReloadBtn" type="button">Reload Stream</button>
+            <button class="btn sm" id="live247ReloadBtn" type="button">Reload</button>
           </div>
         </div>
 
-        <!-- Equalizer & Waveform Bar Animation -->
-        <div class="audio-visualizer-container" id="audioVisualizerContainer">
-          <div class="audio-eq-bars" id="audioEqBars" aria-hidden="true">
-            <!-- 24 animated frequency equalizer bars -->
-          </div>
-          <div class="audio-meta-deck">
-            <div class="amd-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg>
-            </div>
-            <div class="amd-info">
-              <h4 id="audioTrackTitle">Continuous F1 Paddock &amp; Race Commentary</h4>
-              <p id="audioTrackDesc">Transmitting uninterrupted live broadcast commentary from Sky Sports F1.</p>
-            </div>
-            <div class="amd-actions">
-              <button class="btn primary" id="audioStartBtn" type="button">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style="margin-right:6px;vertical-align:-2px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Listen Live
-              </button>
-            </div>
-          </div>
-        </div>
+        <div class="live247-frame-wrap" id="live247FrameWrap"></div>
 
-        <!-- Embedded Audio Stream Frame Container -->
-        <div class="audio-frame-wrap radio-mode" id="audioFrameWrap">
-          <!-- iframe injected here with anti-hijack containment -->
+        <div class="live247-controls" id="live247Controls">
+          <button class="btn sm" id="live247PlayBtn" type="button">Play</button>
+          <button class="btn sm" id="live247StopBtn" type="button">Stop</button>
+          <button class="btn sm" id="live247SoundBtn" type="button">Sound</button>
+          <button class="btn sm" id="live247FsBtn" type="button">Fullscreen</button>
         </div>
 
         <div class="audio-player-footer">
           <div class="apf-hint">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:6px;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>Background Playback: Keep this tab open or running in the background for continuous commentary on desktop and mobile.</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Audio Sidebar: Schedule & Team Radio Scanner -->
-      <div class="audio-sidebar">
-        <!-- Radio Scanner Card -->
-        <div class="card audio-scanner-card" id="audioScannerCard">
-          <div class="asc-head">
-            <h4>Pit Wall Radio Scanner</h4>
-            <span class="mono" id="audioScannerSession">ROUND 15 BAKU</span>
-          </div>
-          <p class="asc-desc">Listen to official team radio transmissions and pit wall strategies recorded during the latest session.</p>
-          <div class="asc-feed" id="audioScannerFeed">
-            <div class="asc-empty">Loading team radio clips…</div>
+            <span>Play loads this channel. Stop unloads it. Fullscreen is this player. Sound and the inner Play button belong to the host — we cannot press them from here.</span>
           </div>
         </div>
       </div>
     </div>
   </div>
 </section>
-</div><!-- /viewAudio -->
+</div><!-- /view247 -->
 
 <!-- ══ MODALS ══ -->
 <div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
@@ -794,7 +754,7 @@
         <h4>Experimental</h4>
         <div class="foot-links">
           <a href="/performance" data-route="performance">Performance</a>
-          <a href="/audio" data-route="audio">Audio</a>
+          <a href="/247" data-route="247">24/7</a>
         </div>
       </div>
     </div>
@@ -807,6 +767,6 @@
 </footer>
 
 
-<script src="/app.js?v=20260927-fix3" defer></script>
+<script src="/app.js?v=20260927-fix6" defer></script>
 </body>
 </html>

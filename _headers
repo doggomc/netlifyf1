@@ -43,6 +43,9 @@
 /audio
   Cache-Control: public, max-age=0, must-revalidate
 
+/247
+  Cache-Control: public, max-age=0, must-revalidate
+
 /maintenance.css
   Cache-Control: public, max-age=3600, must-revalidate
 
