@@ -659,14 +659,14 @@
         <div class="live247-controls" id="live247Controls">
           <button class="btn sm" id="live247PlayBtn" type="button">Play</button>
           <button class="btn sm" id="live247StopBtn" type="button">Stop</button>
-          <button class="btn sm" id="live247SoundBtn" type="button">Sound</button>
+          <button class="btn sm" id="live247ShieldBtn" type="button" aria-pressed="true">Shield: on</button>
           <button class="btn sm" id="live247FsBtn" type="button">Fullscreen</button>
         </div>
 
         <div class="audio-player-footer">
           <div class="apf-hint">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:6px;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>Play loads this channel. Stop unloads it. Fullscreen is this player. Sound and the inner Play button belong to the host — we cannot press them from here.</span>
+            <span><strong>Sky UK 2</strong> starts automatically and is the reliable feed. Other channels load behind a click shield — <strong>Start stream</strong> hands control to the host player. <strong>Shield</strong> re-covers the player any time. In fullscreen, use the on-screen <strong>Exit</strong> button (phones have no Escape key). Volume sits on the host player.</span>
           </div>
         </div>
       </div>
@@ -694,17 +694,18 @@
   <div class="sheet">
     <div class="sheet-head"><h2 id="raceTimesTitle">Race Times</h2><button class="x" id="raceTimesClose" type="button" aria-label="Close race times">&times;</button></div>
     <div class="race-times-toolbar">
-      <div class="tabs" id="raceTimesTabs" role="tablist" aria-label="Race time filter">
-        <button class="tab active" type="button" role="tab" aria-selected="true" data-race-filter="all">All</button>
-        <button class="tab" type="button" role="tab" aria-selected="false" data-race-filter="finished">Finished</button>
-        <button class="tab" type="button" role="tab" aria-selected="false" data-race-filter="current">Current</button>
-        <button class="tab" type="button" role="tab" aria-selected="false" data-race-filter="upcoming">Upcoming</button>
+      <div class="sel race-times-gp">
+        <label for="raceTimesGp">Grand Prix</label>
+        <select id="raceTimesGp"></select>
       </div>
-      <div class="pill mono" id="raceTimesSeason">SEASON 2026</div>
+      <div class="seg" id="raceTimesMode" role="group" aria-label="Time display mode">
+        <button class="seg-btn active" type="button" data-time-mode="my" aria-pressed="true">My time</button>
+        <button class="seg-btn" type="button" data-time-mode="track" aria-pressed="false">Track time</button>
+      </div>
     </div>
     <div class="race-times-note" id="raceTimesTimezone" role="status">Times are shown in your local timezone.</div>
-    <div class="race-times-list" id="raceTimesList" role="tabpanel" aria-live="polite">
-      <div class="state">Loading race times…</div>
+    <div class="race-times-list" id="raceTimesList" aria-live="polite">
+      <div class="state">Loading race times&hellip;</div>
     </div>
   </div>
 </div>
