@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#0A0A0B">
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="dark">
-<meta name="description" content="APEX Lab — experimental cockpit replica testing Westream F1, Nexa CH7, Fly 41/44. Main site unaffected.">
-<link rel="canonical" href="https://freef1.netlify.app/lab">
+<meta name="description" content="APEX Lab — stripped 24/7 cockpit with only the four test feeds: Westream F1 (A), Nexa CH7 (B), Fly 41 (C), Fly 44 (D). Always on.">
+<link rel="canonical" href="https://freef1.netlify.app/experimental-cockpit">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="APEX F1 Live">
-<meta property="og:title" content="APEX - F1 Live">
+<meta property="og:title" content="APEX Lab — A–D 24/7 Cockpit">
 <meta property="og:description" content="Every session, every source and championship telemetry in one race-weekend cockpit.">
 <meta property="og:url" content="https://freef1.netlify.app/lab">
 <meta property="og:image" content="https://freef1.netlify.app/assets/hero-apex-1200.webp?v=20260918-hero1">
@@ -85,6 +85,43 @@
   .lab-dot{width:8px;height:8px;border-radius:50%;background:#111;box-shadow:0 0 8px rgba(0,0,0,.4);animation:siteGatePulse 1s ease-in-out infinite}
   .lab-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:#111;color:#ffb020;font-size:.62rem;letter-spacing:.1em}
 
+
+  /* ── LAB stripped 24/7 cockpit — show only the cockpit ── */
+  body.lab-cockpit #grid,
+  body.lab-cockpit #standings,
+  body.lab-cockpit #perfViewSec,
+  body.lab-cockpit #live247Sec,
+  body.lab-cockpit #news,
+  body.lab-cockpit #info,
+  body.lab-cockpit #discord,
+  body.lab-cockpit .ticker,
+  body.lab-cockpit header.hero {
+    display:none !important;
+  }
+  body.lab-cockpit #watch {
+    padding-top: 28px;
+  }
+  /* Hide Session Selector card, keep only Feed Sources */
+  body.lab-cockpit .deck {
+    grid-template-columns: 1fr;
+  }
+  body.lab-cockpit .deck .deck-box:first-child {
+    display:none;
+  }
+  body.lab-cockpit .stage-actions {
+    opacity:.55;
+  }
+  body.lab-cockpit .lab-cockpit-note{
+    display:flex;align-items:center;gap:10px;
+    margin: 14px 0 0;
+    padding:10px 14px;
+    border:1px solid rgba(255,176,32,.3);
+    border-radius:10px;
+    background: rgba(255,176,32,.08);
+    font: 600 .7rem/1.4 'JetBrains Mono',monospace;
+    color: #ffb020;
+  }
+
   </style>
 <noscript>
     <style>
@@ -137,7 +174,7 @@
     })();
   </script>
 <link rel="preload" as="image" href="/assets/hero-apex-1600.webp?v=20260918-hero1" type="image/webp" imagesrcset="/assets/hero-apex-800.webp?v=20260918-hero1 800w, /assets/hero-apex-1200.webp?v=20260918-hero1 1200w, /assets/hero-apex-1600.webp?v=20260918-hero1 1600w" imagesizes="100vw" fetchpriority="high">
-<title>APEX Lab — Experimental Cockpit · A-D Test Feeds</title>
+<title>APEX Lab — A–D 24/7 Cockpit · Westream · Nexa 7 · Fly 41/44</title>
 <link rel="dns-prefetch" href="https://fonts.googleapis.com">
 <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 <link rel="dns-prefetch" href="https://f1free.onrender.com">
@@ -152,8 +189,8 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
 <link rel="stylesheet" href="/app.css?v=20260927-fix6">
 </head>
-<body>
-<div class="lab-ribbon" role="status" aria-live="polite"><span class="lab-dot" aria-hidden="true"></span> <span><b>LAB</b> · Experimental cockpit replica — testing <b>A</b> Westream F1 · <b>B</b> Nexa CH7 · <b>C</b> Fly 41 · <b>D</b> Fly 44 · Sky UK 2 stays default</span> <span class="lab-pill">Main site unaffected</span> <a href="/">← Back to main</a></div>
+<body class="lab-cockpit">
+<div class="lab-ribbon" role="status" aria-live="polite"><span class="lab-dot" aria-hidden="true"></span> <span><b>LAB · A–D 24/7</b> — Stripped cockpit — only <b>A</b> Westream · <b>B</b> Nexa CH7 · <b>C</b> Fly 41 · <b>D</b> Fly 44 — always on</span> <span class="lab-pill">24/7 test only</span> <a href="/">← Main</a> <a href="/experimental" style="margin-left:8px">← Full Lab</a></div>
 
 <a class="skip-link" href="#watch">Skip to cockpit</a>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
@@ -224,8 +261,8 @@
   <div class="wrap">
     <div class="sec-head rv">
       <div>
-        <span class="eyebrow">Broadcast Control · LAB</span>
-        <h2>The <span class="accent">Cockpit</span></h2>
+        <span class="eyebrow">Broadcast Control · LAB · A–D 24/7</span>
+        <h2>The <span class="accent">Cockpit</span> — A–D 24/7</h2>
         <div class="rule" style="width:120px"></div>
       </div>
       <div class="pill mono" id="sourceLabel">SOURCE · F1TV</div>
@@ -244,6 +281,7 @@
         <div class="chips" id="links"></div>
       </div>
     </div>
+    <div class="lab-cockpit-note">⚡ 24/7 mode — these four feeds ignore the race calendar and always try to load. Use the chips to switch. If a feed shows its own offline slate, that is the host — try another chip.</div>
 
     <div class="stage rv d2">
       <div class="stage-bar">
@@ -777,6 +815,7 @@
         <div class="foot-links">
           <a href="/performance" data-route="performance">Performance</a>
           <a href="/247" data-route="247">24/7</a>
+          <a href="/experimental-cockpit">Lab Cockpit — A–D (24/7)</a>
         </div>
       </div>
     </div>
@@ -789,7 +828,7 @@
 </footer>
 
 
-<script>window.__APEX_LAB=true;</script>
+<script>window.__APEX_LAB_COCKPIT_247=true;</script>
 <script src="/app.js?v=20260930-lab" defer></script>
 </body>
 </html>

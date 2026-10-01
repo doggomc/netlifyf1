@@ -644,7 +644,7 @@ function getStreamEastSlug(event, session) {
   return `ppv-${ev}-${sess}`;
 }
 
-const sources=[
+let sources=[
  {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
  {id:"sky-uk",label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
  {id:"f1tv",label:"F1TV",suffix:""},
@@ -661,10 +661,18 @@ const LAB_COCKPIT_EXTRA = [
   {id:"lab-fly41",label:"Fly 41",url:"https://flyembed.click/embed/41.php"},
   {id:"lab-fly44",label:"Fly 44",url:"https://flyembed.click/embed/44.php"}
 ];
-const __apexLabEnabled = (typeof window !== 'undefined') && Boolean(
-  window.__APEX_LAB || (location.pathname.includes('lab') || location.pathname.includes('experimental'))
+/* ── LAB 24/7 stripped cockpit — only A–D, always-on. Used by /experimental-cockpit ── */
+const __apexLabCockpit247 = (typeof window !== 'undefined') && Boolean(
+  window.__APEX_LAB_COCKPIT_247 || location.pathname.includes('lab-cockpit') || location.pathname.includes('experimental-cockpit')
 );
-if (__apexLabEnabled) sources.push(...LAB_COCKPIT_EXTRA);
+const __apexLabEnabled = !__apexLabCockpit247 && (typeof window !== 'undefined') && Boolean(
+  window.__APEX_LAB || location.pathname.includes('/experimental')
+);
+if (__apexLabCockpit247) {
+  sources = LAB_COCKPIT_EXTRA.slice();
+} else if (__apexLabEnabled) {
+  sources.push(...LAB_COCKPIT_EXTRA);
+}
 
 const LIVE247_STATIONS = [
   {
@@ -698,7 +706,12 @@ const LAB_247_EXTRA = [
   {id:'lab-fly41',label:'Fly 41',sub:'24/7 — FlyEmbed 41 (C)',url:'https://flyembed.click/embed/41.php',hideTransport:true},
   {id:'lab-fly44',label:'Fly 44',sub:'24/7 — FlyEmbed 44 (D)',url:'https://flyembed.click/embed/44.php',hideTransport:true}
 ];
-if (__apexLabEnabled) LIVE247_STATIONS.push(...LAB_247_EXTRA);
+if (__apexLabCockpit247) {
+  // stripped page keeps 24/7 stations in sync with its cockpit (only A–D) — not used but consistent
+  LIVE247_STATIONS.splice(0, LIVE247_STATIONS.length, ...LAB_247_EXTRA);
+} else if (__apexLabEnabled) {
+  LIVE247_STATIONS.push(...LAB_247_EXTRA);
+}
 
 let disabledSources = new Set();
 const sourceEnabled = (s) => !disabledSources.has(s.id);
@@ -1114,7 +1127,7 @@ function load() {
     return;
   }
 
-  if (!isStreamAvailable(currentSession)) {
+  if (!__apexLabCockpit247 && !isStreamAvailable(currentSession)) {
     showNoStream();
     trackEvent('nostream');
     return;
