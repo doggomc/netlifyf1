@@ -4,14 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0A0A0B">
+<meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="dark">
-<meta name="description" content="APEX is a fast, ad-free Formula racing weekend companion with multi-feed switching, standings and session results.">
-<link rel="canonical" href="https://freef1.netlify.app/">
+<meta name="description" content="APEX Lab — experimental cockpit replica testing Westream F1, Nexa CH7, Fly 41/44. Main site unaffected.">
+<link rel="canonical" href="https://freef1.netlify.app/lab">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="APEX F1 Live">
 <meta property="og:title" content="APEX - F1 Live">
 <meta property="og:description" content="Every session, every source and championship telemetry in one race-weekend cockpit.">
-<meta property="og:url" content="https://freef1.netlify.app/">
+<meta property="og:url" content="https://freef1.netlify.app/lab">
 <meta property="og:image" content="https://freef1.netlify.app/assets/hero-apex-1200.webp?v=20260918-hero1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="APEX - F1 Live">
@@ -66,6 +67,24 @@
         animation: none;
       }
     }
+
+  /* ── LAB banner (experimental replica only) ── */
+  .lab-ribbon{
+    position:sticky;top:0;z-index:130;
+    display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+    padding:9px 14px;
+    background:repeating-linear-gradient(90deg,#ffb020 0 14px,#111 14px 28px);
+    color:#111;font:700 .68rem/1 'JetBrains Mono',monospace;
+    letter-spacing:.14em;text-transform:uppercase;
+    border-bottom:1px solid #ffb020;
+    text-align:center;
+  }
+  .lab-ribbon b{font-weight:900}
+  .lab-ribbon a{color:#111;text-decoration:underline;text-underline-offset:2px}
+  .lab-ribbon a:hover{color:#000}
+  .lab-dot{width:8px;height:8px;border-radius:50%;background:#111;box-shadow:0 0 8px rgba(0,0,0,.4);animation:siteGatePulse 1s ease-in-out infinite}
+  .lab-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:#111;color:#ffb020;font-size:.62rem;letter-spacing:.1em}
+
   </style>
 <noscript>
     <style>
@@ -118,7 +137,7 @@
     })();
   </script>
 <link rel="preload" as="image" href="/assets/hero-apex-1600.webp?v=20260918-hero1" type="image/webp" imagesrcset="/assets/hero-apex-800.webp?v=20260918-hero1 800w, /assets/hero-apex-1200.webp?v=20260918-hero1 1200w, /assets/hero-apex-1600.webp?v=20260918-hero1 1600w" imagesizes="100vw" fetchpriority="high">
-<title>APEX - F1 Live</title>
+<title>APEX Lab — Experimental Cockpit · A-D Test Feeds</title>
 <link rel="dns-prefetch" href="https://fonts.googleapis.com">
 <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 <link rel="dns-prefetch" href="https://f1free.onrender.com">
@@ -134,6 +153,8 @@
 <link rel="stylesheet" href="/app.css?v=20260927-fix6">
 </head>
 <body>
+<div class="lab-ribbon" role="status" aria-live="polite"><span class="lab-dot" aria-hidden="true"></span> <span><b>LAB</b> · Experimental cockpit replica — testing <b>A</b> Westream F1 · <b>B</b> Nexa CH7 · <b>C</b> Fly 41 · <b>D</b> Fly 44 · Sky UK 2 stays default</span> <span class="lab-pill">Main site unaffected</span> <a href="/">← Back to main</a></div>
+
 <a class="skip-link" href="#watch">Skip to cockpit</a>
 <div class="site-state-gate" role="status" aria-live="polite"><div><i></i><span>Checking race control</span></div></div>
 
@@ -175,7 +196,7 @@
     <img src="/assets/hero-apex.jpg?v=20260918-hero1" alt="Abstract sleek aerodynamic apex curves on a dark background" width="1600" height="900" fetchpriority="high" decoding="async">
   </picture></div>
   <div class="hero-inner">
-    <span class="eyebrow" id="heroRound">2026 Season</span>
+    <span class="eyebrow" id="heroRound">LAB · 2026 Season · Experimental</span>
     <h1 class="display">
       <span class="l"><span id="heroTitle">Season</span></span>
       <span class="l"><span><em id="heroTitle2">Grand Prix</em></span></span>
@@ -203,7 +224,7 @@
   <div class="wrap">
     <div class="sec-head rv">
       <div>
-        <span class="eyebrow">Broadcast Control</span>
+        <span class="eyebrow">Broadcast Control · LAB</span>
         <h2>The <span class="accent">Cockpit</span></h2>
         <div class="rule" style="width:120px"></div>
       </div>
@@ -219,7 +240,7 @@
         </div>
       </div>
       <div class="card deck-box">
-        <h3>Feed Sources</h3>
+        <h3>Feed Sources <span style="font:700 .58rem 'JetBrains Mono',monospace;letter-spacing:.14em;color:#ffb020;margin-left:8px;vertical-align:middle">LAB +4</span></h3><p class="mono" style="font-size:.62rem;color:var(--muted);margin:6px 0 10px">A-D appended after the 7 main feeds. Same player, same shields. Report hijacks here before they touch the live site.</p>
         <div class="chips" id="links"></div>
       </div>
     </div>
@@ -619,7 +640,7 @@
     <div class="sec-head rv">
       <div>
         <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
-        <span class="eyebrow">Experimental</span>
+        <span class="eyebrow">LAB · Experimental</span>
         <h2><span class="accent">24/7</span> Streams</h2>
         <div class="rule" style="width:140px"></div>
       </div>
@@ -666,7 +687,7 @@
         <div class="audio-player-footer">
           <div class="apf-hint">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:6px;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span><strong>Sky UK 2</strong> starts automatically and is the reliable feed. Other channels load behind a click shield — <strong>Start stream</strong> hands control to the host player. <strong>Shield</strong> re-covers the player any time. In fullscreen, use the on-screen <strong>Exit</strong> button (phones have no Escape key). Volume sits on the host player.</span>
+            <span><b style="color:#ffb020">LAB:</b> <strong>Sky UK 2</strong> stays default. <b>Westream · Nexa 7 · Fly 41/44</b> are appended as 24/7 test channels (shielded, no Play/Stop). Strong hijack → auto-reload. <strong>Sky UK 2</strong> still Other channels load behind a click shield — <strong>Start stream</strong> hands control to the host player. <strong>Shield</strong> re-covers the player any time. In fullscreen, use the on-screen <strong>Exit</strong> button (phones have no Escape key). Volume sits on the host player.</span>
           </div>
         </div>
       </div>
@@ -768,6 +789,7 @@
 </footer>
 
 
+<script>window.__APEX_LAB=true;</script>
 <script src="/app.js?v=20260930-lab" defer></script>
 </body>
 </html>

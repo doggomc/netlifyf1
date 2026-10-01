@@ -532,29 +532,29 @@ setTimeout(checkAuth, 100);
 
 /* ═══════════════ 5. SCHEDULE & SESSION DATA ═══════════════ */
 const schedule=[
- {round:1,slug:"australia",name:"Australian Grand Prix",circuit:"Albert Park Grand Prix Circuit",locality:"Melbourne",country:"Australia",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-06T01:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-03-06T05:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-03-07T01:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-07T05:00:00Z"},{slug:"race",name:"Race",start:"2026-03-08T04:00:00Z"}]},
- {round:2,slug:"china",name:"Chinese Grand Prix",circuit:"Shanghai International Circuit",locality:"Shanghai",country:"China",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-13T03:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-03-13T07:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-03-14T03:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-14T07:00:00Z"},{slug:"race",name:"Race",start:"2026-03-15T07:00:00Z"}]},
- {round:3,slug:"japan",name:"Japanese Grand Prix",circuit:"Suzuka Circuit",locality:"Suzuka",country:"Japan",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-27T02:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-03-27T06:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-03-28T02:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-28T06:00:00Z"},{slug:"race",name:"Race",start:"2026-03-29T05:00:00Z"}]},
- {round:4,slug:"miami",name:"Miami Grand Prix",circuit:"Miami International Autodrome",locality:"Miami",country:"USA",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-01T16:00:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-01T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-02T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-02T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-03T20:00:00Z"}]},
- {round:5,slug:"canada",name:"Canadian Grand Prix",circuit:"Circuit Gilles Villeneuve",locality:"Montreal",country:"Canada",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-22T16:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-22T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-23T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-23T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-24T20:00:00Z"}]},
- {round:6,slug:"monaco",name:"Monaco Grand Prix",circuit:"Circuit de Monaco",locality:"Monte Carlo",country:"Monaco",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-05T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-05T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-06T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-06T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-07T13:00:00Z"}]},
- {round:7,slug:"barcelona",name:"Barcelona-Catalunya Grand Prix",circuit:"Circuit de Barcelona-Catalunya",locality:"Barcelona",country:"Spain",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-12T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-12T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-13T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-13T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-14T13:00:00Z"}]},
- {round:8,slug:"austria",name:"Austrian Grand Prix",circuit:"Red Bull Ring",locality:"Spielberg",country:"Austria",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-26T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-26T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-27T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-27T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-28T13:00:00Z"}]},
- {round:9,slug:"britain",name:"British Grand Prix",circuit:"Silverstone Circuit",locality:"Silverstone",country:"UK",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-03T11:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-07-03T15:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-07-04T11:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-04T15:00:00Z"},{slug:"race",name:"Race",start:"2026-07-05T14:00:00Z"}]},
- {round:10,slug:"belgium",name:"Belgian Grand Prix",circuit:"Circuit de Spa-Francorchamps",locality:"Spa",country:"Belgium",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-17T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-07-17T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-07-18T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-18T14:00:00Z"},{slug:"race",name:"Race",start:"2026-07-19T13:00:00Z"}]},
- {round:11,slug:"hungary",name:"Hungarian Grand Prix",circuit:"Hungaroring",locality:"Budapest",country:"Hungary",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-24T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-07-24T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-07-25T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-25T14:00:00Z"},{slug:"race",name:"Race",start:"2026-07-26T13:00:00Z"}]},
- {round:12,slug:"netherlands",name:"Dutch Grand Prix",circuit:"Circuit Park Zandvoort",locality:"Zandvoort",country:"Netherlands",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-08-21T10:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-08-21T14:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-08-22T10:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-08-22T14:00:00Z"},{slug:"race",name:"Race",start:"2026-08-23T13:00:00Z"}]},
- {round:13,slug:"italy",name:"Italian Grand Prix",circuit:"Autodromo Nazionale di Monza",locality:"Monza",country:"Italy",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-04T10:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-04T14:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-05T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-05T14:00:00Z"},{slug:"race",name:"Race",start:"2026-09-06T13:00:00Z"}]},
- {round:14,slug:"spain",name:"Spanish Grand Prix",circuit:"Madring",locality:"Madrid",country:"Spain",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-11T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-11T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-12T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-12T14:00:00Z"},{slug:"race",name:"Race",start:"2026-09-13T13:00:00Z"}]},
- {round:15,slug:"azerbaijan",name:"Azerbaijan Grand Prix",circuit:"Baku City Circuit",locality:"Baku",country:"Azerbaijan",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-24T08:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-24T12:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-25T08:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-25T12:00:00Z"},{slug:"race",name:"Race",start:"2026-09-26T11:00:00Z"}]},
- {round:16,slug:"bahrain",name:"Bahrain Grand Prix",circuit:"Sepang International Circuit",locality:"Sepang",country:"Malaysia",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-02T04:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-02T08:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-03T04:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-03T08:00:00Z"},{slug:"race",name:"Race",start:"2026-10-04T07:00:00Z"}]},
- {round:17,slug:"singapore",name:"Singapore Grand Prix",circuit:"Marina Bay Street Circuit",locality:"Marina Bay",country:"Singapore",sprint:true,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-09T08:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-10-09T12:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-10-10T09:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-10T13:00:00Z"},{slug:"race",name:"Race",start:"2026-10-11T12:00:00Z"}]},
- {round:18,slug:"usa",name:"United States Grand Prix",circuit:"Circuit of the Americas",locality:"Austin",country:"USA",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-23T17:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-23T21:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-24T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-24T21:00:00Z"},{slug:"race",name:"Race",start:"2026-10-25T20:00:00Z"}]},
- {round:19,slug:"mexico",name:"Mexico City Grand Prix",circuit:"Autódromo Hermanos Rodríguez",locality:"Mexico City",country:"Mexico",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-30T18:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-30T22:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-31T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-31T21:00:00Z"},{slug:"race",name:"Race",start:"2026-11-01T20:00:00Z"}]},
- {round:20,slug:"brazil",name:"Brazilian Grand Prix",circuit:"Autódromo José Carlos Pace",locality:"São Paulo",country:"Brazil",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-06T15:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-06T19:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-07T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-07T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-08T17:00:00Z"}]},
- {round:21,slug:"lasvegas",name:"Las Vegas Grand Prix",circuit:"Las Vegas Strip Street Circuit",locality:"Las Vegas",country:"USA",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-20T00:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-20T04:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-21T00:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-21T04:00:00Z"},{slug:"race",name:"Race",start:"2026-11-22T04:00:00Z"}]},
- {round:22,slug:"qatar",name:"Qatar Grand Prix",circuit:"Losail International Circuit",locality:"Lusail",country:"Qatar",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-27T13:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-27T17:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-28T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-28T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-29T16:00:00Z"}]},
- {round:23,slug:"abudhabi",name:"Abu Dhabi Grand Prix",circuit:"Yas Marina Circuit",locality:"Abu Dhabi",country:"UAE",sprint:false,sessions:[{slug:"fp1",name:"Practice 1",start:"2026-12-04T09:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-12-04T13:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-12-05T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-12-05T14:00:00Z"},{slug:"race",name:"Race",start:"2026-12-06T13:00:00Z"}]}
+ {round:1,slug:"australia",name:"Australian Grand Prix",circuit:"Albert Park Grand Prix Circuit",locality:"Melbourne",country:"Australia",sprint:false,tz:"Australia/Melbourne",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-06T01:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-03-06T05:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-03-07T01:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-07T05:00:00Z"},{slug:"race",name:"Race",start:"2026-03-08T04:00:00Z"}]},
+ {round:2,slug:"china",name:"Chinese Grand Prix",circuit:"Shanghai International Circuit",locality:"Shanghai",country:"China",sprint:true,tz:"Asia/Shanghai",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-13T03:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-03-13T07:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-03-14T03:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-14T07:00:00Z"},{slug:"race",name:"Race",start:"2026-03-15T07:00:00Z"}]},
+ {round:3,slug:"japan",name:"Japanese Grand Prix",circuit:"Suzuka Circuit",locality:"Suzuka",country:"Japan",sprint:false,tz:"Asia/Tokyo",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-03-27T02:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-03-27T06:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-03-28T02:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-03-28T06:00:00Z"},{slug:"race",name:"Race",start:"2026-03-29T05:00:00Z"}]},
+ {round:4,slug:"miami",name:"Miami Grand Prix",circuit:"Miami International Autodrome",locality:"Miami",country:"USA",sprint:true,tz:"America/New_York",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-01T16:00:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-01T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-02T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-02T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-03T20:00:00Z"}]},
+ {round:5,slug:"canada",name:"Canadian Grand Prix",circuit:"Circuit Gilles Villeneuve",locality:"Montreal",country:"Canada",sprint:true,tz:"America/Toronto",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-05-22T16:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-05-22T20:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-05-23T16:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-05-23T20:00:00Z"},{slug:"race",name:"Race",start:"2026-05-24T20:00:00Z"}]},
+ {round:6,slug:"monaco",name:"Monaco Grand Prix",circuit:"Circuit de Monaco",locality:"Monte Carlo",country:"Monaco",sprint:false,tz:"Europe/Monaco",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-05T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-05T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-06T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-06T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-07T13:00:00Z"}]},
+ {round:7,slug:"barcelona",name:"Barcelona-Catalunya Grand Prix",circuit:"Circuit de Barcelona-Catalunya",locality:"Barcelona",country:"Spain",sprint:false,tz:"Europe/Madrid",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-12T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-12T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-13T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-13T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-14T13:00:00Z"}]},
+ {round:8,slug:"austria",name:"Austrian Grand Prix",circuit:"Red Bull Ring",locality:"Spielberg",country:"Austria",sprint:false,tz:"Europe/Vienna",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-06-26T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-06-26T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-06-27T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-06-27T14:00:00Z"},{slug:"race",name:"Race",start:"2026-06-28T13:00:00Z"}]},
+ {round:9,slug:"britain",name:"British Grand Prix",circuit:"Silverstone Circuit",locality:"Silverstone",country:"UK",sprint:true,tz:"Europe/London",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-03T11:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-07-03T15:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-07-04T11:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-04T15:00:00Z"},{slug:"race",name:"Race",start:"2026-07-05T14:00:00Z"}]},
+ {round:10,slug:"belgium",name:"Belgian Grand Prix",circuit:"Circuit de Spa-Francorchamps",locality:"Spa",country:"Belgium",sprint:false,tz:"Europe/Brussels",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-17T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-07-17T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-07-18T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-18T14:00:00Z"},{slug:"race",name:"Race",start:"2026-07-19T13:00:00Z"}]},
+ {round:11,slug:"hungary",name:"Hungarian Grand Prix",circuit:"Hungaroring",locality:"Budapest",country:"Hungary",sprint:false,tz:"Europe/Budapest",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-07-24T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-07-24T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-07-25T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-07-25T14:00:00Z"},{slug:"race",name:"Race",start:"2026-07-26T13:00:00Z"}]},
+ {round:12,slug:"netherlands",name:"Dutch Grand Prix",circuit:"Circuit Park Zandvoort",locality:"Zandvoort",country:"Netherlands",sprint:true,tz:"Europe/Amsterdam",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-08-21T10:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-08-21T14:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-08-22T10:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-08-22T14:00:00Z"},{slug:"race",name:"Race",start:"2026-08-23T13:00:00Z"}]},
+ {round:13,slug:"italy",name:"Italian Grand Prix",circuit:"Autodromo Nazionale di Monza",locality:"Monza",country:"Italy",sprint:false,tz:"Europe/Rome",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-04T10:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-04T14:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-05T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-05T14:00:00Z"},{slug:"race",name:"Race",start:"2026-09-06T13:00:00Z"}]},
+ {round:14,slug:"spain",name:"Spanish Grand Prix",circuit:"Madring",locality:"Madrid",country:"Spain",sprint:false,tz:"Europe/Madrid",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-11T11:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-11T15:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-12T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-12T14:00:00Z"},{slug:"race",name:"Race",start:"2026-09-13T13:00:00Z"}]},
+ {round:15,slug:"azerbaijan",name:"Azerbaijan Grand Prix",circuit:"Baku City Circuit",locality:"Baku",country:"Azerbaijan",sprint:false,tz:"Asia/Baku",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-09-24T08:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-09-24T12:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-09-25T08:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-09-25T12:00:00Z"},{slug:"race",name:"Race",start:"2026-09-26T11:00:00Z"}]},
+ {round:16,slug:"bahrain",name:"Bahrain Grand Prix",circuit:"Sepang International Circuit",locality:"Sepang",country:"Malaysia",sprint:false,tz:"Asia/Kuala_Lumpur",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-02T04:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-02T08:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-03T04:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-03T08:00:00Z"},{slug:"race",name:"Race",start:"2026-10-04T07:00:00Z"}]},
+ {round:17,slug:"singapore",name:"Singapore Grand Prix",circuit:"Marina Bay Street Circuit",locality:"Marina Bay",country:"Singapore",sprint:true,tz:"Asia/Singapore",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-09T08:30:00Z"},{slug:"sprint-qualifying",name:"Sprint Qualifying",start:"2026-10-09T12:30:00Z"},{slug:"sprint",name:"Sprint",start:"2026-10-10T09:00:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-10T13:00:00Z"},{slug:"race",name:"Race",start:"2026-10-11T12:00:00Z"}]},
+ {round:18,slug:"usa",name:"United States Grand Prix",circuit:"Circuit of the Americas",locality:"Austin",country:"USA",sprint:false,tz:"America/Chicago",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-23T17:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-23T21:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-24T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-24T21:00:00Z"},{slug:"race",name:"Race",start:"2026-10-25T20:00:00Z"}]},
+ {round:19,slug:"mexico",name:"Mexico City Grand Prix",circuit:"Autódromo Hermanos Rodríguez",locality:"Mexico City",country:"Mexico",sprint:false,tz:"America/Mexico_City",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-10-30T18:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-10-30T22:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-10-31T17:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-10-31T21:00:00Z"},{slug:"race",name:"Race",start:"2026-11-01T20:00:00Z"}]},
+ {round:20,slug:"brazil",name:"Brazilian Grand Prix",circuit:"Autódromo José Carlos Pace",locality:"São Paulo",country:"Brazil",sprint:false,tz:"America/Sao_Paulo",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-06T15:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-06T19:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-07T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-07T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-08T17:00:00Z"}]},
+ {round:21,slug:"lasvegas",name:"Las Vegas Grand Prix",circuit:"Las Vegas Strip Street Circuit",locality:"Las Vegas",country:"USA",sprint:false,tz:"America/Los_Angeles",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-20T00:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-20T04:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-21T00:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-21T04:00:00Z"},{slug:"race",name:"Race",start:"2026-11-22T04:00:00Z"}]},
+ {round:22,slug:"qatar",name:"Qatar Grand Prix",circuit:"Losail International Circuit",locality:"Lusail",country:"Qatar",sprint:false,tz:"Asia/Qatar",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-11-27T13:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-11-27T17:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-11-28T14:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-11-28T18:00:00Z"},{slug:"race",name:"Race",start:"2026-11-29T16:00:00Z"}]},
+ {round:23,slug:"abudhabi",name:"Abu Dhabi Grand Prix",circuit:"Yas Marina Circuit",locality:"Abu Dhabi",country:"UAE",sprint:false,tz:"Asia/Dubai",sessions:[{slug:"fp1",name:"Practice 1",start:"2026-12-04T09:30:00Z"},{slug:"fp2",name:"Practice 2",start:"2026-12-04T13:00:00Z"},{slug:"fp3",name:"Practice 3",start:"2026-12-05T10:30:00Z"},{slug:"qualifying",name:"Qualifying",start:"2026-12-05T14:00:00Z"},{slug:"race",name:"Race",start:"2026-12-06T13:00:00Z"}]}
 ];
 
 // Parse session timestamps once into numeric milliseconds.
@@ -653,6 +653,18 @@ const sources=[
  {id:"dazn",label:"DAZN",streamNum:5},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
+/* ── LAB — experimental cockpit replica (A–D). Only active on /lab, /experimental or when
+      window.__APEX_LAB is set before app.js loads. Main site is untouched. ── */
+const LAB_COCKPIT_EXTRA = [
+  {id:"lab-westream",label:"Westream F1",url:"https://westreamf1.com/westreamf1.php"},
+  {id:"lab-nexa7",label:"Nexa 7",url:"https://ch.nexa.st/ch.php?id=7"},
+  {id:"lab-fly41",label:"Fly 41",url:"https://flyembed.click/embed/41.php"},
+  {id:"lab-fly44",label:"Fly 44",url:"https://flyembed.click/embed/44.php"}
+];
+const __apexLabEnabled = (typeof window !== 'undefined') && Boolean(
+  window.__APEX_LAB || (location.pathname.includes('lab') || location.pathname.includes('experimental'))
+);
+if (__apexLabEnabled) sources.push(...LAB_COCKPIT_EXTRA);
 
 const LIVE247_STATIONS = [
   {
@@ -680,6 +692,13 @@ const LIVE247_STATIONS = [
     hideTransport: true
   }
 ];
+const LAB_247_EXTRA = [
+  {id:'lab-westream',label:'Westream F1',sub:'24/7 — Westream (A)',url:'https://westreamf1.com/westreamf1.php',hideTransport:true},
+  {id:'lab-nexa7',label:'Nexa 7',sub:'24/7 — Nexa CH7 (B)',url:'https://ch.nexa.st/ch.php?id=7',hideTransport:true},
+  {id:'lab-fly41',label:'Fly 41',sub:'24/7 — FlyEmbed 41 (C)',url:'https://flyembed.click/embed/41.php',hideTransport:true},
+  {id:'lab-fly44',label:'Fly 44',sub:'24/7 — FlyEmbed 44 (D)',url:'https://flyembed.click/embed/44.php',hideTransport:true}
+];
+if (__apexLabEnabled) LIVE247_STATIONS.push(...LAB_247_EXTRA);
 
 let disabledSources = new Set();
 const sourceEnabled = (s) => !disabledSources.has(s.id);
@@ -1328,11 +1347,35 @@ function initVisitorCounter() {
   const INTERVAL = 18000;
   let timer = 0;
   let inFlight = false;
+
+  /* Paint the last known count immediately — the API can cold-start slowly,
+     and "--" for a minute on every visit looked like a broken counter. */
+  const cachedCount = store.get('freef1_active_count');
+  if (cachedCount && /^\d+$/.test(cachedCount)) el.textContent = cachedCount;
+
+  /* Reuse the signed visitor token across visits: one less round trip before
+     the first real count. */
   let visitorToken = '';
   let visitorTokenExpiresAt = 0;
+  try {
+    const cachedToken = JSON.parse(store.get('freef1_visitor_token') || 'null');
+    if (cachedToken && cachedToken.token && Number(cachedToken.expiresAt) - Date.now() > 60000) {
+      visitorToken = cachedToken.token;
+      visitorTokenExpiresAt = Number(cachedToken.expiresAt);
+    }
+  } catch (_) {}
+
+  const clearTokenCache = () => {
+    visitorToken = '';
+    visitorTokenExpiresAt = 0;
+    try { store.set('freef1_visitor_token', ''); } catch (_) {}
+  };
 
   const updateCount = (data) => {
-    if (data && Number.isFinite(data.active)) el.textContent = String(data.active);
+    if (data && Number.isFinite(data.active)) {
+      el.textContent = String(data.active);
+      try { store.set('freef1_active_count', String(data.active)); } catch (_) {}
+    }
   };
 
   const refreshVisitorToken = async () => {
@@ -1345,6 +1388,9 @@ function initVisitorCounter() {
     const data = await response.json();
     visitorToken = data.token || '';
     visitorTokenExpiresAt = Number(data.expiresAt) || 0;
+    try {
+      store.set('freef1_visitor_token', JSON.stringify({ token: visitorToken, expiresAt: visitorTokenExpiresAt }));
+    } catch (_) {}
   };
 
   const beat = async () => {
@@ -1364,8 +1410,7 @@ function initVisitorCounter() {
         headers: { 'X-Visitor-Token': visitorToken, 'X-User-Id': uid }
       });
       if (r.status === 403) {
-        visitorToken = '';
-        visitorTokenExpiresAt = 0;
+        clearTokenCache();
         nextDelay = 800;
       } else if (r.ok) {
         updateCount(await r.json());
@@ -2705,9 +2750,17 @@ $("championshipBtn")?.addEventListener("click", () => {
 /* ═══════════════ 18. RACE TIMES MODAL ═══════════════ */
 const raceTimesOverlay = $("raceTimesOverlay");
 const raceTimesList = $("raceTimesList");
-const raceTimesSeason = $("raceTimesSeason");
+const raceTimesGpSelect = $("raceTimesGp");
 const raceTimesTimezone = $("raceTimesTimezone");
-let raceTimesFilter = 'all';
+const RACE_TIMES_MODE_KEY = 'freef1_race_times_mode';
+let raceTimesGpSlug = null;
+let raceTimesMode = (() => {
+  try {
+    return store.get(RACE_TIMES_MODE_KEY) === 'track' ? 'track' : 'my';
+  } catch (_) {
+    return 'my';
+  }
+})();
 
 const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local timezone';
 const localTimeZoneLabel = (() => {
@@ -2725,41 +2778,94 @@ function raceStatus(event, now = Date.now()) {
   return 'upcoming';
 }
 
-function renderRaceTimes(filter = raceTimesFilter) {
-  if (!raceTimesList) return;
-  raceTimesFilter = filter;
-  if (raceTimesSeason) raceTimesSeason.textContent = `SEASON ${SITE_SEASON} · LOCAL`;
-  if (raceTimesTimezone) raceTimesTimezone.textContent = `Times shown in your local timezone · ${localTimeZone} (${localTimeZoneLabel})`;
-  const items = schedule.map((event) => ({
-    event,
-    status: raceStatus(event),
-    race: event.sessions.find((session) => session.slug === 'race') || event.sessions.at(-1)
-  })).filter((item) => filter === 'all' || item.status === filter);
+/* Only live-and-future weekends are selectable — finished rounds are gone. */
+function raceTimesItems() {
+  return schedule
+    .map((event) => ({ event, status: raceStatus(event) }))
+    .filter((item) => item.status !== 'finished');
+}
 
+function raceTimesDefaultSlug() {
+  const items = raceTimesItems();
+  const current = items.find((item) => item.status === 'current');
+  return (current || items[0])?.event.slug || null;
+}
+
+function raceTimesFmt(timestamp, timeZone) {
+  const date = new Date(Number(timestamp));
+  const opts = timeZone ? { timeZone } : {};
+  if (Number.isNaN(date.getTime())) return { day: '--', mon: '---', time: '--:--' };
+  return {
+    day: new Intl.DateTimeFormat('en-GB', { day: '2-digit', ...opts }).format(date),
+    mon: new Intl.DateTimeFormat('en-GB', { month: 'short', ...opts }).format(date).toUpperCase(),
+    time: new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, ...opts }).format(date)
+  };
+}
+
+function renderRaceTimes() {
+  if (!raceTimesList) return;
+
+  document.querySelectorAll('#raceTimesMode [data-time-mode]').forEach((item) => {
+    const active = item.dataset.timeMode === raceTimesMode;
+    item.classList.toggle('active', active);
+    item.setAttribute('aria-pressed', String(active));
+  });
+
+  const items = raceTimesItems();
   if (!items.length) {
-    raceTimesList.innerHTML = '<div class="state">No races match this filter.</div>';
+    if (raceTimesGpSelect) {
+      raceTimesGpSelect.innerHTML = '<option>Season complete</option>';
+      raceTimesGpSelect.disabled = true;
+    }
+    if (raceTimesTimezone) raceTimesTimezone.textContent = 'The 2026 season is complete.';
+    raceTimesList.innerHTML = '<div class="state">No upcoming Grand Prix.</div>';
     return;
   }
-  raceTimesList.innerHTML = items.map(({ event, status, race }) => `<article class="race-time-item ${status}">
-    <div class="race-time-top"><div class="race-time-title">R${escapeHtml(event.round)} · ${escapeHtml(event.name)}<small>${escapeHtml(event.locality)}, ${escapeHtml(event.country)}</small></div>
-      <span class="race-time-status ${status}">${status}</span></div>
-    <div class="race-time-race"><span>Race · ${escapeHtml(formatRaceDateTime(race?.ts))}</span></div>
-    <div class="race-time-sessions">${event.sessions.map((session) => `<div class="race-time-session"><b>${escapeHtml(session.name)}</b><time datetime="${escapeHtml(new Date(session.ts).toISOString())}">${escapeHtml(formatRaceDateTime(session.ts))}</time></div>`).join('')}</div>
-  </article>`).join('');
+
+  if (!items.some((item) => item.event.slug === raceTimesGpSlug)) raceTimesGpSlug = raceTimesDefaultSlug();
+  const selected = items.find((item) => item.event.slug === raceTimesGpSlug) || items[0];
+  raceTimesGpSlug = selected.event.slug;
+
+  if (raceTimesGpSelect) {
+    raceTimesGpSelect.disabled = false;
+    raceTimesGpSelect.innerHTML = items.map(({ event, status }) =>
+      `<option value="${escapeHtml(event.slug)}" ${event.slug === raceTimesGpSlug ? 'selected' : ''}>R${escapeHtml(event.round)} · ${escapeHtml(event.name)}${status === 'current' ? ' · race weekend' : ''}</option>`
+    ).join('');
+  }
+
+  const tz = raceTimesMode === 'track' ? selected.event.tz : undefined;
+  if (raceTimesTimezone) {
+    raceTimesTimezone.textContent = raceTimesMode === 'track'
+      ? `Times shown at the circuit · ${selected.event.locality} (${selected.event.tz || 'local'})`
+      : `Times shown in your local timezone · ${localTimeZone} (${localTimeZoneLabel})`;
+  }
+
+  const now = Date.now();
+  raceTimesList.innerHTML = selected.event.sessions.map((session) => {
+    const { day, mon, time } = raceTimesFmt(session.ts, tz);
+    const past = Number.isFinite(session.ts) && session.ts + 60 * 60 * 1000 < now;
+    return `<div class="rt-row${past ? ' is-past' : ''}">
+      <div class="rt-date"><span class="rt-day">${escapeHtml(day)}</span><span class="rt-mon">${escapeHtml(mon)}</span></div>
+      <div class="rt-name">${escapeHtml(session.name)}</div>
+      <time class="rt-time" datetime="${escapeHtml(new Date(session.ts).toISOString())}">${escapeHtml(time)}</time>
+    </div>`;
+  }).join('');
 }
 
 $("raceTimesBtn")?.addEventListener('click', () => {
+  raceTimesGpSlug = raceTimesDefaultSlug();
+  renderRaceTimes();
   openModal(raceTimesOverlay);
-  renderRaceTimes('all');
 });
 $("raceTimesClose")?.addEventListener('click', () => closeModal(raceTimesOverlay));
-document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach((tab) => tab.addEventListener('click', () => {
-  document.querySelectorAll('#raceTimesTabs [role="tab"]').forEach((item) => {
-    const active = item === tab;
-    item.classList.toggle('active', active);
-    item.setAttribute('aria-selected', String(active));
-  });
-  renderRaceTimes(tab.dataset.raceFilter);
+raceTimesGpSelect?.addEventListener('change', () => {
+  raceTimesGpSlug = raceTimesGpSelect.value;
+  renderRaceTimes();
+});
+document.querySelectorAll('#raceTimesMode [data-time-mode]').forEach((btn) => btn.addEventListener('click', () => {
+  raceTimesMode = btn.dataset.timeMode === 'track' ? 'track' : 'my';
+  try { store.set(RACE_TIMES_MODE_KEY, raceTimesMode); } catch (_) {}
+  renderRaceTimes();
 }));
 
 /* ═══════════════ 19. TEAM RADIO & RACE CONTROL (OPENF1) ═══════════════ */

@@ -2158,15 +2158,51 @@ to {
 
 .race-times-toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
-.race-times-toolbar .tabs {
-  flex-wrap: wrap;
+.race-times-gp {
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
+/* Segmented "My time / Track time" pill — photo-style geometry, site colors. */
+.seg {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .35);
+  flex-shrink: 0;
+}
+
+.seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-family: 'Archivo';
+  font-weight: 700;
+  font-size: .72rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color .22s var(--ease), color .22s var(--ease);
+}
+
+.seg-btn:hover {
+  color: var(--text);
+}
+
+.seg-btn.active {
+  background: var(--team);
+  color: var(--team-ink);
+  box-shadow: 0 8px 26px -10px var(--red-glow);
 }
 
 .race-times-note {
@@ -2179,141 +2215,61 @@ to {
 }
 
 .race-times-list {
+  border-top: 1px solid var(--line);
+}
+
+.rt-row {
   display: grid;
-  gap: 10px;
-}
-
-.race-time-item {
-  position: relative;
-  overflow: hidden;
-  padding: 17px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: rgba(255,255,255,.014);
-  transition: background .3s var(--ease),border-color .3s var(--ease);
-}
-
-.race-time-item:hover {
-  background: rgba(255,255,255,.04);
-  border-color: var(--line-2);
-}
-
-.race-time-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--race-color,var(--team));
-}
-
-.race-time-top {
-  display: flex;
+  grid-template-columns: 64px 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  padding: 16px 4px;
+  border-bottom: 1px solid var(--line);
 }
 
-.race-time-title {
-  font-family: 'Archivo';
-  font-weight: 800;
-  font-size: 1rem;
-  letter-spacing: -.015em;
-  line-height: 1.25;
-}
-
-.race-time-title small {
-  display: block;
-  margin-top: 4px;
-  font-family: 'JetBrains Mono';
-  font-size: .58rem;
-  font-weight: 400;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-
-.race-time-status {
-  flex-shrink: 0;
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 99px;
-  font-family: 'JetBrains Mono';
-  font-size: .56rem;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.race-time-status.finished {
-  color: var(--dim);
-}
-
-.race-time-status.current {
-  color: var(--green);
-  border-color: rgba(0,213,126,.28);
-  background: rgba(0,213,126,.08);
-}
-
-.race-time-status.upcoming {
-  color: var(--amber);
-  border-color: rgba(255,176,32,.28);
-  background: rgba(255,176,32,.08);
-}
-
-.race-time-race {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  font-family: 'JetBrains Mono';
-  font-size: .66rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--team);
-}
-
-.race-time-race::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 10px currentColor;
-}
-
-.race-time-sessions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(138px,1fr));
-  gap: 7px;
-  margin-top: 13px;
-}
-
-.race-time-session {
+.rt-date {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 9px;
-  border: 1px solid rgba(255,255,255,.06);
-  border-radius: var(--r-xs);
-  background: rgba(0,0,0,.22);
+  align-items: center;
+  gap: 2px;
+  padding-right: 14px;
+  border-right: 1px solid var(--line);
 }
 
-.race-time-session b {
+.rt-day {
+  font-family: 'Archivo';
+  font-weight: 800;
+  font-size: 1.15rem;
+  line-height: 1;
+  letter-spacing: -.01em;
+}
+
+.rt-mon {
   font-family: 'JetBrains Mono';
-  font-size: .53rem;
-  letter-spacing: .12em;
+  font-size: .58rem;
+  letter-spacing: .18em;
   text-transform: uppercase;
   color: var(--dim);
 }
 
-.race-time-session time {
+.rt-name {
+  font-family: 'Archivo';
+  font-weight: 700;
+  font-size: .82rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.rt-time {
   font-family: 'JetBrains Mono';
-  font-size: .61rem;
-  color: var(--muted);
+  font-size: .82rem;
+  color: var(--team);
   white-space: nowrap;
+}
+
+.rt-row.is-past .rt-day,
+.rt-row.is-past .rt-name {
+  color: var(--dim);
 }
 
 /* ═══════════════ MODALS ═══════════════ */
