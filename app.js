@@ -645,16 +645,31 @@ function getStreamEastSlug(event, session) {
 }
 
 const sources=[
+ {id:"sky-sports-f1",label:"Sky Sports F1",url:"https://flyembed.click/embed/44.php"},
+ {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
  {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
- {id:"sky-uk",label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
+ {id:"sky-uk",label:"Sky UHD",url:"https://strmfree.st/embed/racing/skyf1"},
  {id:"f1tv",label:"F1TV",suffix:""},
- {id:"sky-sports-f1",label:"Sky Sports F1",streamNum:1},
  {id:"appletv",label:"AppleTV",streamNum:3},
  {id:"dazn",label:"DAZN",streamNum:5},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
 const LIVE247_STATIONS = [
+  {
+    id: 'sky-sports-f1',
+    label: 'Sky Sports F1',
+    sub: '24/7 — Sky Sports F1 (Fly 44)',
+    url: 'https://flyembed.click/embed/44.php',
+    hideTransport: true
+  },
+  {
+    id: 'westream',
+    label: 'WeStream F1',
+    sub: '24/7 — WeStream',
+    url: 'https://westreamf1.com/westreamf1.php',
+    hideTransport: true
+  },
   {
     id: 'sky-uk-2',
     label: 'Sky UK 2',
@@ -665,8 +680,8 @@ const LIVE247_STATIONS = [
   },
   {
     id: 'sky-uk',
-    label: 'Sky UK',
-    sub: '24/7 Sky Sports F1 feed',
+    label: 'Sky UHD',
+    sub: '24/7 Sky UHD feed',
     url: 'https://strmfree.st/embed/racing/skyf1',
     rp: 'origin-when-cross-origin',
     hideTransport: true
@@ -2173,6 +2188,31 @@ const dSheet = $("driverSheet");
 const dProfile = $("driverProfile");
 let driverProfileToken = 0;
 const driverCareerCache = new Map();
+const CAREER_LS_TTL_MS = 12 * 60 * 60 * 1000; // 12h client cache — Jolpi is slow (multi-page + title checks)
+const CAREER_LS_PREFIX = 'freef1_career_v2_';
+const careerTitleCache = new Map(); // year -> champion driverId (or null)
+function readCareerLs(driverId){
+  try{
+    const raw = store.get(CAREER_LS_PREFIX + driverId);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(!obj || !obj.savedAt || !obj.career) return null;
+    if(Date.now() - Number(obj.savedAt) > CAREER_LS_TTL_MS) return null;
+    return obj.career;
+  }catch(_){ return null; }
+}
+function writeCareerLs(driverId, career){
+  try{
+    store.set(CAREER_LS_PREFIX + driverId, JSON.stringify({ savedAt: Date.now(), career }));
+    // LRU trim: keep at most 20 drivers
+    const keys = [];
+    try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf(CAREER_LS_PREFIX)===0) keys.push(k); } }catch(_){}
+    if(keys.length>20){
+      keys.sort((a,b)=>{ try{ return JSON.parse(store.get(a)||'{}').savedAt - JSON.parse(store.get(b)||'{}').savedAt; }catch(_){ return 0; } });
+      for(let i=0;i<keys.length-20;i++) try{ localStorage.removeItem(keys[i]); }catch(_){}
+    }
+  }catch(_){}
+}
 
 function getFollowing() {
   try {
@@ -2197,15 +2237,15 @@ function teamEntryForConstructor(name) {
   return teams.find((t) => t.id !== 'default' && (n.includes(t.name.toLowerCase()) || t.name.toLowerCase().includes(n))) || teams[0];
 }
 
-async function fetchCareerJson(url, attempts = 4) {
-  let wait = 800;
+async function fetchCareerJson(url, attempts = 3) {
+  let wait = 400;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fetchJson(url);
     } catch (err) {
       if (i === attempts - 1) throw err;
       await new Promise((r) => setTimeout(r, wait));
-      wait = Math.min(wait * 2, 6000);
+      wait = Math.min(wait * 2, 2000);
     }
   }
 }
@@ -2231,7 +2271,7 @@ async function fetchAllResults(driverId) {
   const offsets = [];
   for (let off = rows.length; off < total; off += 100) offsets.push(off);
   const pages = await mapPool(offsets, (off) =>
-    fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=${off}`).catch(() => null), 3);
+    fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=${off}`).catch(() => null), 6);
   for (const page of pages) {
     const batch = page?.MRData?.RaceTable?.Races || [];
     if (!batch.length) return null;
@@ -2242,8 +2282,26 @@ async function fetchAllResults(driverId) {
 
 function getDriverCareer(driverId) {
   if (driverCareerCache.has(driverId)) return driverCareerCache.get(driverId);
+  const ls = readCareerLs(driverId);
+  if (ls) {
+    const hit = Promise.resolve(ls);
+    driverCareerCache.set(driverId, hit);
+    return hit;
+  }
   const job = (async () => {
     try {
+      // 1) Try Render career proxy — 1 request vs 10-13 to Jolpi, 12h shared cache
+      try{
+        const r = await fetchWithTimeout(`${PUBLIC_API}/api/career/${encodeURIComponent(driverId)}`, { cache: 'no-store' }, 6000);
+        if(r.ok){
+          const j = await r.json().catch(()=>null);
+          if(j && j.career && typeof j.career.races === 'number'){
+            writeCareerLs(driverId, j.career);
+            return j.career;
+          }
+        }
+      }catch(_){}
+      // 2) Fallback: direct Jolpi from the browser (kept for preview/offline)
       const [raceRows, poles, seasons] = await Promise.all([
         fetchAllResults(driverId),
         fetchCareerJson(`${JOLPI}/drivers/${driverId}/qualifying/1/?limit=1`).catch(() => null),
@@ -2287,20 +2345,25 @@ function getDriverCareer(driverId) {
 
       if (titleSeasons.length) {
         const checkTitle = async (y) => {
+          if (careerTitleCache.has(y)) {
+            const champ = careerTitleCache.get(y);
+            return champ ? champ === driverId : false;
+          }
           try {
             const d = await fetchCareerJson(`${JOLPI}/${y}/driverstandings/1/?limit=1`);
-            const champ = d?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings?.[0]?.Driver?.driverId;
-            return champ ? champ === driverId : null;
+            const champ = d?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings?.[0]?.Driver?.driverId || null;
+            careerTitleCache.set(y, champ);
+            return champ ? champ === driverId : false;
           } catch (_) {
             return null;
           }
         };
-        const checks = await mapPool(titleSeasons, checkTitle, 2);
+        const checks = await mapPool(titleSeasons, checkTitle, 4);
         if (checks.includes(null)) return null;
         titles = checks.filter(Boolean).length;
       }
 
-      return {
+      const career = {
         races: races.length,
         wins,
         podiums,
@@ -2311,6 +2374,8 @@ function getDriverCareer(driverId) {
         span,
         titles
       };
+      writeCareerLs(driverId, career);
+      return career;
     } catch (_) {
       return null;
     }
