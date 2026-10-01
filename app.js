@@ -644,37 +644,32 @@ function getStreamEastSlug(event, session) {
   return `ppv-${ev}-${sess}`;
 }
 
-let sources=[
+const sources=[
+ {id:"sky-sports-f1",label:"Sky Sports F1",url:"https://flyembed.click/embed/44.php"},
+ {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
  {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
- {id:"sky-uk",label:"Sky UK",url:"https://strmfree.st/embed/racing/skyf1"},
+ {id:"sky-uk",label:"Sky UHD",url:"https://strmfree.st/embed/racing/skyf1"},
  {id:"f1tv",label:"F1TV",suffix:""},
- {id:"sky-sports-f1",label:"Sky Sports F1",streamNum:1},
  {id:"appletv",label:"AppleTV",streamNum:3},
  {id:"dazn",label:"DAZN",streamNum:5},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
-/* ── LAB — experimental cockpit replica (A–D). Only active on /lab, /experimental or when
-      window.__APEX_LAB is set before app.js loads. Main site is untouched. ── */
-const LAB_COCKPIT_EXTRA = [
-  {id:"lab-westream",label:"Westream F1",url:"https://westreamf1.com/westreamf1.php"},
-  {id:"lab-nexa7",label:"Nexa 7",url:"https://ch.nexa.st/ch.php?id=7"},
-  {id:"lab-fly41",label:"Fly 41",url:"https://flyembed.click/embed/41.php"},
-  {id:"lab-fly44",label:"Fly 44",url:"https://flyembed.click/embed/44.php"}
-];
-/* ── LAB 24/7 stripped cockpit — only A–D, always-on. Used by /experimental-cockpit ── */
-const __apexLabCockpit247 = (typeof window !== 'undefined') && Boolean(
-  window.__APEX_LAB_COCKPIT_247 || location.pathname.includes('lab-cockpit') || location.pathname.includes('experimental-cockpit')
-);
-const __apexLabEnabled = !__apexLabCockpit247 && (typeof window !== 'undefined') && Boolean(
-  window.__APEX_LAB || location.pathname.includes('/experimental')
-);
-if (__apexLabCockpit247) {
-  sources = LAB_COCKPIT_EXTRA.slice();
-} else if (__apexLabEnabled) {
-  sources.push(...LAB_COCKPIT_EXTRA);
-}
 
 const LIVE247_STATIONS = [
+  {
+    id: 'sky-sports-f1',
+    label: 'Sky Sports F1',
+    sub: '24/7 — Sky Sports F1 (Fly 44)',
+    url: 'https://flyembed.click/embed/44.php',
+    hideTransport: true
+  },
+  {
+    id: 'westream',
+    label: 'WeStream F1',
+    sub: '24/7 — WeStream',
+    url: 'https://westreamf1.com/westreamf1.php',
+    hideTransport: true
+  },
   {
     id: 'sky-uk-2',
     label: 'Sky UK 2',
@@ -685,8 +680,8 @@ const LIVE247_STATIONS = [
   },
   {
     id: 'sky-uk',
-    label: 'Sky UK',
-    sub: '24/7 Sky Sports F1 feed',
+    label: 'Sky UHD',
+    sub: '24/7 Sky UHD feed',
     url: 'https://strmfree.st/embed/racing/skyf1',
     rp: 'origin-when-cross-origin',
     hideTransport: true
@@ -700,18 +695,6 @@ const LIVE247_STATIONS = [
     hideTransport: true
   }
 ];
-const LAB_247_EXTRA = [
-  {id:'lab-westream',label:'Westream F1',sub:'24/7 — Westream (A)',url:'https://westreamf1.com/westreamf1.php',hideTransport:true},
-  {id:'lab-nexa7',label:'Nexa 7',sub:'24/7 — Nexa CH7 (B)',url:'https://ch.nexa.st/ch.php?id=7',hideTransport:true},
-  {id:'lab-fly41',label:'Fly 41',sub:'24/7 — FlyEmbed 41 (C)',url:'https://flyembed.click/embed/41.php',hideTransport:true},
-  {id:'lab-fly44',label:'Fly 44',sub:'24/7 — FlyEmbed 44 (D)',url:'https://flyembed.click/embed/44.php',hideTransport:true}
-];
-if (__apexLabCockpit247) {
-  // stripped page keeps 24/7 stations in sync with its cockpit (only A–D) — not used but consistent
-  LIVE247_STATIONS.splice(0, LIVE247_STATIONS.length, ...LAB_247_EXTRA);
-} else if (__apexLabEnabled) {
-  LIVE247_STATIONS.push(...LAB_247_EXTRA);
-}
 
 let disabledSources = new Set();
 const sourceEnabled = (s) => !disabledSources.has(s.id);
@@ -1127,7 +1110,7 @@ function load() {
     return;
   }
 
-  if (!__apexLabCockpit247 && !isStreamAvailable(currentSession)) {
+  if (!isStreamAvailable(currentSession)) {
     showNoStream();
     trackEvent('nostream');
     return;

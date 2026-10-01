@@ -46,18 +46,6 @@
 /247
   Cache-Control: public, max-age=0, must-revalidate
 
-/experimental
-  Cache-Control: public, max-age=0, must-revalidate
-
-/experimental.html
-  Cache-Control: public, max-age=0, must-revalidate
-
-/experimental-cockpit
-  Cache-Control: public, max-age=0, must-revalidate
-
-/experimental-cockpit.html
-  Cache-Control: public, max-age=0, must-revalidate
-
 /maintenance.css
   Cache-Control: public, max-age=3600, must-revalidate
 

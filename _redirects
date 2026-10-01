@@ -14,8 +14,4 @@
 /audio/     /index.html   200
 /247        /index.html   200
 /247/       /index.html   200
-/experimental        /experimental.html   200
-/experimental/       /experimental.html   200
-/experimental-cockpit        /experimental-cockpit.html   200
-/experimental-cockpit/       /experimental-cockpit.html   200
 # Everything else that doesn't exist falls through to /404.html (Netlify default).
