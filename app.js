@@ -910,6 +910,9 @@ function hideNoStream() {
 
 function setStreamOnScreen(on) {
   document.body.classList.toggle('has-stream', on);
+  // keep screen awake only while a stream is actually on-screen
+  if(on) requestScreenWakeLock().catch(()=>{});
+  else syncScreenWakeLock();
 }
 
 function pageHasActivation() {
@@ -990,6 +993,8 @@ function attemptSource(token, order, idx, startedAt) {
     updateStreamStartAffordance(true);
     trackEvent('stream_ready', Math.round(performance.now() - startedAt));
     f.classList.add('loaded');
+    setStreamOnScreen(true);
+    requestScreenWakeLock().catch(()=>{});
     setTimeout(() => {
       if (token === playerLoadToken) loaderEl?.classList.add('hidden');
     }, 180);
@@ -4306,6 +4311,61 @@ const LIVE247_RECOVER_DELAY_MS = 1200;
 const LIVE247_RECOVER_MAX = 2;        // auto-reloads per hijack burst before we give up
 const LIVE247_TOUCH = matchMedia('(pointer: coarse)').matches;
 
+// ── Keep screen awake while a stream is on — phones dim without touch
+let screenWakeLock = null;
+let screenWakeFallbackVideo = null;
+async function requestScreenWakeLock(){
+  // Native Wake Lock (Chrome/Android, Safari 16.4+)
+  try{
+    if('wakeLock' in navigator){
+      if(screenWakeLock && !screenWakeLock.released) return true;
+      screenWakeLock = await navigator.wakeLock.request('screen');
+      screenWakeLock.addEventListener('release', ()=>{ screenWakeLock = null; });
+      // iOS/Safari drops lock on visibility hide — re-arm handled below
+      return true;
+    }
+  }catch(_){}
+  // iOS <16.4 fallback: silent looping video tricks WebKit into keeping screen on (NoSleep)
+  try{
+    if(!screenWakeFallbackVideo){
+      const v = document.createElement('video');
+      v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
+      v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+      v.style.cssText='position:fixed;top:-10px;left:-10px;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      // 1px silent mp4 — tiny data-uri so it works offline
+      v.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAu1tZGF0AAAAsAAAAEAGAEcEBwoAAAAPhYb+ABgAAAAEABAAAAAQABAAAAAQABAAAAAQABAAAAAQABAAAAAQABAAAAAQAAAAEAAAAP8AAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A';
+      document.body.appendChild(v);
+      screenWakeFallbackVideo = v;
+    }
+    await screenWakeFallbackVideo.play().catch(()=>{});
+    return true;
+  }catch(_){ return false; }
+}
+function releaseScreenWakeLock(){
+  try{ if(screenWakeLock && !screenWakeLock.released) screenWakeLock.release().catch(()=>{}); }catch(_){}
+  screenWakeLock = null;
+  try{ if(screenWakeFallbackVideo) screenWakeFallbackVideo.pause(); }catch(_){}
+}
+function syncScreenWakeLock(){
+  const want = (typeof live247Playing !== 'undefined' && live247Playing) || document.body.classList.contains('has-stream');
+  if(want) requestScreenWakeLock().catch(()=>{}); else releaseScreenWakeLock();
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible') syncScreenWakeLock();
+  else { /* Safari releases on hide — will re-request on show */ }
+});
+navigator.wakeLock?.addEventListener?.('release', ()=>{ /* handled per-lock */ });
+// Try immediately on load (will be blocked without gesture on most browsers — caught below)
+// + re-try on the very first user tap/key anywhere so it IS active as soon as they interact,
+// even before they hit Play. Once a stream is on, syncScreenWakeLock keeps it held.
+setTimeout(()=>{ requestScreenWakeLock().catch(()=>{}); }, 800);
+['click','touchstart','pointerdown','keydown','touchend'].forEach(ev=>{
+  document.addEventListener(ev, ()=>{
+    // if a stream is already on, this arms it; if not, it pre-warms so the next Play is instant
+    requestScreenWakeLock().catch(()=>{});
+  }, { once:true, passive:true, capture:true });
+});
+
 let live247Initialized = false;
 let live247StationId = 'sky-uk-2';   /* most reliable feed: default channel */
 let live247Playing = false;
@@ -4434,6 +4494,7 @@ function openLive247Shield({ announce = false } = {}) {
   live247ShieldArmed = false;
   const gate = $('live247Gate');
   if (gate) gate.hidden = true;
+  requestScreenWakeLock().catch(()=>{});
   const f = $('live247FrameWrap')?.querySelector('iframe');
   if (f) {
     try { f.focus({ preventScroll: true }); } catch (_) { try { f.focus(); } catch (_) {} }
@@ -4580,6 +4641,7 @@ function loadLive247Station(stationId, { auto = false } = {}) {
   live247Playing = true;
   live247SyncFsBar();
   trackEvent('live247_load', station.id);
+  requestScreenWakeLock().catch(()=>{});
   void auto;
   /* gate: 'auto' stations (the reliable feeds) start without a Start click —
      unless the feed hijacked recently, in which case the gate comes back. */
@@ -4598,6 +4660,7 @@ function stopLive247() {
   syncLive247ShieldBtn();
   live247SyncFsBar();
   live247Status('STOPPED');
+  syncScreenWakeLock();
 }
 
 function setupLive247Controls() {
