@@ -761,13 +761,25 @@
     </div>
   </div>
   <div class="checker"></div>
-  <div class="wrap"><div class="foot-bar" style="border-top:0">
+    <div class="wrap"><div class="foot-bar" style="border-top:0;gap:12px;flex-wrap:wrap">
     <span>© 2026 Apex - Independent Fan Project · Created by <span class="credit">doggo</span></span>
+    <button id="copyDiagnosticsBtn" type="button" style="font:600 11px/1 JetBrains Mono,monospace;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#e8ecf3;border-radius:999px;padding:8px 14px;cursor:pointer">Copy Diagnostics</button>
     <span>Photography © Wikimedia Commons · CC BY-SA</span>
   </div></div>
 </footer>
 
+<div class="modal" id="diagCautionOverlay" role="dialog" aria-modal="true" aria-labelledby="diagCautionTitle" hidden>
+  <div class="sheet" style="max-width:520px">
+    <div class="sheet-head"><h2 id="diagCautionTitle">Caution</h2><button class="x" id="diagCautionClose" type="button" aria-label="Close caution">&times;</button></div>
+    <p style="color:var(--muted);font-size:.92rem;line-height:1.65;margin:0 0 22px">You have copied browser and site information from your device that is only meant to help diagnose a problem. Make sure not to send this to anyone except a certified developer on the <b>FreeF1 Discord</b>.</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn" id="diagCautionDismiss" type="button">Dismiss</button>
+      <a class="btn primary" id="diagCautionDiscord" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">Discord</a>
+    </div>
+  </div>
+</div>
 
-<script src="/app.js?v=20261002-wakelock2" defer></script>
+
+<script src="/app.js?v=20261002-diag3" defer></script>
 </body>
 </html>

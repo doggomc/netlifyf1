@@ -655,7 +655,7 @@ const sources=[
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
-const LIVE247_STATIONS = [
+var LIVE247_STATIONS = [
   {
     id: 'sky-sports-f1',
     label: 'Sky Sports F1',
@@ -4302,18 +4302,18 @@ function updatePerformanceKpis(results, rcMessages, event, sessionType = "result
    sandbox="…allow-popups" (top-redirects stay dead; popups allowed so a host's
    "Disable sandbox" wall may still pass). Empty set = never sandboxed. */
 
-const LIVE247_HALFLOCK_IDS = new Set(); // e.g. new Set(['wikisport'])
-const LIVE247_MANNERS_KEY = 'freef1_247_manners';
-const LIVE247_NEAR_MS = 2500;   // blur this soon after hovering/tapping the player = suspect
-const LIVE247_TOAST_GAP_MS = 8000;
-const LIVE247_ESCALATION_MS = 120000; // after a hijack, force the Start gate this long
-const LIVE247_RECOVER_DELAY_MS = 1200;
-const LIVE247_RECOVER_MAX = 2;        // auto-reloads per hijack burst before we give up
-const LIVE247_TOUCH = matchMedia('(pointer: coarse)').matches;
+var LIVE247_HALFLOCK_IDS = new Set(); // e.g. new Set(['wikisport'])
+var LIVE247_MANNERS_KEY = 'freef1_247_manners';
+var LIVE247_NEAR_MS = 2500;   // blur this soon after hovering/tapping the player = suspect
+var LIVE247_TOAST_GAP_MS = 8000;
+var LIVE247_ESCALATION_MS = 120000; // after a hijack, force the Start gate this long
+var LIVE247_RECOVER_DELAY_MS = 1200;
+var LIVE247_RECOVER_MAX = 2;        // auto-reloads per hijack burst before we give up
+var LIVE247_TOUCH = matchMedia('(pointer: coarse)').matches;
 
 // ── Keep screen awake while a stream is on — phones dim without touch
-let screenWakeLock = null;
-let screenWakeFallbackVideo = null;
+var screenWakeLock = null;
+var screenWakeFallbackVideo = null;
 async function requestScreenWakeLock(){
   // Native Wake Lock (Chrome/Android, Safari 16.4+)
   try{
@@ -4347,7 +4347,9 @@ function releaseScreenWakeLock(){
   try{ if(screenWakeFallbackVideo) screenWakeFallbackVideo.pause(); }catch(_){}
 }
 function syncScreenWakeLock(){
-  const want = (typeof live247Playing !== 'undefined' && live247Playing) || document.body.classList.contains('has-stream');
+  let want = false;
+  try{ want = !!live247Playing; }catch(_){}
+  want = want || document.body.classList.contains('has-stream');
   if(want) requestScreenWakeLock().catch(()=>{}); else releaseScreenWakeLock();
 }
 document.addEventListener('visibilitychange', ()=>{
@@ -4366,18 +4368,18 @@ setTimeout(()=>{ requestScreenWakeLock().catch(()=>{}); }, 800);
   }, { once:true, passive:true, capture:true });
 });
 
-let live247Initialized = false;
-let live247StationId = 'sky-uk-2';   /* most reliable feed: default channel */
-let live247Playing = false;
-let live247ShieldArmed = true;
-let live247LoadToken = 0;
-let live247LastNear = 0;
-let live247BlurSuspect = false;
-let live247FocusToastAt = 0;
-let live247KeyHintShown = false;
-let live247LastHijackAt = 0;
-let live247RecoverStreak = 0;
-let live247RecoverTimer = null;
+var live247Initialized = false;
+var live247StationId = 'sky-uk-2';   /* most reliable feed: default channel */
+var live247Playing = false;
+var live247ShieldArmed = true;
+var live247LoadToken = 0;
+var live247LastNear = 0;
+var live247BlurSuspect = false;
+var live247FocusToastAt = 0;
+var live247KeyHintShown = false;
+var live247LastHijackAt = 0;
+var live247RecoverStreak = 0;
+var live247RecoverTimer = null;
 
 function live247Status(text) {
   const el = $('live247StatusChip');
@@ -4693,3 +4695,221 @@ function setupLive247Controls() {
     else showToast('Fullscreen is not available in this browser.', 'warning');
   });
 }
+
+/* ═══════════════ DIAGNOSTICS — Copy Diagnostics button in footer ═══════════════ */
+function diagParseUA(ua){
+  ua = String(ua||'');
+  let browser='Unknown', bver='-', os='Unknown', over='-', device='Desktop';
+  if(/Edg\//.test(ua)){ browser='Edge'; const m=ua.match(/Edg\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/OPR\/|Opera/.test(ua)){ browser='Opera'; const m=ua.match(/(?:OPR|Opera)\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Chrome\//.test(ua) && !/Chromium|Edg/.test(ua)){ browser='Chrome'; const m=ua.match(/Chrome\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Firefox\//.test(ua)){ browser='Firefox'; const m=ua.match(/Firefox\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Safari\//.test(ua) && !/Chrome/.test(ua)){ browser='Safari'; const m=ua.match(/Version\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Brave/.test(ua)){ browser='Brave'; bver='-'; }
+  if(/Windows NT ([\d.]+)/.test(ua)){ os='Windows'; const m=ua.match(/Windows NT ([\d.]+)/); over=m?m[1]:'-'; const map={'10.0':'10/11','6.3':'8.1','6.2':'8','6.1':'7'}; over=map[over]||over; }
+  else if(/Mac OS X ([\d_]+)/.test(ua)){ os='macOS'; const m=ua.match(/Mac OS X ([\d_]+)/); over=m?m[1].replace(/_/g,'.'):'-'; }
+  else if(/Android ([\d.]+)/.test(ua)){ os='Android'; const m=ua.match(/Android ([\d.]+)/); over=m?m[1]:'-'; }
+  else if(/iPhone|iPad|iPod/.test(ua)){ os='iOS'; const m=ua.match(/OS ([\d_]+)/); over=m?m[1].replace(/_/g,'.'):'-'; }
+  else if(/Linux/.test(ua)) os='Linux';
+  else if(/CrOS/.test(ua)) os='Chrome OS';
+  if(/Mobile|iPhone|Android.*Mobile/.test(ua)) device='Mobile';
+  else if(/Tablet|iPad/.test(ua)) device='Tablet';
+  else device='Desktop';
+  return {browser, bver, os, over, device, ua};
+}
+async function diagPing(url, label){
+  const t0 = performance.now();
+  const cleanUrl = String(url||'');
+  if(!cleanUrl) return {label, url: cleanUrl, ok:false, status:'-', ms:0, error:'no url'};
+  // Try HEAD first (405 on some hosts like strmfree — we treat that as alive and retry GET)
+  try{
+    const ctrl = new AbortController();
+    const to = setTimeout(()=>ctrl.abort(), 5000);
+    const r = await fetch(cleanUrl, { method:'HEAD', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow', signal: ctrl.signal, headers:{'Accept':'*/*'} });
+    clearTimeout(to);
+    const ms = Math.round(performance.now()-t0);
+    // HEAD 405 on strmfree is expected — actually alive
+    if(r.status===405) return {label, url: cleanUrl, ok:true, status:'405 (HEAD not allowed — GET would be 200)', ms, error:''};
+    return {label, url: cleanUrl, ok: r.ok, status: String(r.status), ms, error: r.ok?'':'HTTP '+r.status};
+  }catch(e){
+    const msg = String(e && e.message || e);
+    // CORS block shows as TypeError Failed to fetch — stream may still be alive via iframe
+    if(/Failed to fetch|Load failed|NetworkError|CORS|aborted/i.test(msg)){
+      // Retry GET no-cors to see if network at least reachable (opaque)
+      try{
+        const ctrl2 = new AbortController();
+        const to2 = setTimeout(()=>ctrl2.abort(), 4000);
+        const r2 = await fetch(cleanUrl, { method:'GET', mode:'no-cors', cache:'no-store', redirect:'follow', signal: ctrl2.signal });
+        clearTimeout(to2);
+        const ms2 = Math.round(performance.now()-t0);
+        // opaque = 0 but no network error = reachable, likely 200 behind CORS
+        if(r2.type==='opaque') return {label, url: cleanUrl, ok:true, status:'0 (opaque/no-cors — host reachable, CORS hides status)', ms: ms2, error:'CORS hides status — iframe can still load'};
+        return {label, url: cleanUrl, ok:false, status:'0', ms: ms2, error: msg};
+      }catch(e2){
+        const ms2 = Math.round(performance.now()-t0);
+        return {label, url: cleanUrl, ok:false, status:'-', ms: ms2, error: msg + ' | ' + String(e2.message||e2)};
+      }
+    }
+    const ms = Math.round(performance.now()-t0);
+    return {label, url: cleanUrl, ok:false, status:'-', ms, error: msg};
+  }
+}
+function diagBool(v){ return v ? 'yes' : 'no'; }
+async function buildDiagnosticsReport(){
+  const now = new Date();
+  const du = diagParseUA(navigator.userAgent||'');
+  const conn = navigator.connection || {};
+  const tz = (()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||'-'; }catch(_){ return '-'; }})();
+  const lang = navigator.language || '-';
+  const scr = window.screen || {};
+  // site state — guard for early load
+  let curEv='-', curSess='-', curSrc='-', curUrl='-', active='-';
+  let avail='-', disabled='-', build='-';
+  let iframeInfo='-';
+  let hasStream = document.body.classList.contains('has-stream');
+  try{ curEv = (typeof currentEvent!=='undefined' && currentEvent) ? (currentEvent.name + ' R' + currentEvent.round + ' ('+currentEvent.slug+')') : '-'; }catch(_){}
+  try{ curSess = (typeof currentSession!=='undefined' && currentSession) ? (currentSession.name + ' ('+currentSession.slug+')') : '-'; }catch(_){}
+  try{ const s=(typeof sources!=='undefined' && typeof currentSource!=='undefined') ? sources[currentSource] : null; curSrc = s ? (s.label + ' ['+s.id+']') : '-'; curUrl = (typeof buildUrl==='function' && typeof currentSource!=='number'?'-': (typeof buildUrl==='function' ? buildUrl(currentSource) : (s?.url||'-'))); }catch(_){}
+  try{ active = (typeof activeView!=='undefined'?activeView:'-'); }catch(_){}
+  try{ avail = (typeof isStreamAvailable==='function' && typeof currentSession!=='undefined') ? String(isStreamAvailable(currentSession)) : '-'; }catch(_){}
+  try{ disabled = (typeof disabledSources!=='undefined' ? [...disabledSources].join(', ')||'(none)' : '-'); }catch(_){}
+  try{ const el = document.querySelector('#player iframe, #live247FrameWrap iframe'); if(el){ iframeInfo = 'src='+ (el.src||'-').slice(0,120) + ' | sandbox=' + (el.getAttribute('sandbox')||'(none)') + ' | allow='+(el.getAttribute('allow')||'-').slice(0,80) + ' | loaded='+el.classList.contains('loaded'); } else iframeInfo='(no iframe in DOM)'; }catch(_){}
+  // storage / permissions
+  let lsOk='-', wakeOk='-';
+  try{ localStorage.setItem('__diag','1'); localStorage.removeItem('__diag'); lsOk='yes'; }catch(_){ lsOk='no ('+String(_).slice(0,60)+')'; }
+  try{ wakeOk = ('wakeLock' in navigator) ? 'yes' : 'no'; }catch(_){ wakeOk='no'; }
+  // buildUrl for each source
+  let srcList='-';
+  try{
+    if(typeof sources!=='undefined') srcList = sources.map((s,i)=>{
+      let u='-';
+      try{ u = (typeof buildUrl==='function' ? buildUrl(i) : (s.url||'(suffix)')).slice(0,100); }catch(_){ u=s.url||'-'; }
+      const en = (typeof disabledSources!=='undefined' ? !disabledSources.has(s.id) : true) ? 'enabled' : 'DISABLED';
+      return `  ${i}. ${s.label} [${s.id}] ${en} -> ${u}`;
+    }).join('\n');
+    else srcList='-';
+  }catch(_){}
+  let liveList='-';
+  try{
+    if(typeof LIVE247_STATIONS!=='undefined') liveList = LIVE247_STATIONS.map(s=>`  ${s.label} [${s.id}] ${s.url.slice(0,90)} ${s.gate?'gate:'+s.gate:''} ${s.hideTransport?'hideTransport':''}`).join('\n');
+  }catch(_){}
+  // ping all streams — parallel, 6 at a time via our mapPool if available else Promise.all
+  const pingTargets = [];
+  try{
+    if(typeof sources!=='undefined') sources.forEach(s=>{
+      let u='-'; try{ u = (typeof buildUrl==='function' ? buildUrl(sources.indexOf(s)) : (s.url||'')); }catch(_){ u=s.url||''; }
+      // filter out empty suffix builds that aren't real URLs
+      if(u && u.startsWith('http')) pingTargets.push({label: 'COCKPIT '+s.label+' ['+s.id+']', url: u});
+    });
+  }catch(_){}
+  try{
+    if(typeof LIVE247_STATIONS!=='undefined') LIVE247_STATIONS.forEach(s=>{
+      if(s.url && s.url.startsWith('http')) pingTargets.push({label: '247 '+s.label+' ['+s.id+']', url: s.url});
+    });
+  }catch(_){}
+  // also ping site APIs
+  pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/site/status'});
+  pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/status'});
+  let pingResults='(no targets)';
+  try{
+    // use mapPool if exists
+    const poolFn = (typeof mapPool==='function' ? (items,fn)=>mapPool(items,fn,4) : (items,fn)=>Promise.all(items.map(fn)));
+    const out = await poolFn(pingTargets, t=>diagPing(t.url, t.label));
+    pingResults = out.map(r=>{
+      const flag = r.ok ? 'OK' : 'FAIL';
+      return `  [${flag}] ${r.status} ${r.ms}ms | ${r.label}\n       ${r.url}\n       ${r.error||''}`.trimEnd();
+    }).join('\n\n');
+  }catch(_){ pingResults='ping failed: '+String(_).slice(0,300); }
+
+  const lines = [
+    '════════ FreeF1 Diagnostics — Copy & send to @doggo ═════════',
+    `Generated: ${now.toISOString()}  (${now.toString().slice(0,33)})`,
+    `Page: ${location.href}`,
+    `Referrer: ${document.referrer||'(none)'}  •  Host: ${location.host}  •  Authorized: ${(() => { try{ return typeof isAuthorizedHost==='function' ? String(isAuthorizedHost(location.hostname)) : '-'; }catch(_){ return '-'; }})()}`,
+    '',
+    '— Browser & OS —',
+    `UA: ${du.ua}`,
+    `Browser: ${du.browser} ${du.bver}  •  OS: ${du.os} ${du.over}  •  Device: ${du.device}  •  Vendor: ${navigator.vendor||'-'}`,
+    `Platform: ${navigator.platform||'-'}  •  Lang: ${lang} (${(navigator.languages||[]).join(', ')||'-'})  •  Cookie: ${diagBool(navigator.cookieEnabled)}  •  OnLine: ${diagBool(navigator.onLine)}  •  DNT: ${navigator.doNotTrack||'-'}`,
+    `HW: cores=${navigator.hardwareConcurrency||'-'}  mem=${navigator.deviceMemory||'-'}GB  touch=${navigator.maxTouchPoints||0}  pdf=${navigator.pdfViewerEnabled?'yes':'no'}`,
+    `Screen: ${scr.width||'-'}x${scr.height||'-'} avail ${scr.availWidth||'-'}x${scr.availHeight||'-'}  Viewport: ${innerWidth}x${innerHeight} outer ${outerWidth||'-'}x${outerHeight||'-'} DPR ${devicePixelRatio}`,
+    `Orientation: ${(screen.orientation&&screen.orientation.type)||'-'}  Connection: ${conn.effectiveType||'-'} down ${conn.downlink||'-'}Mbps rtt ${conn.rtt||'-'}ms saveData ${conn.saveData?'yes':'no'}`,
+    `Timezone: ${tz}  offset ${now.getTimezoneOffset()}min  WakeLock: ${wakeOk}  Storage: ${lsOk}  Fullscreen: ${diagBool(document.fullscreenEnabled)}  EncryptedMedia: ${diagBool(!!window.MediaKeys)}`,
+    '',
+    '— Site —',
+    `SITE_SEASON: ${(typeof SITE_SEASON!=='undefined'?SITE_SEASON:'-')}  Event: ${curEv}  Session: ${curSess}  SessionAvailable: ${avail}`,
+    `ActiveView: ${active}  CurrentSource: ${curSrc}`,
+    `BuildUrl: ${String(curUrl).slice(0,140)}`,
+    `DisabledSources: ${disabled}`,
+    `has-stream: ${diagBool(hasStream)}  live247Playing: ${(typeof live247Playing!=='undefined'?String(live247Playing):'-')}  live247ShieldArmed: ${(typeof live247ShieldArmed!=='undefined'?String(live247ShieldArmed):'-')}  live247Station: ${(typeof live247StationId!=='undefined'?live247StationId:'-')}`,
+    `Iframe: ${iframeInfo}`,
+    `Loader: ${(document.querySelector('#loader')?.classList.contains('hidden')?'hidden':'visible')}  NoStream: ${(document.querySelector('#noStream')?.classList.contains('visible')?'visible':'hidden')}  StreamStartBtn: ${(document.querySelector('#streamStart')?.hidden?'hidden':'visible')}`,
+    `App: ${location.pathname}  Script: ${(document.querySelector('script[src*="/app.js"]')?.getAttribute('src')||'-')}`,
+    '',
+    '— Sources (cockpit order, same as chips) —',
+    srcList,
+    '',
+    '— 24/7 Stations —',
+    liveList,
+    '',
+    '— Network pings (HEAD 5s; 405=alive on strmfree, 0/opaque=CORS hides status but reachable) —',
+    pingResults,
+    '',
+    '— Console hints —',
+    'If any cockpit above is FAIL + 403/404, that feed is blocked on this network. Try: disable ad-blocker / VPN / DNS filter / Private Relay, or tap Open in new tab. 405 on strmfree is OK (means GET is 200). 0/opaque + CORS means host reachable but browser hides code — iframe can still work.',
+    '════════ end — paste this whole block ═════════'
+  ];
+  return lines.join('\n');
+}
+function showDiagCaution(){
+  const o=document.getElementById('diagCautionOverlay');
+  if(!o) return;
+  o.hidden=false;
+  // force reflow for transition if CSS uses .open
+  void o.offsetWidth;
+  o.classList.add('open');
+  document.body.style.overflow='hidden';
+  // focus dismiss for a11y
+  setTimeout(()=>document.getElementById('diagCautionDismiss')?.focus(), 0);
+}
+function hideDiagCaution(){
+  const o=document.getElementById('diagCautionOverlay');
+  if(!o) return;
+  o.hidden=true;
+  o.classList.remove('open');
+  document.body.style.overflow='';
+}
+async function handleCopyDiagnostics(){
+  const btn = document.getElementById('copyDiagnosticsBtn');
+  const orig = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='Collecting…'; }
+  try{
+    showToast('Collecting diagnostics — pinging 8 feeds…', 'info');
+    const report = await buildDiagnosticsReport();
+    let copied=false;
+    try{ await navigator.clipboard.writeText(report); copied=true; }catch(_){
+      const ta=document.createElement('textarea');
+      ta.value=report; ta.style.cssText='position:fixed;top:-1000px;left:-1000px;opacity:0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try{ copied=document.execCommand('copy'); }catch(_){}
+      ta.remove();
+    }
+    if(copied) showToast('Diagnostics copied — paste to @doggo', 'success');
+    else { showToast('Copy failed — report printed to console', 'error'); console.log(report); }
+    console.log('%c'+report, 'font:11px/1.4 monospace; white-space:pre;');
+    // show caution after copy
+    showDiagCaution();
+  }catch(e){
+    showToast('Diagnostics failed: '+String(e).slice(0,80), 'error');
+    console.error(e);
+  }finally{
+    if(btn){ btn.textContent=orig; btn.disabled=false; }
+  }
+}
+document.getElementById('copyDiagnosticsBtn')?.addEventListener('click', handleCopyDiagnostics);
+document.getElementById('diagCautionClose')?.addEventListener('click', hideDiagCaution);
+document.getElementById('diagCautionDismiss')?.addEventListener('click', hideDiagCaution);
+document.getElementById('diagCautionOverlay')?.addEventListener('click', (e)=>{ if(e.target && e.target.id==='diagCautionOverlay') hideDiagCaution(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ const o=document.getElementById('diagCautionOverlay'); if(o && !o.hidden) hideDiagCaution(); }});
+document.getElementById('diagCautionDiscord')?.addEventListener('click', ()=>{ hideDiagCaution(); });
+
