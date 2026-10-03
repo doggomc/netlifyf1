@@ -4729,7 +4729,7 @@ async function diagPing(url, label){
     clearTimeout(to);
     const ms = Math.round(performance.now()-t0);
     // HEAD 405 on strmfree is expected — actually alive
-    if(r.status===405) return {label, url: cleanUrl, ok:true, status:'405 (HEAD not allowed — GET would be 200)', ms, error:''};
+    if(r.status===405) return {label, url: cleanUrl, ok:true, status:'405', ms, error:''};
     return {label, url: cleanUrl, ok: r.ok, status: String(r.status), ms, error: r.ok?'':'HTTP '+r.status};
   }catch(e){
     const msg = String(e && e.message || e);
@@ -4743,16 +4743,52 @@ async function diagPing(url, label){
         clearTimeout(to2);
         const ms2 = Math.round(performance.now()-t0);
         // opaque = 0 but no network error = reachable, likely 200 behind CORS
-        if(r2.type==='opaque') return {label, url: cleanUrl, ok:true, status:'0 (opaque/no-cors — host reachable, CORS hides status)', ms: ms2, error:'CORS hides status — iframe can still load'};
+        if(r2.type==='opaque') return {label, url: cleanUrl, ok:true, status:'opaque', ms: ms2, error:''};
         return {label, url: cleanUrl, ok:false, status:'0', ms: ms2, error: msg};
       }catch(e2){
         const ms2 = Math.round(performance.now()-t0);
-        return {label, url: cleanUrl, ok:false, status:'-', ms: ms2, error: msg + ' | ' + String(e2.message||e2)};
+        const short = /Failed to fetch|Load failed|NetworkError/i.test(msg) && /Failed to fetch|Load failed|NetworkError/i.test(String(e2.message||e2)) ? 'fetch blocked' : (msg + ' | ' + String(e2.message||e2)).slice(0,40);
+        return {label, url: cleanUrl, ok:false, status:'-', ms: ms2, error: short};
       }
     }
     const ms = Math.round(performance.now()-t0);
     return {label, url: cleanUrl, ok:false, status:'-', ms, error: msg};
   }
+}
+function diagIframePing(url, label){
+  return new Promise((resolve)=>{
+    const t0 = performance.now();
+    const cleanUrl = String(url||'');
+    if(!cleanUrl) return resolve({label, url: cleanUrl, ok:false, status:'-', ms:0, error:'no url'});
+    // Use hidden iframe to test if device can actually load the embed (fetch is CORS-blocked, iframe is not)
+    let done=false;
+    let to=null;
+    const finish=(ok,status,err)=>{
+      if(done) return;
+      done=true;
+      clearTimeout(to);
+      try{ iframe.remove(); }catch(_){}
+      const ms=Math.round(performance.now()-t0);
+      resolve({label, url: cleanUrl, ok, status, ms, error: err||''});
+    };
+    const iframe=document.createElement('iframe');
+    // Match live player attributes so adblock sees same as real embed
+    iframe.referrerPolicy='no-referrer';
+    iframe.setAttribute('allow','autoplay *; encrypted-media *; fullscreen *; picture-in-picture *');
+    // No sandbox — matches live cockpit (sandbox breaks streams)
+    iframe.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0;';
+    // onload = host reachable (even if player shows spinner, iframe HTML loaded)
+    iframe.onload=()=>finish(true,'iframe ok','');
+    iframe.onerror=()=>finish(false,'iframe blocked','');
+    // Timeout = blocked on device (DNS / adblock / network)
+    to=setTimeout(()=>finish(false,'timeout',''), 6000);
+    try{
+      iframe.src=cleanUrl;
+      document.body.appendChild(iframe);
+    }catch(e){
+      finish(false,'-', String(e).slice(0,60));
+    }
+  });
 }
 function diagBool(v){ return v ? 'yes' : 'no'; }
 async function buildDiagnosticsReport(){
@@ -4797,19 +4833,20 @@ async function buildDiagnosticsReport(){
   pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/sources', hideUrl:false});
   pingTargets.push({label:'API visitors active', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/visitors/active', hideUrl:false});
   let pingResults='(no targets)';
+  let out = [];
   try{
     // use mapPool if exists
     const poolFn = (typeof mapPool==='function' ? (items,fn)=>mapPool(items,fn,4) : (items,fn)=>Promise.all(items.map(fn)));
-    const outRaw = await poolFn(pingTargets, t=>diagPing(t.url, t.label));
-    const out = outRaw.map((r,i)=>({...r, hideUrl: !!pingTargets[i].hideUrl}));
+    const outRaw = await poolFn(pingTargets, t=> (t.label.startsWith('Stream ')||t.label.startsWith('247 ')) ? diagIframePing(t.url, t.label) : diagPing(t.url, t.label));
+    out = outRaw.map((r,i)=>({...r, hideUrl: !!pingTargets[i].hideUrl}));
     pingResults = out.map(r=>{
       const flag = r.ok ? 'OK' : 'FAIL';
       const isStream = r.label.startsWith('Stream ') || r.label.startsWith('247 ');
-      // hide URL for streams, only show for APIs
-      const urlLine = (r.hideUrl || isStream) ? '' : `\n       ${r.url}`;
-      const errLine = r.error ? `\n       ${r.error}` : '';
-      return `  [${flag}] ${r.status} ${r.ms}ms | ${r.label}${urlLine}${errLine}`.trimEnd();
-    }).join('\n\n');
+      const urlPart = (r.hideUrl || isStream) ? '' : ` | ${r.url}`;
+      // keep error inline, short — no extra newline to stay <1900 for 17 pings
+      const err = r.error ? ` — ${String(r.error).slice(0,70)}` : '';
+      return `[${flag}] ${r.status} ${r.ms}ms | ${r.label}${urlPart}${err}`;
+    }).join('\n');
   }catch(_){ pingResults='ping failed: '+String(_).slice(0,300); }
 
   // Discord-ready, ordered, compact (<1900 chars so it fits one Discord message)
@@ -4846,18 +4883,28 @@ async function buildDiagnosticsReport(){
     '```',
     `*Send only to certified FreeF1 Discord devs. Generated ${gen} • ${location.href}*`
   ].join('\n');
-  // Fallback if >1900 chars (Discord limit 2000) — truncate pings
+  // Fallback if >1900 chars — keep ALL streams but strip error details to fit
   if(report.length > 1900){
-    const shortPings = String(pingResults||'').split('\n\n').slice(0,6).join('\n\n').slice(0,900);
-    return [
-      `**FreeF1 Diagnostics** • ${gen}`,
-      `> ${sys.slice(0,100)}`,
-      `> ${site.slice(0,100)}`,
+    const compactPings = out.map(r=>{
+      const flag = r.ok ? 'OK' : 'FAIL';
+      return `[${flag}] ${r.status} | ${r.label}`;
+    }).join('\n');
+    const compact = [
+      `**FreeF1 Diagnostics** • ${gen} • ${hostLine}`,
+      `> **System** • ${sys.slice(0,90)}`,
+      `> **Site** • ${site.slice(0,90)}`,
       '```ansi',
-      shortPings,
+      String(compactPings).split('\n').map(l=>{
+        const isOk = l.includes('[OK]');
+        const color = isOk ? '\u001b[0;32m' : '\u001b[0;31m';
+        return `${color}${isOk?'✔':'✘'} ${l.replace(/^\s*\[(?:OK|FAIL)\]\s*/,'')}\u001b[0m`;
+      }).join('\n'),
       '```',
-      `*Truncated — full in console (F12). ${location.href}*`
+      `*Compact — full in console (F12). ${location.href}*`
     ].join('\n');
+    if(compact.length < 1900) return compact;
+    // last resort: truncate but warn
+    return compact.slice(0,1880)+'\n```';
   }
   return report;
 }
