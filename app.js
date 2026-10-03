@@ -4769,47 +4769,21 @@ async function buildDiagnosticsReport(){
   let hasStream = document.body.classList.contains('has-stream');
   try{ curEv = (typeof currentEvent!=='undefined' && currentEvent) ? (currentEvent.name + ' R' + currentEvent.round + ' ('+currentEvent.slug+')') : '-'; }catch(_){}
   try{ curSess = (typeof currentSession!=='undefined' && currentSession) ? (currentSession.name + ' ('+currentSession.slug+')') : '-'; }catch(_){}
-  try{ const s=(typeof sources!=='undefined' && typeof currentSource!=='undefined') ? sources[currentSource] : null; curSrc = s ? (s.label + ' ['+s.id+']') : '-'; curUrl = (typeof buildUrl==='function' && typeof currentSource!=='number'?'-': (typeof buildUrl==='function' ? buildUrl(currentSource) : (s?.url||'-'))); }catch(_){}
+  try{ const s=(typeof sources!=='undefined' && typeof currentSource!=='undefined') ? sources[currentSource] : null; curSrc = s ? (s.label + ' ['+s.id+']') : '-'; curUrl = '(hidden)'; }catch(_){}
   try{ active = (typeof activeView!=='undefined'?activeView:'-'); }catch(_){}
   try{ avail = (typeof isStreamAvailable==='function' && typeof currentSession!=='undefined') ? String(isStreamAvailable(currentSession)) : '-'; }catch(_){}
   try{ disabled = (typeof disabledSources!=='undefined' ? [...disabledSources].join(', ')||'(none)' : '-'); }catch(_){}
-  try{ const el = document.querySelector('#player iframe, #live247FrameWrap iframe'); if(el){ iframeInfo = 'src='+ (el.src||'-').slice(0,120) + ' | sandbox=' + (el.getAttribute('sandbox')||'(none)') + ' | allow='+(el.getAttribute('allow')||'-').slice(0,80) + ' | loaded='+el.classList.contains('loaded'); } else iframeInfo='(no iframe in DOM)'; }catch(_){}
+  try{ const el = document.querySelector('#player iframe, #live247FrameWrap iframe'); if(el){ iframeInfo = 'sandbox=' + (el.getAttribute('sandbox')||'(none)') + ' | allow='+(el.getAttribute('allow')||'-').slice(0,80) + ' | loaded='+el.classList.contains('loaded') + ' | hasIframe=yes'; } else iframeInfo='(no iframe in DOM)'; }catch(_){}
   // storage / permissions
   let lsOk='-', wakeOk='-';
   try{ localStorage.setItem('__diag','1'); localStorage.removeItem('__diag'); lsOk='yes'; }catch(_){ lsOk='no ('+String(_).slice(0,60)+')'; }
   try{ wakeOk = ('wakeLock' in navigator) ? 'yes' : 'no'; }catch(_){ wakeOk='no'; }
-  // buildUrl for each source
-  let srcList='-';
-  try{
-    if(typeof sources!=='undefined') srcList = sources.map((s,i)=>{
-      let u='-';
-      try{ u = (typeof buildUrl==='function' ? buildUrl(i) : (s.url||'(suffix)')).slice(0,100); }catch(_){ u=s.url||'-'; }
-      const en = (typeof disabledSources!=='undefined' ? !disabledSources.has(s.id) : true) ? 'enabled' : 'DISABLED';
-      return `  ${i}. ${s.label} [${s.id}] ${en} -> ${u}`;
-    }).join('\n');
-    else srcList='-';
-  }catch(_){}
-  let liveList='-';
-  try{
-    if(typeof LIVE247_STATIONS!=='undefined') liveList = LIVE247_STATIONS.map(s=>`  ${s.label} [${s.id}] ${s.url.slice(0,90)} ${s.gate?'gate:'+s.gate:''} ${s.hideTransport?'hideTransport':''}`).join('\n');
-  }catch(_){}
-  // ping all streams — parallel, 6 at a time via our mapPool if available else Promise.all
+  // ping only site APIs — do NOT expose stream URLs (user requested: shouldn't show sources)
   const pingTargets = [];
-  try{
-    if(typeof sources!=='undefined') sources.forEach(s=>{
-      let u='-'; try{ u = (typeof buildUrl==='function' ? buildUrl(sources.indexOf(s)) : (s.url||'')); }catch(_){ u=s.url||''; }
-      // filter out empty suffix builds that aren't real URLs
-      if(u && u.startsWith('http')) pingTargets.push({label: 'COCKPIT '+s.label+' ['+s.id+']', url: u});
-    });
-  }catch(_){}
-  try{
-    if(typeof LIVE247_STATIONS!=='undefined') LIVE247_STATIONS.forEach(s=>{
-      if(s.url && s.url.startsWith('http')) pingTargets.push({label: '247 '+s.label+' ['+s.id+']', url: s.url});
-    });
-  }catch(_){}
-  // also ping site APIs
   pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/site/status'});
   pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/status'});
+  pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/sources'});
+  pingTargets.push({label:'API visitors active', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/visitors/active'});
   let pingResults='(no targets)';
   try{
     // use mapPool if exists
@@ -4838,25 +4812,18 @@ async function buildDiagnosticsReport(){
     '',
     '— Site —',
     `SITE_SEASON: ${(typeof SITE_SEASON!=='undefined'?SITE_SEASON:'-')}  Event: ${curEv}  Session: ${curSess}  SessionAvailable: ${avail}`,
-    `ActiveView: ${active}  CurrentSource: ${curSrc}`,
-    `BuildUrl: ${String(curUrl).slice(0,140)}`,
+    `ActiveView: ${active}  CurrentSource: ${curSrc}  •  SessionAvailable: ${avail}`,
     `DisabledSources: ${disabled}`,
     `has-stream: ${diagBool(hasStream)}  live247Playing: ${(typeof live247Playing!=='undefined'?String(live247Playing):'-')}  live247ShieldArmed: ${(typeof live247ShieldArmed!=='undefined'?String(live247ShieldArmed):'-')}  live247Station: ${(typeof live247StationId!=='undefined'?live247StationId:'-')}`,
     `Iframe: ${iframeInfo}`,
     `Loader: ${(document.querySelector('#loader')?.classList.contains('hidden')?'hidden':'visible')}  NoStream: ${(document.querySelector('#noStream')?.classList.contains('visible')?'visible':'hidden')}  StreamStartBtn: ${(document.querySelector('#streamStart')?.hidden?'hidden':'visible')}`,
     `App: ${location.pathname}  Script: ${(document.querySelector('script[src*="/app.js"]')?.getAttribute('src')||'-')}`,
     '',
-    '— Sources (cockpit order, same as chips) —',
-    srcList,
-    '',
-    '— 24/7 Stations —',
-    liveList,
-    '',
-    '— Network pings (HEAD 5s; 405=alive on strmfree, 0/opaque=CORS hides status but reachable) —',
+    '— Network (site APIs only — stream URLs hidden) —',
     pingResults,
     '',
     '— Console hints —',
-    'If any cockpit above is FAIL + 403/404, that feed is blocked on this network. Try: disable ad-blocker / VPN / DNS filter / Private Relay, or tap Open in new tab. 405 on strmfree is OK (means GET is 200). 0/opaque + CORS means host reachable but browser hides code — iframe can still work.',
+    'If an API above is FAIL, try: disable ad-blocker / VPN / DNS filter / Private Relay, or hard-refresh. Site APIs should be 200.',
     '════════ end — paste this whole block ═════════'
   ];
   return lines.join('\n');
@@ -4884,7 +4851,7 @@ async function handleCopyDiagnostics(){
   const orig = btn ? btn.textContent : '';
   if(btn){ btn.disabled=true; btn.textContent='Collecting…'; }
   try{
-    showToast('Collecting diagnostics — pinging 8 feeds…', 'info');
+    showToast('Collecting diagnostics — checking site…', 'info');
     const report = await buildDiagnosticsReport();
     let copied=false;
     try{ await navigator.clipboard.writeText(report); copied=true; }catch(_){
