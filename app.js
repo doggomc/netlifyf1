@@ -4755,6 +4755,41 @@ async function diagPing(url, label){
     return {label, url: cleanUrl, ok:false, status:'-', ms, error: msg};
   }
 }
+function diagIframePing(url, label){
+  return new Promise((resolve)=>{
+    const t0 = performance.now();
+    const cleanUrl = String(url||'');
+    if(!cleanUrl) return resolve({label, url: cleanUrl, ok:false, status:'-', ms:0, error:'no url'});
+    // Use hidden iframe to test if device can actually load the embed (fetch is CORS-blocked, iframe is not)
+    let done=false;
+    let to=null;
+    const finish=(ok,status,err)=>{
+      if(done) return;
+      done=true;
+      clearTimeout(to);
+      try{ iframe.remove(); }catch(_){}
+      const ms=Math.round(performance.now()-t0);
+      resolve({label, url: cleanUrl, ok, status, ms, error: err||''});
+    };
+    const iframe=document.createElement('iframe');
+    // Match live player attributes so adblock sees same as real embed
+    iframe.referrerPolicy='no-referrer';
+    iframe.setAttribute('allow','autoplay *; encrypted-media *; fullscreen *; picture-in-picture *');
+    // No sandbox — matches live cockpit (sandbox breaks streams)
+    iframe.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0;';
+    // onload = host reachable (even if player shows spinner, iframe HTML loaded)
+    iframe.onload=()=>finish(true,'iframe ok','');
+    iframe.onerror=()=>finish(false,'iframe blocked','');
+    // Timeout = blocked on device (DNS / adblock / network)
+    to=setTimeout(()=>finish(false,'timeout',''), 6000);
+    try{
+      iframe.src=cleanUrl;
+      document.body.appendChild(iframe);
+    }catch(e){
+      finish(false,'-', String(e).slice(0,60));
+    }
+  });
+}
 function diagBool(v){ return v ? 'yes' : 'no'; }
 async function buildDiagnosticsReport(){
   const now = new Date();
@@ -4802,7 +4837,7 @@ async function buildDiagnosticsReport(){
   try{
     // use mapPool if exists
     const poolFn = (typeof mapPool==='function' ? (items,fn)=>mapPool(items,fn,4) : (items,fn)=>Promise.all(items.map(fn)));
-    const outRaw = await poolFn(pingTargets, t=>diagPing(t.url, t.label));
+    const outRaw = await poolFn(pingTargets, t=> (t.label.startsWith('Stream ')||t.label.startsWith('247 ')) ? diagIframePing(t.url, t.label) : diagPing(t.url, t.label));
     out = outRaw.map((r,i)=>({...r, hideUrl: !!pingTargets[i].hideUrl}));
     pingResults = out.map(r=>{
       const flag = r.ok ? 'OK' : 'FAIL';
