@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   APEX - Formula 1 Live Companion
+   FreeF1 - Formula 1 Live Companion
    Client Application Logic
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -70,12 +70,12 @@ const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
 const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord', performance: 'viewPerformance', track: 'viewPerformance', 247: 'view247', audio: 'view247' };
-const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1', performance: 'Performance & Timing - APEX F1', track: 'Performance & Timing - APEX F1', 247: '24/7 Streams - APEX F1', audio: '24/7 Streams - APEX F1' };
+const VIEW_TITLES = { news: 'News - FreeF1', info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1', performance: 'Performance & Timing - FreeF1', track: 'Performance & Timing - FreeF1', 247: '24/7 Streams - FreeF1', audio: '24/7 Streams - FreeF1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
 const INK_DARK = '#000';
-const APEX_MARK = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg>';
+const FREEF1_MARK = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg>';
 const TEAM_LOGO = (slug, w) => `https://media.formula1.com/image/upload/c_lfill,w_${w}/q_auto/v1740000001/common/f1/2026/${slug}/2026${slug}logowhite.webp`;
 
 const TEAM_HEX={'McLaren':'#FF8000','Ferrari':'#DC0000','Red Bull':'#1E41FF','Mercedes':'#00D2BE',
@@ -116,7 +116,7 @@ const DRIVER_KEY={max_verstappen:'verstappen',arvid_lindblad:'lindblad',
 const photoFor = (id) => DRIVER_PHOTO[DRIVER_KEY[id] || id] || null;
 
 const teams=[
- {id:'default',name:'Apex Red',color:'#E10600',text:'#fff',abbr:'APX'},
+ {id:'default',name:'FreeF1 Red',color:'#E10600',text:'#fff',abbr:'APX'},
  {id:'mclaren',name:'McLaren',color:'#FF8000',text:'#000',abbr:'MCL',logo:'mclaren'},
  {id:'ferrari',name:'Ferrari',color:'#DC0000',text:'#fff',abbr:'FER',logo:'ferrari'},
  {id:'redbull',name:'Red Bull Racing',color:'#1E41FF',text:'#fff',abbr:'RBR',logo:'redbullracing'},
@@ -425,10 +425,10 @@ function trapModalFocus(event) {
 }
 
 function showToast(msg, type) {
-  let t = document.getElementById('apexToast');
+  let t = document.getElementById('freef1Toast');
   if (!t) {
     t = document.createElement('div');
-    t.id = 'apexToast';
+    t.id = 'freef1Toast';
     t.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
     document.body.appendChild(t);
   }
@@ -753,7 +753,7 @@ function updateHeader() {
   if (heroTitle) heroTitle.textContent = first;
   if (heroTitle2) heroTitle2.textContent = last;
   if (activeView === 'home') {
-    document.title = currentEvent.name + " - APEX F1";
+    document.title = currentEvent.name + " - FreeF1";
     syncDocumentMeta('home');
   }
   if (heroSession) heroSession.textContent = currentSession.name + " · " + SITE_SEASON;
@@ -766,7 +766,7 @@ function updateHeader() {
 
   normalizeCurrentSource();
   const src = sources[currentSource] || { label: "-", suffix: "" };
-  if (stageLabel) stageLabel.textContent = "apex://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
+  if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
@@ -1189,7 +1189,7 @@ function applyMaintenanceMode(state) {
   }
 }
 
-window.__APEX_SITE_STATUS?.then((data) => applyMaintenanceMode(data?.maintenance));
+window.__FREEF1_SITE_STATUS?.then((data) => applyMaintenanceMode(data?.maintenance));
 
 function applySourceConfig(payload) {
   const disabled = Array.isArray(payload && payload.disabled) ? payload.disabled : [];
@@ -1884,7 +1884,7 @@ function syncDocumentMeta(route) {
   const ogUrl = document.querySelector('meta[property="og:url"]');
   if (ogUrl) ogUrl.setAttribute('content', url);
   const ogTitle = document.querySelector('meta[property="og:title"]');
-  const title = route === 'home' ? currentEvent.name + ' - APEX F1' : (VIEW_TITLES[route] || document.title);
+  const title = route === 'home' ? currentEvent.name + ' - FreeF1' : (VIEW_TITLES[route] || document.title);
   if (ogTitle) ogTitle.setAttribute('content', title);
 }
 
@@ -1897,7 +1897,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     const url = route === 'home' ? '/' : '/' + route;
     if (location.pathname !== url) history.pushState({ view: route }, '', url);
   }
-  document.title = route === 'home' ? currentEvent.name + " - APEX F1" : VIEW_TITLES[route];
+  document.title = route === 'home' ? currentEvent.name + " - FreeF1" : VIEW_TITLES[route];
   syncDocumentMeta(route);
   setActiveNav(route);
   closeNav();
@@ -3599,7 +3599,7 @@ function applyTeamTheme(id) {
   rs.setProperty('--team-ink', inkOn(t.color));
   rs.setProperty('--red-glow', t.color + '70');
   document.querySelectorAll('.tcard').forEach((c) => c.classList.toggle('on', c.dataset.team === id));
-  dispatchEvent(new CustomEvent('apexthemechange', { detail: { color: t.color } }));
+  dispatchEvent(new CustomEvent('freef1themechange', { detail: { color: t.color } }));
 }
 
 function teamBadge(t) {
@@ -3611,7 +3611,7 @@ function teamBadge(t) {
     ? `box-shadow:inset 0 0 0 1.5px ${t.color},0 8px 20px -8px rgba(0,0,0,.8);`
     : '';
   if (!t.logo) {
-    return `<div class="tbadge mark" style="background:${fill};${ring}color:${t.text}">${APEX_MARK}</div>`;
+    return `<div class="tbadge mark" style="background:${fill};${ring}color:${t.text}">${FREEF1_MARK}</div>`;
   }
   const s1 = TEAM_LOGO(t.logo, 48);
   const s2 = TEAM_LOGO(t.logo, 96);
@@ -3779,7 +3779,7 @@ addEventListener('keydown', (e) => {
     resizeTimer = setTimeout(size, 140);
   }, { passive: true });
   addEventListener('visibilitychange', start, { passive: true });
-  addEventListener('apexthemechange', (event) => {
+  addEventListener('freef1themechange', (event) => {
     readAccent(event.detail?.color);
     parts.forEach((part) => {
       part.sprite = makeSprite(part);
@@ -4778,55 +4778,88 @@ async function buildDiagnosticsReport(){
   let lsOk='-', wakeOk='-';
   try{ localStorage.setItem('__diag','1'); localStorage.removeItem('__diag'); lsOk='yes'; }catch(_){ lsOk='no ('+String(_).slice(0,60)+')'; }
   try{ wakeOk = ('wakeLock' in navigator) ? 'yes' : 'no'; }catch(_){ wakeOk='no'; }
-  // ping only site APIs — do NOT expose stream URLs (user requested: shouldn't show sources)
+  // ping site APIs + streams internally, but NEVER expose stream URLs in the report (hidden)
   const pingTargets = [];
-  pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/site/status'});
-  pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/status'});
-  pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/sources'});
-  pingTargets.push({label:'API visitors active', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/visitors/active'});
+  // add stream URLs internally (hidden from report)
+  try{
+    if(typeof sources!=='undefined') sources.forEach(s=>{
+      let u='-'; try{ u = (typeof buildUrl==='function' ? buildUrl(sources.indexOf(s)) : (s.url||'')); }catch(_){ u=s.url||''; }
+      if(u && u.startsWith('http')) pingTargets.push({label: 'Stream '+s.label+' ['+s.id+']', url: u, hideUrl:true});
+    });
+  }catch(_){}
+  try{
+    if(typeof LIVE247_STATIONS!=='undefined') LIVE247_STATIONS.forEach(s=>{
+      if(s.url && s.url.startsWith('http')) pingTargets.push({label: '247 '+s.label+' ['+s.id+']', url: s.url, hideUrl:true});
+    });
+  }catch(_){}
+  pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/site/status', hideUrl:false});
+  pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/status', hideUrl:false});
+  pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/sources', hideUrl:false});
+  pingTargets.push({label:'API visitors active', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/visitors/active', hideUrl:false});
   let pingResults='(no targets)';
   try{
     // use mapPool if exists
     const poolFn = (typeof mapPool==='function' ? (items,fn)=>mapPool(items,fn,4) : (items,fn)=>Promise.all(items.map(fn)));
-    const out = await poolFn(pingTargets, t=>diagPing(t.url, t.label));
+    const outRaw = await poolFn(pingTargets, t=>diagPing(t.url, t.label));
+    const out = outRaw.map((r,i)=>({...r, hideUrl: !!pingTargets[i].hideUrl}));
     pingResults = out.map(r=>{
       const flag = r.ok ? 'OK' : 'FAIL';
-      return `  [${flag}] ${r.status} ${r.ms}ms | ${r.label}\n       ${r.url}\n       ${r.error||''}`.trimEnd();
+      const isStream = r.label.startsWith('Stream ') || r.label.startsWith('247 ');
+      // hide URL for streams, only show for APIs
+      const urlLine = (r.hideUrl || isStream) ? '' : `\n       ${r.url}`;
+      const errLine = r.error ? `\n       ${r.error}` : '';
+      return `  [${flag}] ${r.status} ${r.ms}ms | ${r.label}${urlLine}${errLine}`.trimEnd();
     }).join('\n\n');
   }catch(_){ pingResults='ping failed: '+String(_).slice(0,300); }
 
-  const lines = [
-    '════════ FreeF1 Diagnostics — Copy & send to @doggo ═════════',
-    `Generated: ${now.toISOString()}  (${now.toString().slice(0,33)})`,
-    `Page: ${location.href}`,
-    `Referrer: ${document.referrer||'(none)'}  •  Host: ${location.host}  •  Authorized: ${(() => { try{ return typeof isAuthorizedHost==='function' ? String(isAuthorizedHost(location.hostname)) : '-'; }catch(_){ return '-'; }})()}`,
+  // Discord-ready, ordered, compact (<1900 chars so it fits one Discord message)
+  const gen = now.toISOString().slice(0,19).replace('T',' ') + ' UTC';
+  const hostLine = `${location.host}${location.pathname}`;
+  const uaShort = (du.ua||'').slice(0,120) + ((du.ua||'').length>120?'…':'');
+  // Build ordered sections
+  const sys = `${du.browser} ${du.bver} • ${du.os} ${du.over} • ${du.device} • ${innerWidth}x${innerHeight} DPR${devicePixelRatio} • TZ ${tz} • ${lang}`;
+  const site = `${curEv} • ${curSess} • ${curSrc} • has-stream ${diagBool(hasStream)} • live247 ${typeof live247Playing!=='undefined' ? (live247Playing?'yes':'no') : '-'}`;
+  // pingResults is already built as lines like "  [OK] 200 120ms | Stream WeStream [westream]" — convert to Discord ansi
+  const pingLines = String(pingResults||'').split('\n').filter(Boolean).map(l=>{
+    // l is "  [OK] 200 120ms | Stream WeStream [westream]" or API line
+    const isOk = l.includes('[OK]');
+    const isFail = l.includes('[FAIL]');
+    if(!isOk && !isFail) return l;
+    // Use ansi colors inside code block: green for OK, red for FAIL, gray for meta
+    const color = isOk ? '\u001b[0;32m' : '\u001b[0;31m';
+    const reset = '\u001b[0m';
+    // strip the leading "  [OK] " and keep rest
+    const rest = l.replace(/^\s*\[(?:OK|FAIL)\]\s*/, '');
+    const icon = isOk ? '✔' : '✘';
+    return `${color}${icon} ${rest}${reset}`;
+  }).join('\n');
+  // Main report — outside code block for header, inside ansi for network
+  const report = [
+    `**FreeF1 Diagnostics** • ${gen} • ${hostLine}`,
+    `> **System** • ${sys}`,
+    `> **Site** • ${site}`,
+    `> UA: \`${uaShort}\``,
+    `> Iframe: \`${String(iframeInfo).slice(0,110)}\` • Disabled: \`${String(disabled).slice(0,80)||'(none)'}\``,
     '',
-    '— Browser & OS —',
-    `UA: ${du.ua}`,
-    `Browser: ${du.browser} ${du.bver}  •  OS: ${du.os} ${du.over}  •  Device: ${du.device}  •  Vendor: ${navigator.vendor||'-'}`,
-    `Platform: ${navigator.platform||'-'}  •  Lang: ${lang} (${(navigator.languages||[]).join(', ')||'-'})  •  Cookie: ${diagBool(navigator.cookieEnabled)}  •  OnLine: ${diagBool(navigator.onLine)}  •  DNT: ${navigator.doNotTrack||'-'}`,
-    `HW: cores=${navigator.hardwareConcurrency||'-'}  mem=${navigator.deviceMemory||'-'}GB  touch=${navigator.maxTouchPoints||0}  pdf=${navigator.pdfViewerEnabled?'yes':'no'}`,
-    `Screen: ${scr.width||'-'}x${scr.height||'-'} avail ${scr.availWidth||'-'}x${scr.availHeight||'-'}  Viewport: ${innerWidth}x${innerHeight} outer ${outerWidth||'-'}x${outerHeight||'-'} DPR ${devicePixelRatio}`,
-    `Orientation: ${(screen.orientation&&screen.orientation.type)||'-'}  Connection: ${conn.effectiveType||'-'} down ${conn.downlink||'-'}Mbps rtt ${conn.rtt||'-'}ms saveData ${conn.saveData?'yes':'no'}`,
-    `Timezone: ${tz}  offset ${now.getTimezoneOffset()}min  WakeLock: ${wakeOk}  Storage: ${lsOk}  Fullscreen: ${diagBool(document.fullscreenEnabled)}  EncryptedMedia: ${diagBool(!!window.MediaKeys)}`,
-    '',
-    '— Site —',
-    `SITE_SEASON: ${(typeof SITE_SEASON!=='undefined'?SITE_SEASON:'-')}  Event: ${curEv}  Session: ${curSess}  SessionAvailable: ${avail}`,
-    `ActiveView: ${active}  CurrentSource: ${curSrc}  •  SessionAvailable: ${avail}`,
-    `DisabledSources: ${disabled}`,
-    `has-stream: ${diagBool(hasStream)}  live247Playing: ${(typeof live247Playing!=='undefined'?String(live247Playing):'-')}  live247ShieldArmed: ${(typeof live247ShieldArmed!=='undefined'?String(live247ShieldArmed):'-')}  live247Station: ${(typeof live247StationId!=='undefined'?live247StationId:'-')}`,
-    `Iframe: ${iframeInfo}`,
-    `Loader: ${(document.querySelector('#loader')?.classList.contains('hidden')?'hidden':'visible')}  NoStream: ${(document.querySelector('#noStream')?.classList.contains('visible')?'visible':'hidden')}  StreamStartBtn: ${(document.querySelector('#streamStart')?.hidden?'hidden':'visible')}`,
-    `App: ${location.pathname}  Script: ${(document.querySelector('script[src*="/app.js"]')?.getAttribute('src')||'-')}`,
-    '',
-    '— Network (site APIs only — stream URLs hidden) —',
-    pingResults,
-    '',
-    '— Console hints —',
-    'If an API above is FAIL, try: disable ad-blocker / VPN / DNS filter / Private Relay, or hard-refresh. Site APIs should be 200.',
-    '════════ end — paste this whole block ═════════'
-  ];
-  return lines.join('\n');
+    '```ansi',
+    pingLines || '\u001b[0;90mno pings\u001b[0m',
+    '```',
+    `*Send only to certified FreeF1 Discord devs. Generated ${gen} • ${location.href}*`
+  ].join('\n');
+  // Fallback if >1900 chars (Discord limit 2000) — truncate pings
+  if(report.length > 1900){
+    const shortPings = String(pingResults||'').split('\n\n').slice(0,6).join('\n\n').slice(0,900);
+    return [
+      `**FreeF1 Diagnostics** • ${gen}`,
+      `> ${sys.slice(0,100)}`,
+      `> ${site.slice(0,100)}`,
+      '```ansi',
+      shortPings,
+      '```',
+      `*Truncated — full in console (F12). ${location.href}*`
+    ].join('\n');
+  }
+  return report;
 }
 function showDiagCaution(){
   const o=document.getElementById('diagCautionOverlay');
@@ -4851,7 +4884,7 @@ async function handleCopyDiagnostics(){
   const orig = btn ? btn.textContent : '';
   if(btn){ btn.disabled=true; btn.textContent='Collecting…'; }
   try{
-    showToast('Collecting diagnostics — checking site…', 'info');
+    showToast('Collecting diagnostics — checking feeds & APIs…', 'info');
     const report = await buildDiagnosticsReport();
     let copied=false;
     try{ await navigator.clipboard.writeText(report); copied=true; }catch(_){

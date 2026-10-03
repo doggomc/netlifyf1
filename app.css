@@ -3315,7 +3315,7 @@ button:focus-visible,a:focus-visible,select:focus-visible {
   min-width: 0;
 }
 
-#apexToast {
+#freef1Toast {
   padding-bottom: env(safe-area-inset-bottom);
   padding-right: env(safe-area-inset-right);
 }
