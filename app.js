@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   APEX - Formula 1 Live Companion
+   FreeF1 - Formula 1 Live Companion
    Client Application Logic
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -70,12 +70,12 @@ const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
 const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord', performance: 'viewPerformance', track: 'viewPerformance', 247: 'view247', audio: 'view247' };
-const VIEW_TITLES = { news: 'News - APEX F1', info: 'Terms, Privacy & FAQ - APEX F1', discord: 'Discord - APEX F1', performance: 'Performance & Timing - APEX F1', track: 'Performance & Timing - APEX F1', 247: '24/7 Streams - APEX F1', audio: '24/7 Streams - APEX F1' };
+const VIEW_TITLES = { news: 'News - FreeF1', info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1', performance: 'Performance & Timing - FreeF1', track: 'Performance & Timing - FreeF1', 247: '24/7 Streams - FreeF1', audio: '24/7 Streams - FreeF1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
 const INK_DARK = '#000';
-const APEX_MARK = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg>';
+const FREEF1_MARK = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg>';
 const TEAM_LOGO = (slug, w) => `https://media.formula1.com/image/upload/c_lfill,w_${w}/q_auto/v1740000001/common/f1/2026/${slug}/2026${slug}logowhite.webp`;
 
 const TEAM_HEX={'McLaren':'#FF8000','Ferrari':'#DC0000','Red Bull':'#1E41FF','Mercedes':'#00D2BE',
@@ -116,7 +116,7 @@ const DRIVER_KEY={max_verstappen:'verstappen',arvid_lindblad:'lindblad',
 const photoFor = (id) => DRIVER_PHOTO[DRIVER_KEY[id] || id] || null;
 
 const teams=[
- {id:'default',name:'Apex Red',color:'#E10600',text:'#fff',abbr:'APX'},
+ {id:'default',name:'FreeF1 Red',color:'#E10600',text:'#fff',abbr:'APX'},
  {id:'mclaren',name:'McLaren',color:'#FF8000',text:'#000',abbr:'MCL',logo:'mclaren'},
  {id:'ferrari',name:'Ferrari',color:'#DC0000',text:'#fff',abbr:'FER',logo:'ferrari'},
  {id:'redbull',name:'Red Bull Racing',color:'#1E41FF',text:'#fff',abbr:'RBR',logo:'redbullracing'},
@@ -425,10 +425,10 @@ function trapModalFocus(event) {
 }
 
 function showToast(msg, type) {
-  let t = document.getElementById('apexToast');
+  let t = document.getElementById('freef1Toast');
   if (!t) {
     t = document.createElement('div');
-    t.id = 'apexToast';
+    t.id = 'freef1Toast';
     t.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
     document.body.appendChild(t);
   }
@@ -655,7 +655,7 @@ const sources=[
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
 ];
 
-const LIVE247_STATIONS = [
+var LIVE247_STATIONS = [
   {
     id: 'sky-sports-f1',
     label: 'Sky Sports F1',
@@ -753,7 +753,7 @@ function updateHeader() {
   if (heroTitle) heroTitle.textContent = first;
   if (heroTitle2) heroTitle2.textContent = last;
   if (activeView === 'home') {
-    document.title = currentEvent.name + " - APEX F1";
+    document.title = currentEvent.name + " - FreeF1";
     syncDocumentMeta('home');
   }
   if (heroSession) heroSession.textContent = currentSession.name + " · " + SITE_SEASON;
@@ -766,7 +766,7 @@ function updateHeader() {
 
   normalizeCurrentSource();
   const src = sources[currentSource] || { label: "-", suffix: "" };
-  if (stageLabel) stageLabel.textContent = "apex://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
+  if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
@@ -910,6 +910,9 @@ function hideNoStream() {
 
 function setStreamOnScreen(on) {
   document.body.classList.toggle('has-stream', on);
+  // keep screen awake only while a stream is actually on-screen
+  if(on) requestScreenWakeLock().catch(()=>{});
+  else syncScreenWakeLock();
 }
 
 function pageHasActivation() {
@@ -990,6 +993,8 @@ function attemptSource(token, order, idx, startedAt) {
     updateStreamStartAffordance(true);
     trackEvent('stream_ready', Math.round(performance.now() - startedAt));
     f.classList.add('loaded');
+    setStreamOnScreen(true);
+    requestScreenWakeLock().catch(()=>{});
     setTimeout(() => {
       if (token === playerLoadToken) loaderEl?.classList.add('hidden');
     }, 180);
@@ -1184,7 +1189,7 @@ function applyMaintenanceMode(state) {
   }
 }
 
-window.__APEX_SITE_STATUS?.then((data) => applyMaintenanceMode(data?.maintenance));
+window.__FREEF1_SITE_STATUS?.then((data) => applyMaintenanceMode(data?.maintenance));
 
 function applySourceConfig(payload) {
   const disabled = Array.isArray(payload && payload.disabled) ? payload.disabled : [];
@@ -1879,7 +1884,7 @@ function syncDocumentMeta(route) {
   const ogUrl = document.querySelector('meta[property="og:url"]');
   if (ogUrl) ogUrl.setAttribute('content', url);
   const ogTitle = document.querySelector('meta[property="og:title"]');
-  const title = route === 'home' ? currentEvent.name + ' - APEX F1' : (VIEW_TITLES[route] || document.title);
+  const title = route === 'home' ? currentEvent.name + ' - FreeF1' : (VIEW_TITLES[route] || document.title);
   if (ogTitle) ogTitle.setAttribute('content', title);
 }
 
@@ -1892,7 +1897,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     const url = route === 'home' ? '/' : '/' + route;
     if (location.pathname !== url) history.pushState({ view: route }, '', url);
   }
-  document.title = route === 'home' ? currentEvent.name + " - APEX F1" : VIEW_TITLES[route];
+  document.title = route === 'home' ? currentEvent.name + " - FreeF1" : VIEW_TITLES[route];
   syncDocumentMeta(route);
   setActiveNav(route);
   closeNav();
@@ -2188,6 +2193,31 @@ const dSheet = $("driverSheet");
 const dProfile = $("driverProfile");
 let driverProfileToken = 0;
 const driverCareerCache = new Map();
+const CAREER_LS_TTL_MS = 12 * 60 * 60 * 1000; // 12h client cache — Jolpi is slow (multi-page + title checks)
+const CAREER_LS_PREFIX = 'freef1_career_v2_';
+const careerTitleCache = new Map(); // year -> champion driverId (or null)
+function readCareerLs(driverId){
+  try{
+    const raw = store.get(CAREER_LS_PREFIX + driverId);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(!obj || !obj.savedAt || !obj.career) return null;
+    if(Date.now() - Number(obj.savedAt) > CAREER_LS_TTL_MS) return null;
+    return obj.career;
+  }catch(_){ return null; }
+}
+function writeCareerLs(driverId, career){
+  try{
+    store.set(CAREER_LS_PREFIX + driverId, JSON.stringify({ savedAt: Date.now(), career }));
+    // LRU trim: keep at most 20 drivers
+    const keys = [];
+    try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf(CAREER_LS_PREFIX)===0) keys.push(k); } }catch(_){}
+    if(keys.length>20){
+      keys.sort((a,b)=>{ try{ return JSON.parse(store.get(a)||'{}').savedAt - JSON.parse(store.get(b)||'{}').savedAt; }catch(_){ return 0; } });
+      for(let i=0;i<keys.length-20;i++) try{ localStorage.removeItem(keys[i]); }catch(_){}
+    }
+  }catch(_){}
+}
 
 function getFollowing() {
   try {
@@ -2212,15 +2242,15 @@ function teamEntryForConstructor(name) {
   return teams.find((t) => t.id !== 'default' && (n.includes(t.name.toLowerCase()) || t.name.toLowerCase().includes(n))) || teams[0];
 }
 
-async function fetchCareerJson(url, attempts = 4) {
-  let wait = 800;
+async function fetchCareerJson(url, attempts = 3) {
+  let wait = 400;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fetchJson(url);
     } catch (err) {
       if (i === attempts - 1) throw err;
       await new Promise((r) => setTimeout(r, wait));
-      wait = Math.min(wait * 2, 6000);
+      wait = Math.min(wait * 2, 2000);
     }
   }
 }
@@ -2246,7 +2276,7 @@ async function fetchAllResults(driverId) {
   const offsets = [];
   for (let off = rows.length; off < total; off += 100) offsets.push(off);
   const pages = await mapPool(offsets, (off) =>
-    fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=${off}`).catch(() => null), 3);
+    fetchCareerJson(`${JOLPI}/drivers/${driverId}/results/?limit=100&offset=${off}`).catch(() => null), 6);
   for (const page of pages) {
     const batch = page?.MRData?.RaceTable?.Races || [];
     if (!batch.length) return null;
@@ -2257,8 +2287,26 @@ async function fetchAllResults(driverId) {
 
 function getDriverCareer(driverId) {
   if (driverCareerCache.has(driverId)) return driverCareerCache.get(driverId);
+  const ls = readCareerLs(driverId);
+  if (ls) {
+    const hit = Promise.resolve(ls);
+    driverCareerCache.set(driverId, hit);
+    return hit;
+  }
   const job = (async () => {
     try {
+      // 1) Try Render career proxy — 1 request vs 10-13 to Jolpi, 12h shared cache
+      try{
+        const r = await fetchWithTimeout(`${PUBLIC_API}/api/career/${encodeURIComponent(driverId)}`, { cache: 'no-store' }, 6000);
+        if(r.ok){
+          const j = await r.json().catch(()=>null);
+          if(j && j.career && typeof j.career.races === 'number'){
+            writeCareerLs(driverId, j.career);
+            return j.career;
+          }
+        }
+      }catch(_){}
+      // 2) Fallback: direct Jolpi from the browser (kept for preview/offline)
       const [raceRows, poles, seasons] = await Promise.all([
         fetchAllResults(driverId),
         fetchCareerJson(`${JOLPI}/drivers/${driverId}/qualifying/1/?limit=1`).catch(() => null),
@@ -2302,20 +2350,25 @@ function getDriverCareer(driverId) {
 
       if (titleSeasons.length) {
         const checkTitle = async (y) => {
+          if (careerTitleCache.has(y)) {
+            const champ = careerTitleCache.get(y);
+            return champ ? champ === driverId : false;
+          }
           try {
             const d = await fetchCareerJson(`${JOLPI}/${y}/driverstandings/1/?limit=1`);
-            const champ = d?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings?.[0]?.Driver?.driverId;
-            return champ ? champ === driverId : null;
+            const champ = d?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings?.[0]?.Driver?.driverId || null;
+            careerTitleCache.set(y, champ);
+            return champ ? champ === driverId : false;
           } catch (_) {
             return null;
           }
         };
-        const checks = await mapPool(titleSeasons, checkTitle, 2);
+        const checks = await mapPool(titleSeasons, checkTitle, 4);
         if (checks.includes(null)) return null;
         titles = checks.filter(Boolean).length;
       }
 
-      return {
+      const career = {
         races: races.length,
         wins,
         podiums,
@@ -2326,6 +2379,8 @@ function getDriverCareer(driverId) {
         span,
         titles
       };
+      writeCareerLs(driverId, career);
+      return career;
     } catch (_) {
       return null;
     }
@@ -3544,7 +3599,7 @@ function applyTeamTheme(id) {
   rs.setProperty('--team-ink', inkOn(t.color));
   rs.setProperty('--red-glow', t.color + '70');
   document.querySelectorAll('.tcard').forEach((c) => c.classList.toggle('on', c.dataset.team === id));
-  dispatchEvent(new CustomEvent('apexthemechange', { detail: { color: t.color } }));
+  dispatchEvent(new CustomEvent('freef1themechange', { detail: { color: t.color } }));
 }
 
 function teamBadge(t) {
@@ -3556,7 +3611,7 @@ function teamBadge(t) {
     ? `box-shadow:inset 0 0 0 1.5px ${t.color},0 8px 20px -8px rgba(0,0,0,.8);`
     : '';
   if (!t.logo) {
-    return `<div class="tbadge mark" style="background:${fill};${ring}color:${t.text}">${APEX_MARK}</div>`;
+    return `<div class="tbadge mark" style="background:${fill};${ring}color:${t.text}">${FREEF1_MARK}</div>`;
   }
   const s1 = TEAM_LOGO(t.logo, 48);
   const s2 = TEAM_LOGO(t.logo, 96);
@@ -3724,7 +3779,7 @@ addEventListener('keydown', (e) => {
     resizeTimer = setTimeout(size, 140);
   }, { passive: true });
   addEventListener('visibilitychange', start, { passive: true });
-  addEventListener('apexthemechange', (event) => {
+  addEventListener('freef1themechange', (event) => {
     readAccent(event.detail?.color);
     parts.forEach((part) => {
       part.sprite = makeSprite(part);
@@ -4247,27 +4302,84 @@ function updatePerformanceKpis(results, rcMessages, event, sessionType = "result
    sandbox="…allow-popups" (top-redirects stay dead; popups allowed so a host's
    "Disable sandbox" wall may still pass). Empty set = never sandboxed. */
 
-const LIVE247_HALFLOCK_IDS = new Set(); // e.g. new Set(['wikisport'])
-const LIVE247_MANNERS_KEY = 'freef1_247_manners';
-const LIVE247_NEAR_MS = 2500;   // blur this soon after hovering/tapping the player = suspect
-const LIVE247_TOAST_GAP_MS = 8000;
-const LIVE247_ESCALATION_MS = 120000; // after a hijack, force the Start gate this long
-const LIVE247_RECOVER_DELAY_MS = 1200;
-const LIVE247_RECOVER_MAX = 2;        // auto-reloads per hijack burst before we give up
-const LIVE247_TOUCH = matchMedia('(pointer: coarse)').matches;
+var LIVE247_HALFLOCK_IDS = new Set(); // e.g. new Set(['wikisport'])
+var LIVE247_MANNERS_KEY = 'freef1_247_manners';
+var LIVE247_NEAR_MS = 2500;   // blur this soon after hovering/tapping the player = suspect
+var LIVE247_TOAST_GAP_MS = 8000;
+var LIVE247_ESCALATION_MS = 120000; // after a hijack, force the Start gate this long
+var LIVE247_RECOVER_DELAY_MS = 1200;
+var LIVE247_RECOVER_MAX = 2;        // auto-reloads per hijack burst before we give up
+var LIVE247_TOUCH = matchMedia('(pointer: coarse)').matches;
 
-let live247Initialized = false;
-let live247StationId = 'sky-uk-2';   /* most reliable feed: default channel */
-let live247Playing = false;
-let live247ShieldArmed = true;
-let live247LoadToken = 0;
-let live247LastNear = 0;
-let live247BlurSuspect = false;
-let live247FocusToastAt = 0;
-let live247KeyHintShown = false;
-let live247LastHijackAt = 0;
-let live247RecoverStreak = 0;
-let live247RecoverTimer = null;
+// ── Keep screen awake while a stream is on — phones dim without touch
+var screenWakeLock = null;
+var screenWakeFallbackVideo = null;
+async function requestScreenWakeLock(){
+  // Native Wake Lock (Chrome/Android, Safari 16.4+)
+  try{
+    if('wakeLock' in navigator){
+      if(screenWakeLock && !screenWakeLock.released) return true;
+      screenWakeLock = await navigator.wakeLock.request('screen');
+      screenWakeLock.addEventListener('release', ()=>{ screenWakeLock = null; });
+      // iOS/Safari drops lock on visibility hide — re-arm handled below
+      return true;
+    }
+  }catch(_){}
+  // iOS <16.4 fallback: silent looping video tricks WebKit into keeping screen on (NoSleep)
+  try{
+    if(!screenWakeFallbackVideo){
+      const v = document.createElement('video');
+      v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
+      v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+      v.style.cssText='position:fixed;top:-10px;left:-10px;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      // 1px silent mp4 — tiny data-uri so it works offline
+      v.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAu1tZGF0AAAAsAAAAEAGAEcEBwoAAAAPhYb+ABgAAAAEABAAAAAQABAAAAAQABAAAAAQABAAAAAQABAAAAAQABAAAAAQAAAAEAAAAP8AAP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A';
+      document.body.appendChild(v);
+      screenWakeFallbackVideo = v;
+    }
+    await screenWakeFallbackVideo.play().catch(()=>{});
+    return true;
+  }catch(_){ return false; }
+}
+function releaseScreenWakeLock(){
+  try{ if(screenWakeLock && !screenWakeLock.released) screenWakeLock.release().catch(()=>{}); }catch(_){}
+  screenWakeLock = null;
+  try{ if(screenWakeFallbackVideo) screenWakeFallbackVideo.pause(); }catch(_){}
+}
+function syncScreenWakeLock(){
+  let want = false;
+  try{ want = !!live247Playing; }catch(_){}
+  want = want || document.body.classList.contains('has-stream');
+  if(want) requestScreenWakeLock().catch(()=>{}); else releaseScreenWakeLock();
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible') syncScreenWakeLock();
+  else { /* Safari releases on hide — will re-request on show */ }
+});
+navigator.wakeLock?.addEventListener?.('release', ()=>{ /* handled per-lock */ });
+// Try immediately on load (will be blocked without gesture on most browsers — caught below)
+// + re-try on the very first user tap/key anywhere so it IS active as soon as they interact,
+// even before they hit Play. Once a stream is on, syncScreenWakeLock keeps it held.
+setTimeout(()=>{ requestScreenWakeLock().catch(()=>{}); }, 800);
+['click','touchstart','pointerdown','keydown','touchend'].forEach(ev=>{
+  document.addEventListener(ev, ()=>{
+    // if a stream is already on, this arms it; if not, it pre-warms so the next Play is instant
+    requestScreenWakeLock().catch(()=>{});
+  }, { once:true, passive:true, capture:true });
+});
+
+var live247Initialized = false;
+var live247StationId = 'sky-uk-2';   /* most reliable feed: default channel */
+var live247Playing = false;
+var live247ShieldArmed = true;
+var live247LoadToken = 0;
+var live247LastNear = 0;
+var live247BlurSuspect = false;
+var live247FocusToastAt = 0;
+var live247KeyHintShown = false;
+var live247LastHijackAt = 0;
+var live247RecoverStreak = 0;
+var live247RecoverTimer = null;
 
 function live247Status(text) {
   const el = $('live247StatusChip');
@@ -4384,6 +4496,7 @@ function openLive247Shield({ announce = false } = {}) {
   live247ShieldArmed = false;
   const gate = $('live247Gate');
   if (gate) gate.hidden = true;
+  requestScreenWakeLock().catch(()=>{});
   const f = $('live247FrameWrap')?.querySelector('iframe');
   if (f) {
     try { f.focus({ preventScroll: true }); } catch (_) { try { f.focus(); } catch (_) {} }
@@ -4530,6 +4643,7 @@ function loadLive247Station(stationId, { auto = false } = {}) {
   live247Playing = true;
   live247SyncFsBar();
   trackEvent('live247_load', station.id);
+  requestScreenWakeLock().catch(()=>{});
   void auto;
   /* gate: 'auto' stations (the reliable feeds) start without a Start click —
      unless the feed hijacked recently, in which case the gate comes back. */
@@ -4548,6 +4662,7 @@ function stopLive247() {
   syncLive247ShieldBtn();
   live247SyncFsBar();
   live247Status('STOPPED');
+  syncScreenWakeLock();
 }
 
 function setupLive247Controls() {
@@ -4580,3 +4695,233 @@ function setupLive247Controls() {
     else showToast('Fullscreen is not available in this browser.', 'warning');
   });
 }
+
+/* ═══════════════ DIAGNOSTICS — Copy Diagnostics button in footer ═══════════════ */
+function diagParseUA(ua){
+  ua = String(ua||'');
+  let browser='Unknown', bver='-', os='Unknown', over='-', device='Desktop';
+  if(/Edg\//.test(ua)){ browser='Edge'; const m=ua.match(/Edg\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/OPR\/|Opera/.test(ua)){ browser='Opera'; const m=ua.match(/(?:OPR|Opera)\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Chrome\//.test(ua) && !/Chromium|Edg/.test(ua)){ browser='Chrome'; const m=ua.match(/Chrome\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Firefox\//.test(ua)){ browser='Firefox'; const m=ua.match(/Firefox\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Safari\//.test(ua) && !/Chrome/.test(ua)){ browser='Safari'; const m=ua.match(/Version\/([\d.]+)/); bver=m?m[1]:'-'; }
+  else if(/Brave/.test(ua)){ browser='Brave'; bver='-'; }
+  if(/Windows NT ([\d.]+)/.test(ua)){ os='Windows'; const m=ua.match(/Windows NT ([\d.]+)/); over=m?m[1]:'-'; const map={'10.0':'10/11','6.3':'8.1','6.2':'8','6.1':'7'}; over=map[over]||over; }
+  else if(/Mac OS X ([\d_]+)/.test(ua)){ os='macOS'; const m=ua.match(/Mac OS X ([\d_]+)/); over=m?m[1].replace(/_/g,'.'):'-'; }
+  else if(/Android ([\d.]+)/.test(ua)){ os='Android'; const m=ua.match(/Android ([\d.]+)/); over=m?m[1]:'-'; }
+  else if(/iPhone|iPad|iPod/.test(ua)){ os='iOS'; const m=ua.match(/OS ([\d_]+)/); over=m?m[1].replace(/_/g,'.'):'-'; }
+  else if(/Linux/.test(ua)) os='Linux';
+  else if(/CrOS/.test(ua)) os='Chrome OS';
+  if(/Mobile|iPhone|Android.*Mobile/.test(ua)) device='Mobile';
+  else if(/Tablet|iPad/.test(ua)) device='Tablet';
+  else device='Desktop';
+  return {browser, bver, os, over, device, ua};
+}
+async function diagPing(url, label){
+  const t0 = performance.now();
+  const cleanUrl = String(url||'');
+  if(!cleanUrl) return {label, url: cleanUrl, ok:false, status:'-', ms:0, error:'no url'};
+  // Try HEAD first (405 on some hosts like strmfree — we treat that as alive and retry GET)
+  try{
+    const ctrl = new AbortController();
+    const to = setTimeout(()=>ctrl.abort(), 5000);
+    const r = await fetch(cleanUrl, { method:'HEAD', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow', signal: ctrl.signal, headers:{'Accept':'*/*'} });
+    clearTimeout(to);
+    const ms = Math.round(performance.now()-t0);
+    // HEAD 405 on strmfree is expected — actually alive
+    if(r.status===405) return {label, url: cleanUrl, ok:true, status:'405', ms, error:''};
+    return {label, url: cleanUrl, ok: r.ok, status: String(r.status), ms, error: r.ok?'':'HTTP '+r.status};
+  }catch(e){
+    const msg = String(e && e.message || e);
+    // CORS block shows as TypeError Failed to fetch — stream may still be alive via iframe
+    if(/Failed to fetch|Load failed|NetworkError|CORS|aborted/i.test(msg)){
+      // Retry GET no-cors to see if network at least reachable (opaque)
+      try{
+        const ctrl2 = new AbortController();
+        const to2 = setTimeout(()=>ctrl2.abort(), 4000);
+        const r2 = await fetch(cleanUrl, { method:'GET', mode:'no-cors', cache:'no-store', redirect:'follow', signal: ctrl2.signal });
+        clearTimeout(to2);
+        const ms2 = Math.round(performance.now()-t0);
+        // opaque = 0 but no network error = reachable, likely 200 behind CORS
+        if(r2.type==='opaque') return {label, url: cleanUrl, ok:true, status:'opaque', ms: ms2, error:''};
+        return {label, url: cleanUrl, ok:false, status:'0', ms: ms2, error: msg};
+      }catch(e2){
+        const ms2 = Math.round(performance.now()-t0);
+        const short = /Failed to fetch|Load failed|NetworkError/i.test(msg) && /Failed to fetch|Load failed|NetworkError/i.test(String(e2.message||e2)) ? 'blocked on device' : (msg + ' | ' + String(e2.message||e2)).slice(0,40);
+        return {label, url: cleanUrl, ok:false, status:'-', ms: ms2, error: short};
+      }
+    }
+    const ms = Math.round(performance.now()-t0);
+    return {label, url: cleanUrl, ok:false, status:'-', ms, error: msg};
+  }
+}
+function diagBool(v){ return v ? 'yes' : 'no'; }
+async function buildDiagnosticsReport(){
+  const now = new Date();
+  const du = diagParseUA(navigator.userAgent||'');
+  const conn = navigator.connection || {};
+  const tz = (()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone||'-'; }catch(_){ return '-'; }})();
+  const lang = navigator.language || '-';
+  const scr = window.screen || {};
+  // site state — guard for early load
+  let curEv='-', curSess='-', curSrc='-', curUrl='-', active='-';
+  let avail='-', disabled='-', build='-';
+  let iframeInfo='-';
+  let hasStream = document.body.classList.contains('has-stream');
+  try{ curEv = (typeof currentEvent!=='undefined' && currentEvent) ? (currentEvent.name + ' R' + currentEvent.round + ' ('+currentEvent.slug+')') : '-'; }catch(_){}
+  try{ curSess = (typeof currentSession!=='undefined' && currentSession) ? (currentSession.name + ' ('+currentSession.slug+')') : '-'; }catch(_){}
+  try{ const s=(typeof sources!=='undefined' && typeof currentSource!=='undefined') ? sources[currentSource] : null; curSrc = s ? (s.label + ' ['+s.id+']') : '-'; curUrl = '(hidden)'; }catch(_){}
+  try{ active = (typeof activeView!=='undefined'?activeView:'-'); }catch(_){}
+  try{ avail = (typeof isStreamAvailable==='function' && typeof currentSession!=='undefined') ? String(isStreamAvailable(currentSession)) : '-'; }catch(_){}
+  try{ disabled = (typeof disabledSources!=='undefined' ? [...disabledSources].join(', ')||'(none)' : '-'); }catch(_){}
+  try{ const el = document.querySelector('#player iframe, #live247FrameWrap iframe'); if(el){ iframeInfo = 'sandbox=' + (el.getAttribute('sandbox')||'(none)') + ' | allow='+(el.getAttribute('allow')||'-').slice(0,80) + ' | loaded='+el.classList.contains('loaded') + ' | hasIframe=yes'; } else iframeInfo='(no iframe in DOM)'; }catch(_){}
+  // storage / permissions
+  let lsOk='-', wakeOk='-';
+  try{ localStorage.setItem('__diag','1'); localStorage.removeItem('__diag'); lsOk='yes'; }catch(_){ lsOk='no ('+String(_).slice(0,60)+')'; }
+  try{ wakeOk = ('wakeLock' in navigator) ? 'yes' : 'no'; }catch(_){ wakeOk='no'; }
+  // ping site APIs + streams internally, but NEVER expose stream URLs in the report (hidden)
+  const pingTargets = [];
+  // add stream URLs internally (hidden from report)
+  try{
+    if(typeof sources!=='undefined') sources.forEach(s=>{
+      let u='-'; try{ u = (typeof buildUrl==='function' ? buildUrl(sources.indexOf(s)) : (s.url||'')); }catch(_){ u=s.url||''; }
+      if(u && u.startsWith('http')) pingTargets.push({label: 'Stream '+s.label+' ['+s.id+']', url: u, hideUrl:true});
+    });
+  }catch(_){}
+  try{
+    if(typeof LIVE247_STATIONS!=='undefined') LIVE247_STATIONS.forEach(s=>{
+      if(s.url && s.url.startsWith('http')) pingTargets.push({label: '247 '+s.label+' ['+s.id+']', url: s.url, hideUrl:true});
+    });
+  }catch(_){}
+  pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/site/status', hideUrl:false});
+  pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/status', hideUrl:false});
+  pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/sources', hideUrl:false});
+  pingTargets.push({label:'API visitors active', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/visitors/active', hideUrl:false});
+  let pingResults='(no targets)';
+  let out = [];
+  try{
+    // use mapPool if exists
+    const poolFn = (typeof mapPool==='function' ? (items,fn)=>mapPool(items,fn,4) : (items,fn)=>Promise.all(items.map(fn)));
+    const outRaw = await poolFn(pingTargets, t=>diagPing(t.url, t.label));
+    out = outRaw.map((r,i)=>({...r, hideUrl: !!pingTargets[i].hideUrl}));
+    pingResults = out.map(r=>{
+      const flag = r.ok ? 'OK' : 'FAIL';
+      const isStream = r.label.startsWith('Stream ') || r.label.startsWith('247 ');
+      const urlPart = (r.hideUrl || isStream) ? '' : ` | ${r.url}`;
+      // keep error inline, short — no extra newline to stay <1900 for 17 pings
+      const err = r.error ? ` — ${String(r.error).slice(0,70)}` : '';
+      return `[${flag}] ${r.status} ${r.ms}ms | ${r.label}${urlPart}${err}`;
+    }).join('\n');
+  }catch(_){ pingResults='ping failed: '+String(_).slice(0,300); }
+
+  // Discord-ready, ordered, compact (<1900 chars so it fits one Discord message)
+  const gen = now.toISOString().slice(0,19).replace('T',' ') + ' UTC';
+  const hostLine = `${location.host}${location.pathname}`;
+  const uaShort = (du.ua||'').slice(0,120) + ((du.ua||'').length>120?'…':'');
+  // Build ordered sections
+  const sys = `${du.browser} ${du.bver} • ${du.os} ${du.over} • ${du.device} • ${innerWidth}x${innerHeight} DPR${devicePixelRatio} • TZ ${tz} • ${lang}`;
+  const site = `${curEv} • ${curSess} • ${curSrc} • has-stream ${diagBool(hasStream)} • live247 ${typeof live247Playing!=='undefined' ? (live247Playing?'yes':'no') : '-'}`;
+  // pingResults is already built as lines like "  [OK] 200 120ms | Stream WeStream [westream]" — convert to Discord ansi
+  const pingLines = String(pingResults||'').split('\n').filter(Boolean).map(l=>{
+    // l is "  [OK] 200 120ms | Stream WeStream [westream]" or API line
+    const isOk = l.includes('[OK]');
+    const isFail = l.includes('[FAIL]');
+    if(!isOk && !isFail) return l;
+    // Use ansi colors inside code block: green for OK, red for FAIL, gray for meta
+    const color = isOk ? '\u001b[0;32m' : '\u001b[0;31m';
+    const reset = '\u001b[0m';
+    // strip the leading "  [OK] " and keep rest
+    const rest = l.replace(/^\s*\[(?:OK|FAIL)\]\s*/, '');
+    const icon = isOk ? '✔' : '✘';
+    return `${color}${icon} ${rest}${reset}`;
+  }).join('\n');
+  // Main report — outside code block for header, inside ansi for network
+  const report = [
+    `**FreeF1 Diagnostics** • ${gen} • ${hostLine}`,
+    `> **System** • ${sys}`,
+    `> **Site** • ${site}`,
+    `> UA: \`${uaShort}\``,
+    `> Iframe: \`${String(iframeInfo).slice(0,110)}\` • Disabled: \`${String(disabled).slice(0,80)||'(none)'}\``,
+    '',
+    '```ansi',
+    pingLines || '\u001b[0;90mno pings\u001b[0m',
+    '```',
+    `*Send only to certified FreeF1 Discord devs. Generated ${gen} • ${location.href}*`
+  ].join('\n');
+  // Fallback if >1900 chars — keep ALL streams but strip error details to fit
+  if(report.length > 1900){
+    const compactPings = out.map(r=>{
+      const flag = r.ok ? 'OK' : 'FAIL';
+      return `[${flag}] ${r.status} | ${r.label}`;
+    }).join('\n');
+    const compact = [
+      `**FreeF1 Diagnostics** • ${gen} • ${hostLine}`,
+      `> **System** • ${sys.slice(0,90)}`,
+      `> **Site** • ${site.slice(0,90)}`,
+      '```ansi',
+      String(compactPings).split('\n').map(l=>{
+        const isOk = l.includes('[OK]');
+        const color = isOk ? '\u001b[0;32m' : '\u001b[0;31m';
+        return `${color}${isOk?'✔':'✘'} ${l.replace(/^\s*\[(?:OK|FAIL)\]\s*/,'')}\u001b[0m`;
+      }).join('\n'),
+      '```',
+      `*Compact — full in console (F12). ${location.href}*`
+    ].join('\n');
+    if(compact.length < 1900) return compact;
+    // last resort: truncate but warn
+    return compact.slice(0,1880)+'\n```';
+  }
+  return report;
+}
+function showDiagCaution(){
+  const o=document.getElementById('diagCautionOverlay');
+  if(!o) return;
+  o.hidden=false;
+  // force reflow for transition if CSS uses .open
+  void o.offsetWidth;
+  o.classList.add('open');
+  document.body.style.overflow='hidden';
+  // focus dismiss for a11y
+  setTimeout(()=>document.getElementById('diagCautionDismiss')?.focus(), 0);
+}
+function hideDiagCaution(){
+  const o=document.getElementById('diagCautionOverlay');
+  if(!o) return;
+  o.hidden=true;
+  o.classList.remove('open');
+  document.body.style.overflow='';
+}
+async function handleCopyDiagnostics(){
+  const btn = document.getElementById('copyDiagnosticsBtn');
+  const orig = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='Collecting…'; }
+  try{
+    showToast('Collecting diagnostics — checking feeds & APIs…', 'info');
+    const report = await buildDiagnosticsReport();
+    let copied=false;
+    try{ await navigator.clipboard.writeText(report); copied=true; }catch(_){
+      const ta=document.createElement('textarea');
+      ta.value=report; ta.style.cssText='position:fixed;top:-1000px;left:-1000px;opacity:0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try{ copied=document.execCommand('copy'); }catch(_){}
+      ta.remove();
+    }
+    if(copied) showToast('Diagnostics copied — paste to @doggo', 'success');
+    else { showToast('Copy failed — report printed to console', 'error'); console.log(report); }
+    console.log('%c'+report, 'font:11px/1.4 monospace; white-space:pre;');
+    // show caution after copy
+    showDiagCaution();
+  }catch(e){
+    showToast('Diagnostics failed: '+String(e).slice(0,80), 'error');
+    console.error(e);
+  }finally{
+    if(btn){ btn.textContent=orig; btn.disabled=false; }
+  }
+}
+document.getElementById('copyDiagnosticsBtn')?.addEventListener('click', handleCopyDiagnostics);
+document.getElementById('diagCautionClose')?.addEventListener('click', hideDiagCaution);
+document.getElementById('diagCautionDismiss')?.addEventListener('click', hideDiagCaution);
+document.getElementById('diagCautionOverlay')?.addEventListener('click', (e)=>{ if(e.target && e.target.id==='diagCautionOverlay') hideDiagCaution(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ const o=document.getElementById('diagCautionOverlay'); if(o && !o.hidden) hideDiagCaution(); }});
+document.getElementById('diagCautionDiscord')?.addEventListener('click', ()=>{ hideDiagCaution(); });
+
