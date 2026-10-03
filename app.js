@@ -4747,7 +4747,7 @@ async function diagPing(url, label){
         return {label, url: cleanUrl, ok:false, status:'0', ms: ms2, error: msg};
       }catch(e2){
         const ms2 = Math.round(performance.now()-t0);
-        const short = /Failed to fetch|Load failed|NetworkError/i.test(msg) && /Failed to fetch|Load failed|NetworkError/i.test(String(e2.message||e2)) ? 'blocked on device' : (msg + ' | ' + String(e2.message||e2)).slice(0,40);
+        const short = /Failed to fetch|Load failed|NetworkError/i.test(msg) && /Failed to fetch|Load failed|NetworkError/i.test(String(e2.message||e2)) ? 'fetch blocked' : (msg + ' | ' + String(e2.message||e2)).slice(0,40);
         return {label, url: cleanUrl, ok:false, status:'-', ms: ms2, error: short};
       }
     }
