@@ -572,7 +572,7 @@ function sessionDurationHours(s) {
   if (/\bsprint[- ]qualif/.test(key) || key.includes('sprint-qualifying')) return 1.25;
   if (/\bsprint\b/.test(key) && !/qualif/.test(key)) return 1;
   if (/qualif/.test(key)) return 1.25;
-  if (/\brace\b/.test(key)) return 3;
+  if (/\brace\b/.test(key)) return 5;
   return 1.25;
 }
 
@@ -584,7 +584,9 @@ function isStreamAvailable(s) {
 
 function isSessionEnded(s) {
   if (!s) return false;
-  return hoursSince(s) > sessionDurationHours(s) + 0.25;
+  // race overtime: keep live up to +1h after 5h window
+  const extra = /\brace\b/i.test(`${s?.slug || ''} ${s?.name || ''}`) ? 1 : 0.25;
+  return hoursSince(s) > sessionDurationHours(s) + extra;
 }
 
 function isDateEnded(d) {
