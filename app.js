@@ -578,6 +578,7 @@ function sessionDurationHours(s) {
 
 function isStreamAvailable(s) {
   if (!s) return false;
+  if (window.__FORCE_LIVE__) return hoursSince(s) >= -1;
   const d = hoursSince(s);
   return d >= -1 && d <= sessionDurationHours(s);
 }
@@ -1191,7 +1192,35 @@ function applyMaintenanceMode(state) {
   }
 }
 
-window.__FREEF1_SITE_STATUS?.then((data) => applyMaintenanceMode(data?.maintenance));
+window.__FORCE_LIVE__ = false;
+let streamWindowState = { active: false, reason: '', startedAt: null, updatedAt: null };
+
+function applyStreamWindow(state) {
+  const nextActive = Boolean(state && state.active);
+  const prev = window.__FORCE_LIVE__;
+  streamWindowState = {
+    active: nextActive,
+    reason: String((state && state.reason) || '').slice(0, 120),
+    startedAt: state && state.startedAt || null,
+    updatedAt: state && state.updatedAt || null
+  };
+  window.__FORCE_LIVE__ = nextActive;
+  if (prev === nextActive) return;
+  if (nextActive) showToast('Force Live enabled \u2014 streams locked live.', 'warning');
+  else showToast('Force Live disabled \u2014 schedule window restored.', 'success');
+  try { if (typeof updateHeader === 'function') updateHeader(); } catch (_) {}
+  try { if (typeof updateOverridePill === 'function') updateOverridePill(streamOverride); } catch (_) {}
+  try { if (typeof renderSchedule === 'function') renderSchedule(); } catch (_) {}
+  try { if (typeof load === 'function') load(); } catch (_) {}
+  // also update live badge visibility immediately
+  try {
+    const live = getCurrentLiveSession();
+    const badgeEl = document.getElementById('liveBadge') || document.getElementById('headerLiveBadge');
+    if (badgeEl) badgeEl.style.display = (nextActive || (live && isStreamAvailable(live.session))) ? 'inline-flex' : 'none';
+  } catch (_) {}
+}
+
+window.__FREEF1_SITE_STATUS?.then((data) => { applyMaintenanceMode(data?.maintenance); if (data?.streamWindow) applyStreamWindow(data.streamWindow); });
 
 function applySourceConfig(payload) {
   const disabled = Array.isArray(payload && payload.disabled) ? payload.disabled : [];
@@ -1243,6 +1272,11 @@ function initStreamOverrideSSE() {
         applyExperimentalUpdate(JSON.parse(event.data));
       } catch (_) {}
     });
+    es.addEventListener('stream_window_update', (event) => {
+      try {
+        applyStreamWindow(JSON.parse(event.data));
+      } catch (_) {}
+    });
     es.addEventListener('error', () => {
       streamSseConnected = false;
       es.close();
@@ -1267,11 +1301,24 @@ async function pollSiteStatus(force = false) {
   sitePollInFlight = true;
   try {
     const response = await fetchWithTimeout(`${PUBLIC_API}/api/site/status`, { cache: 'no-store', credentials: 'omit' });
-    if (response.ok) applyMaintenanceMode((await response.json()).maintenance);
+    if (response.ok) {
+      const data = await response.json();
+      applyMaintenanceMode(data.maintenance);
+      if (data.streamWindow) applyStreamWindow(data.streamWindow);
+      else if (data.stream_window) applyStreamWindow(data.stream_window);
+    }
   } catch (_) {}
   finally {
     sitePollInFlight = false;
   }
+}
+
+async function pollStreamWindow(force = false) {
+  if (document.hidden || (!force && streamSseConnected)) return;
+  try {
+    const r = await fetchWithTimeout(`${PUBLIC_API}/api/stream/window`, { cache: 'no-store', credentials: 'omit' });
+    if (r.ok) applyStreamWindow(await r.json());
+  } catch (_) {}
 }
 
 async function pollStreamStatus(force = false) {
@@ -1307,12 +1354,14 @@ function initStreamPolling() {
   pollNews(true);
   pollSourceConfig(true);
   pollExperimentalStatus(true);
+  pollStreamWindow(true);
   streamPollTimer = setInterval(() => {
     pollStreamStatus();
     pollSiteStatus();
     pollNews();
     pollSourceConfig();
     pollExperimentalStatus();
+    pollStreamWindow();
   }, 30000);
   if (streamPollVisibilityBound) return;
   streamPollVisibilityBound = true;
@@ -1327,6 +1376,7 @@ function initStreamPolling() {
       pollNews(true);
       pollSourceConfig(true);
       pollExperimentalStatus(true);
+      pollStreamWindow(true);
       initStreamOverrideSSE();
     }
   }, { passive: true });
