@@ -119,18 +119,17 @@
   </script>
 <link rel="preload" as="image" href="/assets/hero-freef1-1600.webp?v=20260918-hero1" type="image/webp" imagesrcset="/assets/hero-freef1-800.webp?v=20260918-hero1 800w, /assets/hero-freef1-1200.webp?v=20260918-hero1 1200w, /assets/hero-freef1-1600.webp?v=20260918-hero1 1600w" imagesizes="100vw" fetchpriority="high">
 <title>FreeF1 - F1 Live</title>
-<link rel="dns-prefetch" href="https://fonts.googleapis.com">
-<link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
 <link rel="dns-prefetch" href="https://f1free.onrender.com">
 <link rel="dns-prefetch" href="https://api.jolpi.ca">
 <link rel="dns-prefetch" href="https://media.formula1.com">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://f1free.onrender.com" crossorigin>
 <link rel="preconnect" href="https://api.jolpi.ca" crossorigin>
 <link rel="preconnect" href="https://media.formula1.com">
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Archivo-latin.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/JetBrainsMono-latin.woff2" crossorigin>
+<link rel="stylesheet" href="/fonts.css?v=20261006-selfhost1">
 <link rel="stylesheet" href="/app.css?v=20260927-fix6">
 </head>
 <body>
@@ -419,7 +418,7 @@
         <p class="stamp">Last updated: September 2026</p>
         <div class="acc-wrap">
           <div class="acc-item"><button class="acc-q">1. Information We Collect<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not require registration or ask for details such as your name, email address, phone number, or postal address.</p><p>To operate the live visitor counter and protect the service, the backend temporarily processes a random browser identifier, IP address, basic device/browser information, referring page, and approximate location. Approximate location is requested from the HTTPS geolocation provider configured by the service and is not included in the permanent unique-count set. Active-session records expire after a short inactivity period. The random identifier may persist locally, and a one-way keyed hash of it may be retained in our hosted data store so a returning browser is not counted again after a server restart. The raw identifier and IP address are not placed in that permanent unique-count set.</p></div></div></div>
-          <div class="acc-item"><button class="acc-q">2. Cookies and Tracking Technologies<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising cookies, web beacons, or cross-site profiling. We use local storage only for functional preferences such as your chosen team livery, and a random visitor-counter identifier. Embedded third-party video providers may apply their own cookies or storage under their own policies. Typefaces are loaded from Google Fonts (fonts.googleapis.com / fonts.gstatic.com) so those services receive a standard request from your browser.</p></div></div></div>
+          <div class="acc-item"><button class="acc-q">2. Cookies and Tracking Technologies<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising cookies, web beacons, or cross-site profiling. We use local storage only for functional preferences such as your chosen team livery, and a random visitor-counter identifier. Embedded third-party video providers may apply their own cookies or storage under their own policies. Typefaces are served from this site's own domain, so no font request is made to a third party on our behalf.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">3. Log Files and Analytics<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not use advertising analytics or build behavioral profiles. The service processes operational telemetry for active-session counts, service health, abuse prevention, and the admin dashboard. Aggregated anonymous counters (page views, device family, country, feed/livery picks, session duration buckets) are retained for up to 14 days at hourly granularity and 90 days at daily granularity. A one-way keyed identifier hash is retained solely for the cumulative unique-visitor total. Individual IP addresses, user-agent strings and visitor IDs are not stored in those aggregates. Hosting, data-store, and embedded-content providers may maintain standard security and access logs.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">4. Data Sharing and Disclosure<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>We do not sell, rent, or monetize visitor information and have no data-broker or advertising relationships. Requests necessarily pass through our hosting providers, and optional video/data features contact the third-party providers described on this page.</p></div></div></div>
           <div class="acc-item"><button class="acc-q">5. Third-Party Services<span class="ic"></span></button><div class="acc-a"><div class="acc-a-in"><p>While we minimize first-party data and use it only for service operation, third-party services embedded on or linked from this website may have their own data collection practices. We strongly encourage you to review the privacy policies of any third-party services you access through links on this website. We are not responsible for the privacy practices of any third-party websites or services.</p></div></div></div>
@@ -780,6 +779,7 @@
 </div>
 
 
-<script src="/app.js?v=20261005-force-live" defer></script>
+<script src="/round-meeting.js?v=20261006-r1" defer></script>
+<script src="/app.js?v=20261006-round-meeting" defer></script>
 </body>
 </html>

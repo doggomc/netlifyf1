@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
 
+# Unlinked novelty page: keep it out of the index (it stays reachable by URL).
+Disallow: /beertjie.html
+
 Sitemap: https://freef1.netlify.app/sitemap.xml
