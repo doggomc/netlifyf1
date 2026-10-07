@@ -1,3 +1,7 @@
+/* © 2026 FreeF1 — https://freef1.netlify.app — all rights reserved.
+   Copying, redistributing or rehosting this site or its code without
+   permission is not allowed. Third-party assets keep their own licences;
+   see LICENSE. */
 /* ═══════════════════════════════════════════════════════════════════════════
    FreeF1 - Formula 1 Live Companion
    Client Application Logic
@@ -1439,7 +1443,7 @@ function initVisitorCounter() {
     store.set('freef1_user_id', uid);
   }
   const API = PREVIEW_HOST ? location.origin : 'https://f1free.onrender.com';
-  const INTERVAL = 18000;
+  const INTERVAL = 15000;
   let timer = 0;
   let inFlight = false;
 
@@ -1469,32 +1473,16 @@ function initVisitorCounter() {
   const updateCount = (data) => {
     if (!data) return;
     applyPresenceCount = updateCount;
-    // `watching` is people actually looking at the site right now; `online`
-    // also counts background tabs. The badge shows viewers.
-    const watching = Number.isFinite(data.watching) ? data.watching : data.active;
-    if (Number.isFinite(watching)) {
-      el.textContent = String(watching);
-      try { store.set('freef1_active_count', String(watching)); } catch (_) {}
-      // The badge counts people actually watching; the tooltip shows the wider
-      // "site open somewhere" number so the two never look like a contradiction.
-      const online = Number.isFinite(data.online) ? data.online : watching;
+    // One number: browsers on the site right now. The tooltip says exactly the
+    // same thing as the badge, so the two can never contradict each other.
+    const live = data.active;
+    if (Number.isFinite(live)) {
+      el.textContent = String(live);
+      try { store.set('freef1_active_count', String(live)); } catch (_) {}
       const pill = el.closest('#visitorCounter') || el.parentElement || el;
-      if (pill && pill.setAttribute) {
-        pill.setAttribute('title', online > watching
-          ? `${watching} watching now · ${online} with the site open`
-          : `${watching} watching now`);
-      }
+      if (pill && pill.setAttribute) pill.setAttribute('title', `${live} on site now`);
     }
   };
-
-  /* Presence is built from the two things the browser knows for certain: is
-     this tab visible, and is a player on screen. Both travel with every
-     heartbeat, so a backgrounded tab or a stopped player stops counting as a
-     viewer immediately instead of at the server's next timeout. */
-  const presenceState = () => ({
-    visible: document.hidden ? 0 : 1,
-    watching: (!document.hidden && document.body.classList.contains('has-stream')) ? 1 : 0
-  });
 
   const refreshVisitorToken = async () => {
     const response = await fetchWithTimeout(`${API}/api/visitors/token`, {
@@ -1515,26 +1503,28 @@ function initVisitorCounter() {
   /* Set by the goodbye below. A document that has said "I'm leaving" must not
      send another heartbeat: during teardown the browser fires
      `visibilitychange` on the way out, and that beat arrived *after* the
-     beacon — the server read it as the viewer coming back and the count kept
-     them. Restoring the page from the back/forward cache clears it again. */
+     beacon. Restoring the page from the back/forward cache clears it again. */
   let saidGoodbye = false;
+  /* One browser is one count, and only while the page is actually in front of
+     someone. A hidden tab stops beating and the server drops it at its window;
+     switching back beats again immediately, so the number is honest in both
+     directions. */
   const beat = async () => {
     clearTimeout(timer);
-    if (saidGoodbye) return;
+    if (saidGoodbye || document.hidden) return;
     if (inFlight) {
-      // A tab that was hidden (or shown) while a beat was still in the air gets
-      // its own beat the moment that one lands — the change must not wait out a
-      // 45s hidden-tab interval.
+      // A tab that came back while a beat was still in the air gets its own
+      // beat the moment that one lands.
       presenceDirty = true;
       return;
     }
     inFlight = true;
     presenceDirty = false;
-    let nextDelay = document.hidden ? 45000 : INTERVAL;
+    let nextDelay = INTERVAL;
     try {
       if (!visitorToken || visitorTokenExpiresAt - Date.now() < 60000) await refreshVisitorToken();
-      const presence = presenceState();
-      const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}&visible=${presence.visible}&watching=${presence.watching}`, {
+      if (document.hidden) return;
+      const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}`, {
         cache: 'no-store',
         credentials: 'omit',
         keepalive: true,
@@ -1549,20 +1539,19 @@ function initVisitorCounter() {
     } catch (_) {}
     finally {
       inFlight = false;
-      if (!saidGoodbye) timer = setTimeout(beat, presenceDirty ? 60 : nextDelay);
+      if (!saidGoodbye && !document.hidden) timer = setTimeout(beat, presenceDirty ? 60 : nextDelay);
     }
   };
-  /* Beat on BOTH transitions. Coming back should update at once, and hiding
-     the tab has to say "not watching any more" immediately — waiting for the
-     next scheduled beat left the count high for up to a minute. */
+  /* Beat on BOTH transitions: coming back updates at once, and hiding simply
+     stops beating (the server's window takes the tab out). */
   document.addEventListener('visibilitychange', () => { beat(); }, { passive: true });
 
   /* The moment the page is going away — close, reload, navigation, or the
      browser evicting a background tab — send one small beacon. sendBeacon is
      the only request a browser reliably delivers during teardown and it cannot
-     set headers, so the signed, IP-bound visitor token travels in the query
-     string. Without this a closed tab stayed in the count until its heartbeat
-     aged out (up to 75s) — the "count is slow" half of the problem. */
+     set headers, so the signed token travels in the query string. The server
+     takes the browser out of the count immediately, so closing a tab is
+     reflected at once rather than at the end of the window. */
   const sayGoodbye = () => {
     if (saidGoodbye || !visitorToken) return;
     saidGoodbye = true;
