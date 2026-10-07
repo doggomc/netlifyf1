@@ -132,17 +132,30 @@ const teams=[
 
 /* ═══════════════ 2. SAFE STORAGE (never throws) ═══════════════ */
 const store = {
+  /* localStorage first; sessionStorage second; memory last. The middle tier
+     exists because a browser that blocks localStorage (private mode, some
+     in-app WebViews) used to lose every key at reload — including the visitor
+     id, which minted a brand-new "viewer" on every page load and filled the
+     sessions table with the same IP over and over. */
   get(k) {
     try {
-      return localStorage.getItem(k);
-    } catch (e) {
-      return this._m[k] ?? null;
-    }
+      const v = localStorage.getItem(k);
+      if (v !== null) return v;
+    } catch (_) {}
+    try {
+      const v = sessionStorage.getItem(k);
+      if (v !== null) return v;
+    } catch (_) {}
+    return this._m[k] ?? null;
   },
   set(k, v) {
     try {
       localStorage.setItem(k, v);
-    } catch (e) {
+      return;
+    } catch (_) {}
+    try {
+      sessionStorage.setItem(k, v);
+    } catch (_) {
       this._m[k] = String(v);
     }
   },
@@ -578,7 +591,16 @@ function sessionDurationHours(s) {
 
 function isStreamAvailable(s) {
   if (!s) return false;
-  if (window.__FORCE_LIVE__) return hoursSince(s) >= -1;
+  if (window.__FORCE_LIVE__) {
+    // Force Live (admin): the window is held open by hand. The session the
+    // viewer is actually on is playable whatever the clock says — that is the
+    // whole point of the button — and anything already started still plays as
+    // before. Without the first line a session that had not started yet could
+    // never play: the dashboard said FORCED LIVE while the player sat on the
+    // "setting up the feed" placeholder with no iframe at all.
+    if (currentSession && s === currentSession) return true;
+    return hoursSince(s) >= -1;
+  }
   const d = hoursSince(s);
   return d >= -1 && d <= sessionDurationHours(s);
 }
@@ -595,6 +617,10 @@ function isDateEnded(d) {
 }
 
 function getCurrentLiveSession() {
+  // Force Live: the session on screen is the live one. Every surface that asks
+  // this question (hero badge, "Live now" button, override pill) then agrees
+  // with the player instead of contradicting it.
+  if (window.__FORCE_LIVE__ && currentSession) return { event: currentEvent, session: currentSession };
   let best = null;
   let bestStart = -Infinity;
   for (const ev of schedule) {
@@ -724,9 +750,14 @@ const countdownEl = $("countdown");
 const newsFeedEl = $("newsFeed");
 const newsStatusEl = $("newsStatus");
 
+/* Declared before pickDefault() runs: Force Live asks these two questions of
+   each other, and pickDefault() itself consults the live-session scan. */
+let currentEvent = null;
+let currentSession = null;
+
 const _def = pickDefault();
-let currentEvent = _def.event;
-let currentSession = _def.session;
+currentEvent = _def.event;
+currentSession = _def.session;
 let currentSource = 0;
 let activeView = 'home';
 let playerLoadToken = 0;
@@ -1277,6 +1308,14 @@ function initStreamOverrideSSE() {
         applyStreamWindow(JSON.parse(event.data));
       } catch (_) {}
     });
+    // Pushed live counts (viewers watching, tabs open). The heartbeat response
+    // carries the same numbers, but this arrives the moment they change.
+    es.addEventListener('presence', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (typeof applyPresenceCount === 'function') applyPresenceCount(data);
+      } catch (_) {}
+    });
     es.addEventListener('error', () => {
       streamSseConnected = false;
       es.close();
@@ -1384,6 +1423,9 @@ function initStreamPolling() {
 
 /* ═══════════════ 8. VISITOR TELEMETRY & ANALYTICS ═══════════════ */
 const earlyEvents = [];
+// Assigned by the visitor module; the presence SSE event uses it to update the
+// badge the instant the server count changes, without waiting for a heartbeat.
+let applyPresenceCount = null;
 let trackEvent = (type, value) => {
   if (earlyEvents.length < 12) earlyEvents.push([type, value]);
 };
@@ -1425,11 +1467,34 @@ function initVisitorCounter() {
   };
 
   const updateCount = (data) => {
-    if (data && Number.isFinite(data.active)) {
-      el.textContent = String(data.active);
-      try { store.set('freef1_active_count', String(data.active)); } catch (_) {}
+    if (!data) return;
+    applyPresenceCount = updateCount;
+    // `watching` is people actually looking at the site right now; `online`
+    // also counts background tabs. The badge shows viewers.
+    const watching = Number.isFinite(data.watching) ? data.watching : data.active;
+    if (Number.isFinite(watching)) {
+      el.textContent = String(watching);
+      try { store.set('freef1_active_count', String(watching)); } catch (_) {}
+      // The badge counts people actually watching; the tooltip shows the wider
+      // "site open somewhere" number so the two never look like a contradiction.
+      const online = Number.isFinite(data.online) ? data.online : watching;
+      const pill = el.closest('#visitorCounter') || el.parentElement || el;
+      if (pill && pill.setAttribute) {
+        pill.setAttribute('title', online > watching
+          ? `${watching} watching now · ${online} with the site open`
+          : `${watching} watching now`);
+      }
     }
   };
+
+  /* Presence is built from the two things the browser knows for certain: is
+     this tab visible, and is a player on screen. Both travel with every
+     heartbeat, so a backgrounded tab or a stopped player stops counting as a
+     viewer immediately instead of at the server's next timeout. */
+  const presenceState = () => ({
+    visible: document.hidden ? 0 : 1,
+    watching: (!document.hidden && document.body.classList.contains('has-stream')) ? 1 : 0
+  });
 
   const refreshVisitorToken = async () => {
     const response = await fetchWithTimeout(`${API}/api/visitors/token`, {
@@ -1446,17 +1511,30 @@ function initVisitorCounter() {
     } catch (_) {}
   };
 
+  let presenceDirty = false;
+  /* Set by the goodbye below. A document that has said "I'm leaving" must not
+     send another heartbeat: during teardown the browser fires
+     `visibilitychange` on the way out, and that beat arrived *after* the
+     beacon — the server read it as the viewer coming back and the count kept
+     them. Restoring the page from the back/forward cache clears it again. */
+  let saidGoodbye = false;
   const beat = async () => {
     clearTimeout(timer);
+    if (saidGoodbye) return;
     if (inFlight) {
-      timer = setTimeout(beat, document.hidden ? 45000 : INTERVAL);
+      // A tab that was hidden (or shown) while a beat was still in the air gets
+      // its own beat the moment that one lands — the change must not wait out a
+      // 45s hidden-tab interval.
+      presenceDirty = true;
       return;
     }
     inFlight = true;
+    presenceDirty = false;
     let nextDelay = document.hidden ? 45000 : INTERVAL;
     try {
       if (!visitorToken || visitorTokenExpiresAt - Date.now() < 60000) await refreshVisitorToken();
-      const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}`, {
+      const presence = presenceState();
+      const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}&visible=${presence.visible}&watching=${presence.watching}`, {
         cache: 'no-store',
         credentials: 'omit',
         keepalive: true,
@@ -1471,11 +1549,36 @@ function initVisitorCounter() {
     } catch (_) {}
     finally {
       inFlight = false;
-      timer = setTimeout(beat, nextDelay);
+      if (!saidGoodbye) timer = setTimeout(beat, presenceDirty ? 60 : nextDelay);
     }
   };
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) beat();
+  /* Beat on BOTH transitions. Coming back should update at once, and hiding
+     the tab has to say "not watching any more" immediately — waiting for the
+     next scheduled beat left the count high for up to a minute. */
+  document.addEventListener('visibilitychange', () => { beat(); }, { passive: true });
+
+  /* The moment the page is going away — close, reload, navigation, or the
+     browser evicting a background tab — send one small beacon. sendBeacon is
+     the only request a browser reliably delivers during teardown and it cannot
+     set headers, so the signed, IP-bound visitor token travels in the query
+     string. Without this a closed tab stayed in the count until its heartbeat
+     aged out (up to 75s) — the "count is slow" half of the problem. */
+  const sayGoodbye = () => {
+    if (saidGoodbye || !visitorToken) return;
+    saidGoodbye = true;
+    clearTimeout(timer);
+    try {
+      const url = `${API}/api/visitors/leave?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(visitorToken)}`;
+      if (typeof navigator.sendBeacon === 'function') navigator.sendBeacon(url);
+      else fetch(url, { method: 'POST', keepalive: true, credentials: 'omit' });
+    } catch (_) {}
+  };
+  addEventListener('pagehide', sayGoodbye, { passive: true });
+  /* A page restored from the back/forward cache must undo that goodbye. */
+  addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    saidGoodbye = false;
+    beat();
   }, { passive: true });
 
   const queue = [];
@@ -1522,9 +1625,8 @@ function initVisitorCounter() {
   };
 
   earlyEvents.splice(0).forEach(([type, value]) => trackEvent(type, value));
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) beat();
-  }, { passive: true });
+  /* (the visibility wire-up above is the only one: this used to be a
+     second, identical registration that fired beat() twice on every return) */
   beat();
 }
 
@@ -1889,19 +1991,23 @@ function onScroll() {
   if (ticking) return;
   ticking = true;
   requestAnimationFrame(() => {
+    // Every measurement happens before the first style write. Reading the
+    // preview strip's rect *after* classList.toggle() and the transform writes
+    // invalidated style forced a synchronous layout on every scroll frame.
     const y = scrollY;
     const h = document.documentElement.scrollHeight - innerHeight;
+    const heroActive = !liteMotion && heroLayer && y < innerHeight * 1.3;
+    const previewWrap = !liteMotion && breakLayer ? breakLayer.parentElement : null;
+    const previewRect = previewWrap ? previewWrap.getBoundingClientRect() : null;
+
     navEl?.classList.toggle('stuck', y > 40 || activeView !== 'home');
     if (progressEl) progressEl.style.transform = 'scaleX(' + (h > 0 ? y / h : 0) + ')';
-    if (!liteMotion && heroLayer && y < innerHeight * 1.3) {
+    if (heroActive) {
       heroLayer.style.transform = `translate3d(0,${y * 0.38}px,0) scale(1.06)`;
     }
-    if (!liteMotion && breakLayer && breakLayer.parentElement) {
-      const rect = breakLayer.parentElement.getBoundingClientRect();
-      if (rect.bottom > 0 && rect.top < innerHeight) {
-        const p = (innerHeight - rect.top) / (innerHeight + rect.height);
-        breakLayer.style.transform = `translate3d(0,${(p - 0.5) * 90}px,0) scale(1.1)`;
-      }
+    if (previewRect && previewRect.bottom > 0 && previewRect.top < innerHeight) {
+      const p = (innerHeight - previewRect.top) / (innerHeight + previewRect.height);
+      breakLayer.style.transform = `translate3d(0,${(p - 0.5) * 90}px,0) scale(1.1)`;
     }
     ticking = false;
   });

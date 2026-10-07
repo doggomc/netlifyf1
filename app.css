@@ -261,7 +261,11 @@ body.has-stream .deck:has([aria-expanded="true"]) {
   background: rgba(10,10,11,0);
   backdrop-filter: blur(0px);
   border-bottom: 1px solid transparent;
-  transition: background .5s var(--ease),backdrop-filter .5s var(--ease),border-color .5s var(--ease),padding .5s var(--ease);
+  /* backdrop-filter is not compositable: while it eases, the browser re-blurs the
+     whole nav-width backdrop on every frame. The ramp is shortened so the blur
+     settles in ~13 frames instead of ~30 — same end state, same feel, half the
+     expensive frames. background/border/padding keep their original timing. */
+  transition: background .5s var(--ease),backdrop-filter .22s var(--ease),border-color .5s var(--ease),padding .5s var(--ease);
 }
 
 .nav.stuck {
@@ -503,6 +507,17 @@ body.has-stream .deck:has([aria-expanded="true"]) {
   will-change: transform;
 }
 
+/* Phones (html.lite-motion) never parallax the hero — app.js skips the
+   transform — so the permanent layer hint only costs GPU memory there. */
+html.lite-motion .hero-layer {
+  will-change: auto;
+}
+
+/* Same for driver cards: touch devices have no hover transform to prepare for. */
+html.lite-motion .dcard img {
+  will-change: auto;
+}
+
 .hero-layer img {
   width: 100%;
   height: 100%;
@@ -716,6 +731,11 @@ from {
 }
 
 .scroll-hint {
+  /* Decorative signposting only — never a click target. Between 641px and
+     940px the hero stacks and the CTA lands at the bottom centre, which put
+     this hint's 52x14px box on top of the button: text over text, and taps in
+     that band hit the hint instead of the button. */
+  pointer-events: none;
   position: absolute;
   bottom: 22px;
   left: 50%;
@@ -729,6 +749,14 @@ from {
   font-size: .58rem;
   letter-spacing: .28em;
   color: var(--dim);
+}
+
+/* Measured colliding with the hero CTA at every width from 641px to 940px, so
+   it stays hidden until the hero has room for both. */
+@media(max-width:960px) {
+  .scroll-hint {
+    display: none;
+  }
 }
 
 .scroll-hint i {
@@ -1558,8 +1586,12 @@ to {
   object-fit: contain;
   object-position: 50% 100%;
   filter: saturate(1.02) contrast(1.03) drop-shadow(0 22px 26px rgba(0,0,0,.62));
-  transition: transform .8s var(--ease),filter .55s var(--ease);
-  will-change: transform;
+  /* transform only: the filter above is identical in every state, so listing it
+     here bought nothing and risked animating a 24-image repaint. `will-change`
+     was also permanent on all ~24 cards — a composited layer per card, each
+     holding a full-size driver render in GPU memory on phones. The transform
+     transition promotes itself for the duration of the hover. */
+  transition: transform .8s var(--ease);
 }
 
 .dcard.noimg img {
@@ -4846,7 +4878,7 @@ body.view-swapping {
   font-family: 'JetBrains Mono', monospace;
   font-size: .75rem;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: background-color .15s ease,border-color .15s ease,color .15s ease;
 }
 
 .audio-station-btn:hover {
@@ -4930,11 +4962,6 @@ body.view-swapping {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-@keyframes eqBounce {
-  0%, 100% { height: 6px; }
-  50% { height: 46px; }
 }
 
 .live247-frame-wrap {

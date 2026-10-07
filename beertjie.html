@@ -701,6 +701,15 @@
     }
 
     @media (max-width: 640px) {
+      /* The nav carries the decorative "Paddock Easter Egg" pill plus the
+         Return to Cockpit button. Together they are wider than a phone: the
+         button ran off the right edge and was unreachable. The pill is
+         decoration and goes first; the brand text follows below 430px, the
+         same way the rest of the site does it. */
+      .nav-right .pill.secret {
+        display: none;
+      }
+
       .lightbox-nav {
         width: 40px;
         height: 40px;
@@ -709,6 +718,14 @@
       .lightbox-nav.prev { left: 8px; }
       .lightbox-nav.next { right: 8px; }
       .lightbox-toolbar { top: 12px; left: 14px; right: 14px; }
+    }
+  </style>
+
+  <style>
+    @media (max-width: 430px) {
+      .nav .brand-text {
+        display: none;
+      }
     }
   </style>
 
