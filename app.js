@@ -873,8 +873,8 @@ let playerLoadToken = 0;
 
 /* ── Play tickets ──────────────────────────────────────────────────────────
    Reaching a feed is a two-step: POST the source id (+ the schedule ids already
-   on screen) to /api/stream/ticket, receive a short-lived alias on this origin
-   such as /stream/<ticket>, and hand THAT to the iframe. The server redeems the
+   on screen) to /api/stream/ticket, receive a short-lived alias on the API
+   origin such as /stream/<ticket>, and hand THAT to the iframe. The server redeems the
    alias and redirects to wherever the feed sits today, so rotating a target
    re-points every alias already in the wild — or kills it. Nothing the browser
    holds names a provider. */
@@ -907,7 +907,12 @@ async function requestStreamAlias(sourceId, params) {
    the browser always asking. */
 async function streamAlias(sourceId, { params = null } = {}) {
   const data = await requestStreamAlias(sourceId, params || streamPlayParams());
-  return data.href;
+  /* The alias is minted by the API, so it lives on the API origin — and in
+     production the site and the API are different origins. Resolve it here,
+     once, rather than handing a bare path to a frame: a relative /stream/…
+     would be requested from the SITE, which has no such route and answers with
+     its 404 page inside the player. */
+  return new URL(data.href, PUBLIC_API).href;
 }
 
 /* Template targets need the schedule ids at redemption; they travel as query on
