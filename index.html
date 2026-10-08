@@ -97,6 +97,29 @@
 
       setTimeout(release, 1400);
 
+      /* The operator's switch is the server's to throw — and the answer is
+         remembered, so a viewer whose last word from the server was "we are
+         down" stays on the pit page while the server cannot be reached instead
+         of walking into a half-dead site. Same key as the app and the pit page;
+         written on every answer, read only when the status fetch fails. The
+         pit page itself releases the viewer home the moment the server says
+         maintenance is over, so a stale flag cannot trap anyone. */
+      const MAINT_KEY = 'freef1_maintenance';
+      const rememberMaintenance = (active) => {
+        const raw = JSON.stringify({ active: !!active, at: Date.now() });
+        try { localStorage.setItem(MAINT_KEY, raw); return; } catch (_) {}
+        try { sessionStorage.setItem(MAINT_KEY, raw); } catch (_) {}
+      };
+      const maintenanceWasActive = () => {
+        const tiers = [];
+        try { tiers.push(localStorage.getItem(MAINT_KEY)); } catch (_) {}
+        try { tiers.push(sessionStorage.getItem(MAINT_KEY)); } catch (_) {}
+        for (const raw of tiers) {
+          try { if (raw && JSON.parse(raw).active) return true; } catch (_) {}
+        }
+        return false;
+      };
+
       window.__FREEF1_SITE_STATUS = fetch(api + '/api/site/status', {
         cache: 'no-store',
         credentials: 'omit',
@@ -104,6 +127,7 @@
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
+          if (data) rememberMaintenance(data.maintenance?.active);
           if (data?.maintenance?.active) {
             location.replace('/maintenance.html');
             return data;
@@ -112,6 +136,10 @@
           return data;
         })
         .catch(() => {
+          if (maintenanceWasActive()) {
+            location.replace('/maintenance.html');
+            return null;
+          }
           release();
           return null;
         });

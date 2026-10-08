@@ -70,6 +70,12 @@ const BLOCKED_COPY = IS_IOS
   ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
   : "The stream host never responded on this network - the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
 
+/* When no source can even get a play ticket, the fault is on this side of the
+   fence: the service that hands out feeds is unreachable. Saying "check your
+   ad-blocker" there sends the viewer hunting for a problem they do not have. */
+const SERVICE_DOWN_TITLE = "Streams are offline right now";
+const SERVICE_DOWN_COPY = "Our stream service is not responding, so no feed can start — this one is on us, not your device. Everything else on the site still works. Retry in a moment.";
+
 const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
@@ -245,10 +251,110 @@ function fmtPts(n) {
   return String(Math.round(Number(n || 0) * 10) / 10);
 }
 
-function fetchWithTimeout(url, options = {}, timeoutMs = API_TIMEOUT_MS) {
+/* ── Site ticket: one permission per browser session ───────────────────────
+   Everything this page asks the server for is gated behind a ticket that can
+   only be minted from the site itself, in a browser. The page asks once, keeps
+   it, and presents it on every call: a script or a copy of this site on another
+   host has no ticket, so the API answers it with 403 instead of our data. Two
+   calls are exempt by design — /api/site/status (the page must learn it is in
+   maintenance before it can have a ticket) and /api/visitors/token (its own
+   origin gate), both handled server-side. */
+let siteTicketCache = { ticket: '', expiresAt: 0 };
+let siteTicketInflight = null;
+
+function isOurApi(url) {
+  const raw = String(url || '');
+  if (!raw.includes('/api/')) return false;
+  try {
+    const target = new URL(raw, location.href);
+    const api = new URL(PUBLIC_API, location.href);
+    return target.origin === api.origin || target.origin === location.origin;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function mintSiteTicket() {
+  const r = await fetch(`${PUBLIC_API}/api/site/ticket`, {
+    method: 'POST',
+    cache: 'no-store',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}'
+  });
+  const data = r && r.ok ? await r.json().catch(() => null) : null;
+  if (!data || typeof data.ticket !== 'string' || !data.ticket) throw new Error('no ticket');
+  siteTicketCache = { ticket: data.ticket, expiresAt: Number(data.expiresAt) || 0 };
+  return data.ticket;
+}
+
+/* One mint at a time: a page that fires five API calls on load must not ask
+   five times (that is also what keeps the server-side budget meaningful). */
+function siteTicket({ fresh = false } = {}) {
+  const now = Date.now();
+  // Refresh a little before expiry so a request never rides a dying ticket.
+  if (!fresh && siteTicketCache.ticket && siteTicketCache.expiresAt - now > 5 * 60 * 1000) {
+    return Promise.resolve(siteTicketCache.ticket);
+  }
+  if (!fresh && siteTicketInflight) return siteTicketInflight;
+  const pending = mintSiteTicket()
+    .catch(() => '')          // no ticket: the call still goes out, the server decides
+    .finally(() => { if (siteTicketInflight === pending) siteTicketInflight = null; });
+  siteTicketInflight = pending;
+  return pending;
+}
+
+/* Mirrors the server's bootstrap allowlist: these four answer without a ticket,
+   and sending one to them would only be a credential on a request that never
+   needed it. If this list ever drifts from the server's, the 403 retry below
+   recovers on the next call. */
+const SITE_TICKET_FREE_APIS = new Set(['/api/site/status', '/api/site/ticket', '/api/auth/verify',
+  '/api/stream/ticket', '/api/visitors/token',
+  // presence carries its own signed visitor token
+  '/api/visitors/heartbeat', '/api/visitors/event', '/api/visitors/leave']);
+
+function needsSiteTicket(url) {
+  if (!isOurApi(url)) return false;
+  try {
+    return !SITE_TICKET_FREE_APIS.has(new URL(String(url), location.href).pathname);
+  } catch (_) {
+    return true;
+  }
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = API_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
+  const base = { ...options, signal: controller.signal };
+  if (!needsSiteTicket(url)) {
+    return fetch(url, base).finally(() => clearTimeout(timeout));
+  }
+  const send = async (ticket) => {
+    const headers = { ...(options.headers || {}) };
+    if (ticket) headers['X-Site-Ticket'] = ticket;
+    return fetch(url, { ...base, headers });
+  };
+  return (async () => {
+    try {
+      const first = await send(await siteTicket());
+      // An expired or rotated ticket is the one failure worth a second try.
+      if (first.status === 403) {
+        const retry = await send(await siteTicket({ fresh: true }));
+        return retry;
+      }
+      return first;
+    } finally {
+      clearTimeout(timeout);
+    }
+  })();
+}
+
+/* EventSource cannot set headers, so the ticket rides in the query string for
+   that one endpoint. Reconnects call this again: a cached-and-still-valid
+   ticket is reused, an expired one is replaced. */
+async function siteEventsUrl() {
+  const ticket = await siteTicket();
+  return `${PUBLIC_API}/api/events${ticket ? `?ticket=${encodeURIComponent(ticket)}` : ''}`;
 }
 
 function apiCacheKey(url) {
@@ -677,37 +783,38 @@ function getStreamEastSlug(event, session) {
   return `ppv-${ev}-${sess}`;
 }
 
+/* IDs and labels only. The addresses these feeds play from live on the server
+   (STREAM_TARGETS_JSON / DATA_DIR/stream-targets.json) and are resolved at play
+   time — this file, like every other file the browser downloads, must never
+   contain one. streamAlias() below is the only way to reach a feed. */
 const sources=[
- {id:"sky-sports-f1",label:"Sky Sports F1",url:"https://flyembed.click/embed/44.php"},
- {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
- {id:"sky-uk-2",label:"Sky UK 2",url:"https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk",rp:"strict-origin-when-cross-origin"},
- {id:"sky-uk",label:"Sky UHD",url:"https://strmfree.st/embed/racing/skyf1"},
- {id:"f1tv",label:"F1TV",suffix:""},
- {id:"appletv",label:"AppleTV",streamNum:3},
- {id:"dazn",label:"DAZN",streamNum:5},
- {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
+ {id:"sky-sports-f1",label:"Sky Sports F1"},
+ {id:"westream",label:"WeStream F1"},
+ {id:"sky-uk-2",label:"Sky UK 2",rp:"strict-origin-when-cross-origin"},
+ {id:"sky-uk",label:"Sky UHD"},
+ {id:"f1tv",label:"F1TV"},
+ {id:"appletv",label:"AppleTV"},
+ {id:"dazn",label:"DAZN"},
+ {id:"wikisport",label:"WikiSport"}
 ];
 
 var LIVE247_STATIONS = [
   {
     id: 'sky-sports-f1',
     label: 'Sky Sports F1',
-    sub: '24/7 — Sky Sports F1 (Fly 44)',
-    url: 'https://flyembed.click/embed/44.php',
+    sub: '24/7 — Sky Sports F1',
     hideTransport: true
   },
   {
     id: 'westream',
     label: 'WeStream F1',
     sub: '24/7 — WeStream',
-    url: 'https://westreamf1.com/westreamf1.php',
     hideTransport: true
   },
   {
     id: 'sky-uk-2',
     label: 'Sky UK 2',
     sub: '24/7 alternate Sky Sports F1 feed',
-    url: 'https://videocdn-4726.website/shopping2/?channel_id=sky_sport_f1_uk',
     rp: 'strict-origin-when-cross-origin',
     gate: 'auto'
   },
@@ -715,7 +822,6 @@ var LIVE247_STATIONS = [
     id: 'sky-uk',
     label: 'Sky UHD',
     sub: '24/7 Sky UHD feed',
-    url: 'https://strmfree.st/embed/racing/skyf1',
     rp: 'origin-when-cross-origin',
     hideTransport: true
   },
@@ -723,7 +829,6 @@ var LIVE247_STATIONS = [
     id: 'wikisport',
     label: 'WikiSport',
     sub: '24/7 international feed',
-    url: 'https://wikisport.info/strm/f1.php',
     rp: 'origin-when-cross-origin',
     hideTransport: true
   }
@@ -766,15 +871,54 @@ let currentSource = 0;
 let activeView = 'home';
 let playerLoadToken = 0;
 
-const buildUrl = (i) => {
-  const s = sources[i];
-  if (!s) return "";
-  if (s.streamNum) {
-    const slug = getStreamEastSlug(currentEvent, currentSession);
-    return `https://embed.st/embed/admin/${slug}/${s.streamNum}`;
-  }
-  return s.url || (s.suffix !== undefined ? `https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${s.suffix || ""}` : "");
-};
+/* ── Play tickets ──────────────────────────────────────────────────────────
+   Reaching a feed is a two-step: POST the source id (+ the schedule ids already
+   on screen) to /api/stream/ticket, receive a short-lived alias on this origin
+   such as /stream/<ticket>, and hand THAT to the iframe. The server redeems the
+   alias and redirects to wherever the feed sits today, so rotating a target
+   re-points every alias already in the wild — or kills it. Nothing the browser
+   holds names a provider. */
+function streamPlayParams() {
+  return {
+    season: SITE_SEASON,
+    eventSlug: currentEvent?.slug || "",
+    sessionSlug: currentSession?.slug || "",
+    eastSlug: getStreamEastSlug(currentEvent, currentSession)
+  };
+}
+
+async function requestStreamAlias(sourceId, params) {
+  const r = await fetchWithTimeout(`${PUBLIC_API}/api/stream/ticket`, {
+    method: "POST",
+    cache: "no-store",
+    credentials: "omit",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sourceId, params: params || {} })
+  }, 8000);
+  const data = r && r.ok ? await r.json().catch(() => null) : null;
+  if (!data || typeof data.href !== "string" || !data.href) throw new Error("stream ticket unavailable");
+  return data;
+}
+
+/* Every mount asks the server for its own ticket. A cached alias would let the
+   page mount a frame the server would refuse right now — and when the server was
+   down that showed as a dead player with no explanation at all, because a
+   frame's error page still fires load(). One request per play is the price of
+   the browser always asking. */
+async function streamAlias(sourceId, { params = null } = {}) {
+  const data = await requestStreamAlias(sourceId, params || streamPlayParams());
+  return data.href;
+}
+
+/* Template targets need the schedule ids at redemption; they travel as query on
+   the alias. Harmless on a fixed target — the server ignores what it does not
+   need, and an alias is worthless off this origin anyway. */
+function withStreamParams(href, params) {
+  const q = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => { if (v !== "" && v != null) q.set(k, String(v)); });
+  const qs = q.toString();
+  return qs ? `${href}${href.includes("?") ? "&" : "?"}${qs}` : href;
+}
 
 function updateHeader() {
   const parts = currentEvent.name.split(" ");
@@ -893,7 +1037,19 @@ nsActionsEl?.addEventListener("click", (e) => {
   } else if (e.target.id === "nsNextBtn") {
     switchToNextSource();
   } else if (e.target.id === "nsNewTabBtn") {
-    window.open(buildUrl(currentSource), "_blank", "noopener");
+    /* The tab is opened synchronously (popup rules) and pointed at the alias
+       once the ticket comes back — same result as noopener, no blocked popup. */
+    const tab = window.open("about:blank", "_blank");
+    if (tab) { try { tab.opener = null; } catch (_) {} }
+    const params = streamPlayParams();
+    streamAlias(sources[currentSource]?.id).then((href) => {
+      const target = withStreamParams(href, params);
+      if (tab) tab.location.replace(target);
+      else window.open(target, "_blank", "noopener");
+    }).catch(() => {
+      if (tab) tab.close();
+      showToast("Stream unavailable right now — try another source.", "warning");
+    });
   } else if (e.target.id === "nsStayBtn") {
     hideNoStream();
     setStreamOnScreen(true);
@@ -1005,9 +1161,48 @@ function watchFrameNavigation(f, token, isSettled) {
   });
 }
 
+/* A frame that never loaded is usually the provider refusing us — but it is the
+   exact same picture when our own service is gone, and then "check ad-blockers,
+   VPN or DNS filtering" sends the viewer hunting for a problem they do not have.
+   So after a failed frame we ask the service for a fresh alias: if it cannot
+   answer, the outage is ours and the overlay says so. One request, only after
+   something has already failed. */
+let streamServiceDown = false;
+let serviceProbeInFlight = false;
+let ticketCallFailed = false;
+
+async function confirmService() {
+  if (streamServiceDown || serviceProbeInFlight) return;
+  const source = sources[currentSource];
+  if (!source) return;
+  serviceProbeInFlight = true;
+  try {
+    await streamAlias(source.id);
+    // The service answered: the provider, not us. Nothing to change.
+    streamServiceDown = false;
+  } catch (_) {
+    streamServiceDown = true;
+    trackEvent('stream_service_down');
+    if (noStreamEl?.classList.contains('visible')) {
+      if (noStreamTitleEl) noStreamTitleEl.textContent = SERVICE_DOWN_TITLE;
+      if (noStreamTextEl) noStreamTextEl.textContent = SERVICE_DOWN_COPY;
+    }
+  } finally {
+    serviceProbeInFlight = false;
+  }
+}
+
 function showStreamBlocked() {
   trackEvent('stream_blocked');
+  // A ticket call that failed is proof enough: say it once, and never show the
+  // ad-blocker wording on the way there.
+  if (ticketCallFailed) {
+    trackEvent('stream_service_down');
+    showNoStream({ blocked: true, title: SERVICE_DOWN_TITLE, text: SERVICE_DOWN_COPY });
+    return;
+  }
   showNoStream({ blocked: true, text: BLOCKED_COPY });
+  confirmService();
 }
 
 function attemptSource(token, order, idx, startedAt) {
@@ -1016,8 +1211,20 @@ function attemptSource(token, order, idx, startedAt) {
     showStreamBlocked();
     return;
   }
-  const targetUrl = buildUrl(order[idx]);
   setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable - switching source…");
+  const params = streamPlayParams();
+  streamAlias(sources[order[idx]].id).then((href) => {
+    if (token !== playerLoadToken) return;
+    mountAttempt(token, order, idx, startedAt, withStreamParams(href, params));
+  }).catch(() => {
+    if (token !== playerLoadToken) return;
+    // No alias at all: the stream service, not the provider, is the problem.
+    ticketCallFailed = true;
+    attemptSource(token, order, idx + 1, startedAt);
+  });
+}
+
+function mountAttempt(token, order, idx, startedAt, targetUrl) {
   const f = makeStreamIframe(targetUrl, sources[order[idx]].rp);
   let settled = false;
 
@@ -1070,6 +1277,7 @@ function attemptSource(token, order, idx, startedAt) {
 
 function load() {
   const token = ++playerLoadToken;
+  ticketCallFailed = false;
   loaderEl?.classList.remove("hidden");
   hideNoStream();
   setLoaderText("Establishing feed…");
@@ -1198,30 +1406,58 @@ function updateOverridePill(override) {
   }
 }
 
+/* The operator's custom URL stays on the server like every other target: the
+   public payload carries only { active, type }, and the browser gets an alias
+   for the reserved id "override". streamOverride.url therefore holds an alias,
+   never an address. */
 function applyStreamOverride(override) {
-  const next = override || { active: false, url: null, type: null };
+  const next = {
+    active: Boolean(override && override.active),
+    type: (override && override.type) || null,
+    url: null
+  };
   const prevActive = streamOverride.active;
-  const changed = Boolean(next.active) !== Boolean(streamOverride.active) ||
-    (next.url || '') !== (streamOverride.url || '') ||
-    (next.type || '') !== (streamOverride.type || '');
+  const changed = next.active !== streamOverride.active || next.type !== streamOverride.type;
 
   streamOverride = next;
   updateOverridePill(streamOverride);
   if (!changed) return;
 
-  const toastKey = streamOverride.active ? (streamOverride.url || '') : 'inactive';
+  const toastKey = streamOverride.active ? `override:${streamOverride.type || 'custom'}` : 'inactive';
   if (toastKey !== lastOverrideToastKey) {
     lastOverrideToastKey = toastKey;
-    if (streamOverride.active && streamOverride.url) {
+    if (streamOverride.active) {
       showToast(`Stream override active - ${streamOverride.type || 'custom'} feed`, 'warning');
     } else if (prevActive) {
       showToast('Stream override deactivated - normal feed restored.', 'success');
     }
   }
-  load();
+
+  if (!streamOverride.active) {
+    load();
+    return;
+  }
+  streamAlias('override', { params: {} }).then((href) => {
+    if (!streamOverride.active) return;
+    streamOverride.url = href;
+    load();
+  }).catch(() => {
+    if (!streamOverride.active) return;
+    showToast('Override feed is unavailable right now.', 'warning');
+    streamOverride = { active: false, url: null, type: null };
+    updateOverridePill(streamOverride);
+    load();
+  });
 }
 
 function applyMaintenanceMode(state) {
+  /* Remember the operator's answer: the boot gate in index.html reads it when
+     the server cannot be reached, so maintenance stays enforced through an
+     outage. Written on every answer, never on a failure — the cache is only a
+     copy of what the server last said, never a guess about it. */
+  if (state && typeof state.active === 'boolean') {
+    try { store.set('freef1_maintenance', JSON.stringify({ active: state.active, at: Date.now() })); } catch (_) {}
+  }
   if (state?.active && location.pathname !== '/maintenance.html') {
     location.replace('/maintenance.html');
   }
@@ -1270,11 +1506,12 @@ function applySourceConfig(payload) {
   if (!isStillUsable) load();
 }
 
-function initStreamOverrideSSE() {
+async function initStreamOverrideSSE() {
   if (document.hidden || streamEvents) return;
-  const SSE_URL = `${PUBLIC_API}/api/events`;
+  let es = null;
   try {
-    const es = new EventSource(SSE_URL);
+    const es2 = new EventSource(await siteEventsUrl());
+    es = es2;
     streamEvents = es;
     const onState = (e) => {
       try {
@@ -1331,6 +1568,7 @@ function initStreamOverrideSSE() {
   } catch (_) {
     streamEvents = null;
     streamReconnectTimer = setTimeout(initStreamOverrideSSE, streamRetryMs);
+    streamRetryMs = Math.min(streamRetryMs * 2, 30000);
   }
 }
 
@@ -4569,9 +4807,9 @@ function live247StationLabel() {
 }
 
 /* ── Factory: 24/7 iframes only (Cockpit's makeStreamIframe stays as-is) ── */
-function makeLive247Iframe(station) {
+function makeLive247Iframe(station, targetUrl) {
   const f = document.createElement('iframe');
-  f.src = station.url;
+  f.src = targetUrl;
   f.allow = IFRAME_ALLOW;
   f.setAttribute('allow', IFRAME_ALLOW);
   f.allowFullscreen = true;
@@ -4773,7 +5011,10 @@ function renderLive247Chips() {
   }));
 }
 
+/* `auto` is accepted for callers that auto-advance channels; the mount itself
+   no longer branches on it (the gate rule lives in mountLive247Station). */
 function loadLive247Station(stationId, { auto = false } = {}) {
+  void auto;
   const station = LIVE247_STATIONS.find((s) => s.id === stationId) || LIVE247_STATIONS[0];
   live247StationId = station.id;
   if ($('live247StationLabel')) $('live247StationLabel').textContent = station.label.toUpperCase();
@@ -4787,8 +5028,24 @@ function loadLive247Station(stationId, { auto = false } = {}) {
   const showTransport = !station.hideTransport;
   if ($('live247PlayBtn')) $('live247PlayBtn').hidden = !showTransport;
   if ($('live247StopBtn')) $('live247StopBtn').hidden = !showTransport;
+  /* Alias first: nothing provider-shaped is ever written into the DOM here. */
+  const params = streamPlayParams();
+  streamAlias(station.id, { params }).then((href) => {
+    if (live247StationId !== station.id) return;
+    mountLive247Station(station, wrap, withStreamParams(href, params));
+  }).catch(() => {
+    if (live247StationId !== station.id) return;
+    wrap.replaceChildren();
+    live247Playing = false;
+    live247SyncFsBar();
+    live247Status('UNAVAILABLE');
+    showToast(`The ${station.label} feed is unavailable right now.`, 'warning');
+  });
+}
+
+function mountLive247Station(station, wrap, targetUrl) {
   wrap.replaceChildren();
-  const iframe = makeLive247Iframe(station);
+  const iframe = makeLive247Iframe(station, targetUrl);
   iframe.title = station.label + ' 24/7';
   wrap.appendChild(iframe);
   wrap.appendChild(makeLive247Gate());
@@ -4799,7 +5056,6 @@ function loadLive247Station(stationId, { auto = false } = {}) {
   live247SyncFsBar();
   trackEvent('live247_load', station.id);
   requestScreenWakeLock().catch(()=>{});
-  void auto;
   /* gate: 'auto' stations (the reliable feeds) start without a Start click —
      unless the feed hijacked recently, in which case the gate comes back. */
   const escalating = live247LastHijackAt && (Date.now() - live247LastHijackAt < LIVE247_ESCALATION_MS);
@@ -4876,14 +5132,20 @@ async function diagPing(url, label){
   const t0 = performance.now();
   const cleanUrl = String(url||'');
   if(!cleanUrl) return {label, url: cleanUrl, ok:false, status:'-', ms:0, error:'no url'};
-  // Try HEAD first (405 on some hosts like strmfree — we treat that as alive and retry GET)
+  // Our own API answers nobody without a ticket; the probe carries one too.
+  const diagHeaders = { 'Accept': '*/*' };
+  if (isOurApi(cleanUrl)) {
+    const t = await siteTicket().catch(() => '');
+    if (t) diagHeaders['X-Site-Ticket'] = t;
+  }
+  // Try HEAD first (405 on some embed hosts — we treat that as alive and retry GET)
   try{
     const ctrl = new AbortController();
     const to = setTimeout(()=>ctrl.abort(), 5000);
-    const r = await fetch(cleanUrl, { method:'HEAD', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow', signal: ctrl.signal, headers:{'Accept':'*/*'} });
+    const r = await fetch(cleanUrl, { method:'HEAD', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow', signal: ctrl.signal, headers: diagHeaders });
     clearTimeout(to);
     const ms = Math.round(performance.now()-t0);
-    // HEAD 405 on strmfree is expected — actually alive
+    // HEAD 405 on some embed hosts is expected — actually alive
     if(r.status===405) return {label, url: cleanUrl, ok:true, status:'405', ms, error:''};
     return {label, url: cleanUrl, ok: r.ok, status: String(r.status), ms, error: r.ok?'':'HTTP '+r.status};
   }catch(e){
@@ -4910,41 +5172,6 @@ async function diagPing(url, label){
     return {label, url: cleanUrl, ok:false, status:'-', ms, error: msg};
   }
 }
-function diagIframePing(url, label){
-  return new Promise((resolve)=>{
-    const t0 = performance.now();
-    const cleanUrl = String(url||'');
-    if(!cleanUrl) return resolve({label, url: cleanUrl, ok:false, status:'-', ms:0, error:'no url'});
-    // Use hidden iframe to test if device can actually load the embed (fetch is CORS-blocked, iframe is not)
-    let done=false;
-    let to=null;
-    const finish=(ok,status,err)=>{
-      if(done) return;
-      done=true;
-      clearTimeout(to);
-      try{ iframe.remove(); }catch(_){}
-      const ms=Math.round(performance.now()-t0);
-      resolve({label, url: cleanUrl, ok, status, ms, error: err||''});
-    };
-    const iframe=document.createElement('iframe');
-    // Match live player attributes so adblock sees same as real embed
-    iframe.referrerPolicy='no-referrer';
-    iframe.setAttribute('allow','autoplay *; encrypted-media *; fullscreen *; picture-in-picture *');
-    // No sandbox — matches live cockpit (sandbox breaks streams)
-    iframe.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0;';
-    // onload = host reachable (even if player shows spinner, iframe HTML loaded)
-    iframe.onload=()=>finish(true,'iframe ok','');
-    iframe.onerror=()=>finish(false,'iframe blocked','');
-    // Timeout = blocked on device (DNS / adblock / network)
-    to=setTimeout(()=>finish(false,'timeout',''), 6000);
-    try{
-      iframe.src=cleanUrl;
-      document.body.appendChild(iframe);
-    }catch(e){
-      finish(false,'-', String(e).slice(0,60));
-    }
-  });
-}
 function diagBool(v){ return v ? 'yes' : 'no'; }
 async function buildDiagnosticsReport(){
   const now = new Date();
@@ -4969,20 +5196,10 @@ async function buildDiagnosticsReport(){
   let lsOk='-', wakeOk='-';
   try{ localStorage.setItem('__diag','1'); localStorage.removeItem('__diag'); lsOk='yes'; }catch(_){ lsOk='no ('+String(_).slice(0,60)+')'; }
   try{ wakeOk = ('wakeLock' in navigator) ? 'yes' : 'no'; }catch(_){ wakeOk='no'; }
-  // ping site APIs + streams internally, but NEVER expose stream URLs in the report (hidden)
+  /* Stream feeds are NOT probed from here. This build holds no stream URLs, and
+     pinging every provider from every visitor's browser was itself a way to read
+     the list back out. Reachability is reported by the server instead. */
   const pingTargets = [];
-  // add stream URLs internally (hidden from report)
-  try{
-    if(typeof sources!=='undefined') sources.forEach(s=>{
-      let u='-'; try{ u = (typeof buildUrl==='function' ? buildUrl(sources.indexOf(s)) : (s.url||'')); }catch(_){ u=s.url||''; }
-      if(u && u.startsWith('http')) pingTargets.push({label: 'Stream '+s.label+' ['+s.id+']', url: u, hideUrl:true});
-    });
-  }catch(_){}
-  try{
-    if(typeof LIVE247_STATIONS!=='undefined') LIVE247_STATIONS.forEach(s=>{
-      if(s.url && s.url.startsWith('http')) pingTargets.push({label: '247 '+s.label+' ['+s.id+']', url: s.url, hideUrl:true});
-    });
-  }catch(_){}
   pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/site/status', hideUrl:false});
   pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/status', hideUrl:false});
   pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/sources', hideUrl:false});
@@ -4992,7 +5209,7 @@ async function buildDiagnosticsReport(){
   try{
     // use mapPool if exists
     const poolFn = (typeof mapPool==='function' ? (items,fn)=>mapPool(items,fn,4) : (items,fn)=>Promise.all(items.map(fn)));
-    const outRaw = await poolFn(pingTargets, t=> (t.label.startsWith('Stream ')||t.label.startsWith('247 ')) ? diagIframePing(t.url, t.label) : diagPing(t.url, t.label));
+    const outRaw = await poolFn(pingTargets, t=> diagPing(t.url, t.label));
     out = outRaw.map((r,i)=>({...r, hideUrl: !!pingTargets[i].hideUrl}));
     pingResults = out.map(r=>{
       const flag = r.ok ? 'OK' : 'FAIL';
@@ -5003,6 +5220,7 @@ async function buildDiagnosticsReport(){
       return `[${flag}] ${r.status} ${r.ms}ms | ${r.label}${urlPart}${err}`;
     }).join('\n');
   }catch(_){ pingResults='ping failed: '+String(_).slice(0,300); }
+  pingResults = 'streams: resolved server-side — this build carries no stream URLs\n' + pingResults;
 
   // Discord-ready, ordered, compact (<1900 chars so it fits one Discord message)
   const gen = now.toISOString().slice(0,19).replace('T',' ') + ' UTC';

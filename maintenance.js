@@ -23,10 +23,97 @@ let released = false;
 let eventSource = null;
 let sseConnected = false;
 
+/* The pit-stop page needs a site ticket too — the live feed (/api/events) is
+   gated like everything else, except that an EventSource cannot set headers, so
+   that one carries the ticket in the query string. /api/site/status and
+   /api/visitors/token are exempt server-side: the page has to be able to learn
+   it is in maintenance before it can hold a ticket, and presence has its own
+   origin gate. */
+let siteTicketCache = { ticket: '', expiresAt: 0 };
+let siteTicketInflight = null;
+
+function isOurApi(url) {
+  const raw = String(url || '');
+  if (!raw.includes('/api/')) return false;
+  try {
+    const target = new URL(raw, location.href);
+    const api = new URL(API, location.href);
+    return target.origin === api.origin || target.origin === location.origin;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function mintSiteTicket() {
+  const r = await fetch(`${API}/api/site/ticket`, {
+    method: 'POST',
+    cache: 'no-store',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}'
+  });
+  const data = r && r.ok ? await r.json().catch(() => null) : null;
+  if (!data || typeof data.ticket !== 'string' || !data.ticket) throw new Error('no ticket');
+  siteTicketCache = { ticket: data.ticket, expiresAt: Number(data.expiresAt) || 0 };
+  return data.ticket;
+}
+
+function siteTicket({ fresh = false } = {}) {
+  if (!fresh && siteTicketCache.ticket && siteTicketCache.expiresAt - Date.now() > 5 * 60 * 1000) {
+    return Promise.resolve(siteTicketCache.ticket);
+  }
+  if (!fresh && siteTicketInflight) return siteTicketInflight;
+  const pending = mintSiteTicket()
+    .catch(() => '')
+    .finally(() => { if (siteTicketInflight === pending) siteTicketInflight = null; });
+  siteTicketInflight = pending;
+  return pending;
+}
+
+async function siteEventsUrl() {
+  const ticket = await siteTicket();
+  return `${API}/api/events${ticket ? `?ticket=${encodeURIComponent(ticket)}` : ''}`;
+}
+
+/* Mirrors the server's bootstrap allowlist: these answer without a ticket, so
+   no credential is sent to a request that never needed one. If this list ever
+   drifts from the server's, the 403 retry recovers on the next call. */
+const SITE_TICKET_FREE_APIS = new Set(['/api/site/status', '/api/site/ticket', '/api/auth/verify',
+  '/api/stream/ticket', '/api/visitors/token',
+  // presence carries its own signed visitor token
+  '/api/visitors/heartbeat', '/api/visitors/event', '/api/visitors/leave']);
+
+function needsSiteTicket(url) {
+  if (!isOurApi(url)) return false;
+  try {
+    return !SITE_TICKET_FREE_APIS.has(new URL(String(url), location.href).pathname);
+  } catch (_) {
+    return true;
+  }
+}
+
 function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
+  const base = { ...options, signal: controller.signal };
+  if (!needsSiteTicket(url)) {
+    return fetch(url, base).finally(() => clearTimeout(timeout));
+  }
+  const send = async (ticket) => {
+    const headers = { ...(options.headers || {}) };
+    if (ticket) headers['X-Site-Ticket'] = ticket;
+    return fetch(url, { ...base, headers });
+  };
+  return (async () => {
+    try {
+      const first = await send(await siteTicket());
+      // A ticket that expired mid-session is the one failure worth a retry.
+      if (first.status === 403) return await send(await siteTicket({ fresh: true }));
+      return first;
+    } finally {
+      clearTimeout(timeout);
+    }
+  })();
 }
 
 function safeStoreGet(key) {
@@ -85,10 +172,10 @@ async function fetchMaintenanceStatus() {
   }
 }
 
-function connectEvents() {
+async function connectEvents() {
   if (released || document.hidden || eventSource) return;
   try {
-    const source = new EventSource(`${API}/api/events`);
+    const source = new EventSource(await siteEventsUrl());
     eventSource = source;
     source.addEventListener('open', () => {
       sseConnected = true;
