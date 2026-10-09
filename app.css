@@ -1174,6 +1174,31 @@ from {
   border-color: transparent;
 }
 
+/* ── Phones ─────────────────────────────────────────────────────────────
+   The closed trigger ellipsised the round label away: measured at 360px
+   wide, "Round 17 · Singapore Grand Prix (Marina Bay)" needs 315px but
+   only 248px is available, so the value was cut mid-word. Let it wrap to
+   two lines instead — nothing is lost, and the select grows to fit.
+
+   The two selects in a row also stack, so each gets the full width rather
+   than a cramped fraction of it. */
+@media (max-width: 560px){
+  .select-value{
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.3;
+  }
+  .select-trigger{
+    min-height: 50px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    align-items: center;
+  }
+  .selects{ flex-direction: column; }
+  .select-menu{ max-height: 46vh; }
+}
+
 /* Source chips */
 .chips {
   display: flex;
@@ -3498,14 +3523,17 @@ button:focus-visible,a:focus-visible,select:focus-visible {
     white-space: nowrap;
   }
 
+  /* Modals used to be bottom sheets here (align-items: flex-end). Centred
+     vertically instead, so a panel sits in the middle of the screen rather
+     than pinned to the bottom edge. */
   .modal {
     padding: max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
-    align-items: flex-end;
+    align-items: center;
   }
 
   .sheet {
     max-height: min(92svh,780px);
-    border-radius: 16px 16px 8px 8px;
+    border-radius: 16px;
     padding: 17px;
     overscroll-behavior: contain;
   }
