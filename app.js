@@ -795,7 +795,12 @@ const sources=[
  {id:"f1tv",label:"F1TV"},
  {id:"appletv",label:"AppleTV"},
  {id:"dazn",label:"DAZN"},
- {id:"wikisport",label:"WikiSport"}
+ {id:"wikisport",label:"WikiSport"},
+ /* Played by the API itself rather than redirected to a provider: the
+    upstream playlist is signed and short-lived, so the server re-mints it
+    and /api/stream/ticket returns an alias resolved at play time. Same
+    contract as every other id here — an id and a label, never an address. */
+ {id:"cdnlivetv-f1",label:"Sky F1 (CDN)"}
 ];
 
 var LIVE247_STATIONS = [
