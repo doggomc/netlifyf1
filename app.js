@@ -14,14 +14,14 @@ const AUTH_PROTECTION_ENABLED = true;
 
 const PREVIEW_HOST = location.hostname === 'localhost' ||
   location.hostname === '127.0.0.1' ||
-  location.hostname === 'f1free.onrender.com' ||
+  location.hostname === 'f1free.onrender.com' || location.hostname === 'freef1.onrender.com' ||
   location.hostname.endsWith('.e2b.app');
 
 const isAuthorizedHost = (host) => {
   const h = (host || location.hostname).toLowerCase();
   return (
     h === AUTHORIZED_DOMAIN ||
-    h === 'f1free.onrender.com' ||
+    h === 'f1free.onrender.com' || h === 'freef1.onrender.com' ||
     h === 'localhost' ||
     h === '127.0.0.1' ||
     h.endsWith('.e2b.app') ||
@@ -36,16 +36,16 @@ const isAuthorizedHost = (host) => {
    (Do NOT fold these into PREVIEW_HOST: that flag switches API calls to
    location.origin, which only works where a backend actually shares the
    origin — localhost / Render / e2b. Netlify previews must keep calling
-   https://f1free.onrender.com.) */
+   https://freef1.onrender.com.) */
 function isNetlifyPreviewHost(h) {
   return AUTHORIZED_DOMAIN.endsWith('.netlify.app') &&
     h.length > AUTHORIZED_DOMAIN.length + 2 &&
     h.endsWith('--' + AUTHORIZED_DOMAIN);
 }
 
-const PUBLIC_API = PREVIEW_HOST ? location.origin : 'https://f1free.onrender.com';
-const AUTH_API_URL = PREVIEW_HOST ? `${location.origin}/api/auth/verify` : 'https://f1free.onrender.com/api/auth/verify';
-const OPENF1_API = PREVIEW_HOST ? `${location.origin}/api/openf1` : 'https://f1free.onrender.com/api/openf1';
+const PUBLIC_API = PREVIEW_HOST ? location.origin : 'https://freef1.onrender.com';
+const AUTH_API_URL = PREVIEW_HOST ? `${location.origin}/api/auth/verify` : 'https://freef1.onrender.com/api/auth/verify';
+const OPENF1_API = PREVIEW_HOST ? `${location.origin}/api/openf1` : 'https://freef1.onrender.com/api/openf1';
 const JOLPI = 'https://api.jolpi.ca/ergast/f1';
 
 const NAV_TIMEOUT_MS = 9000;
@@ -2074,7 +2074,7 @@ function initVisitorCounter() {
     uid = 'user_' + (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36));
     store.set('freef1_user_id', uid);
   }
-  const API = PREVIEW_HOST ? location.origin : 'https://f1free.onrender.com';
+  const API = PREVIEW_HOST ? location.origin : 'https://freef1.onrender.com';
   const INTERVAL = 15000;
   let timer = 0;
   let inFlight = false;
@@ -5611,10 +5611,10 @@ async function buildDiagnosticsReport(){
      pinging every provider from every visitor's browser was itself a way to read
      the list back out. Reachability is reported by the server instead. */
   const pingTargets = [];
-  pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/site/status', hideUrl:false});
-  pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/status', hideUrl:false});
-  pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/stream/sources', hideUrl:false});
-  pingTargets.push({label:'API visitors active', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://f1free.onrender.com')+'/api/visitors/active', hideUrl:false});
+  pingTargets.push({label:'API site status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://freef1.onrender.com')+'/api/site/status', hideUrl:false});
+  pingTargets.push({label:'API stream status', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://freef1.onrender.com')+'/api/stream/status', hideUrl:false});
+  pingTargets.push({label:'API stream sources', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://freef1.onrender.com')+'/api/stream/sources', hideUrl:false});
+  pingTargets.push({label:'API visitors active', url: (typeof PUBLIC_API!=='undefined'?PUBLIC_API:'https://freef1.onrender.com')+'/api/visitors/active', hideUrl:false});
   let pingResults='(no targets)';
   let out = [];
   try{
