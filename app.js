@@ -96,9 +96,17 @@ const TEAM_HEX={'McLaren':'#FF8000','Ferrari':'#DC0000','Red Bull':'#1E41FF','Me
  'Williams':'#005AFF','Aston Martin':'#006F62','Alpine F1 Team':'#FF0080','Alpine':'#FF0080',
  'Haas F1 Team':'#B6BABD','Haas':'#B6BABD','Audi':'#E62213','Sauber':'#00E701','RB F1 Team':'#6692FF','Racing Bulls':'#6692FF','Cadillac F1 Team':'#B4A07A','Cadillac':'#B4A07A'};
 
-const TEAM_ALIAS={'rb f1 team':'racingbulls','racing bulls':'racingbulls','red bull':'redbull',
- 'red bull racing':'redbull','alpine f1 team':'alpine','haas f1 team':'haas',
- 'cadillac f1 team':'cadillac','aston martin':'astonmartin','sauber':'audi'};
+const DRIVER_DATA = window.FreeF1DriverData || Object.freeze({
+  ROSTER: Object.freeze([]),
+  TEAM_ALIASES: Object.freeze({}),
+  canonicalDriverId: (id) => String(id || '').toLowerCase(),
+  findDriver: () => null,
+  findDriverByName: () => null,
+  teamIdFor: () => '',
+  photoKey: (id) => id,
+  enrichStandings: (rows) => Array.isArray(rows) ? rows : []
+});
+const TEAM_ALIAS = DRIVER_DATA.TEAM_ALIASES;
 
 const DRIVER_PHOTO={
   russell:'https://media.formula1.com/image/upload/c_lfill,w_440/q_auto/d_common:f1:2026:fallback:driver:2026fallbackdriverright.webp/v1740000001/common/f1/2026/mercedes/georus01/2026mercedesgeorus01right.webp',
@@ -125,9 +133,7 @@ const DRIVER_PHOTO={
   bottas:'https://media.formula1.com/image/upload/c_lfill,w_440/q_auto/d_common:f1:2026:fallback:driver:2026fallbackdriverright.webp/v1740000001/common/f1/2026/cadillac/valbot01/2026cadillacvalbot01right.webp'
 };
 
-const DRIVER_KEY={max_verstappen:'verstappen',arvid_lindblad:'lindblad',
- carlos_sainz:'sainz',kevin_magnussen:'magnussen'};
-const photoFor = (id) => DRIVER_PHOTO[DRIVER_KEY[id] || id] || null;
+const photoFor = (id) => DRIVER_PHOTO[DRIVER_DATA.photoKey(id)] || null;
 
 const teams=[
  {id:'default',name:'FreeF1 Red',color:'#E10600',text:'#fff',abbr:'APX'},
@@ -365,22 +371,24 @@ function apiCacheKey(url) {
   return `freef1_api_cache_${url}`;
 }
 
-function readApiFallback(url) {
+function readApiFallbackRecord(url) {
   const key = apiCacheKey(url);
   try {
     const cached = JSON.parse(store.get(key) || 'null');
-    if (!cached || Date.now() - Number(cached.savedAt) > API_STALE_FALLBACK_MS) {
+    if (!cached || !Number.isFinite(Number(cached.savedAt)) || Date.now() - Number(cached.savedAt) > API_STALE_FALLBACK_MS) {
       if (cached) {
-        try {
-          localStorage.removeItem(key);
-        } catch (_) {}
+        try { localStorage.removeItem(key); } catch (_) {}
       }
       return null;
     }
-    return cached.data || null;
+    return { data: cached.data, savedAt: Number(cached.savedAt) };
   } catch (_) {
     return null;
   }
+}
+
+function readApiFallback(url) {
+  return readApiFallbackRecord(url)?.data || null;
 }
 
 function saveApiResponse(url, data) {
@@ -422,7 +430,7 @@ function saveApiResponse(url, data) {
 
 const apiPromises = new Map();
 
-function fetchJson(url) {
+function fetchJson(url, { fallback = true } = {}) {
   if (apiPromises.has(url)) return apiPromises.get(url);
   const request = fetchWithTimeout(url, { headers: { Accept: 'application/json' } })
     .then((response) => {
@@ -434,18 +442,27 @@ function fetchJson(url) {
       return data;
     })
     .catch((error) => {
-      apiPromises.delete(url);
-      const fallback = readApiFallback(url);
-      if (fallback) return fallback;
+      const saved = fallback ? readApiFallback(url) : null;
+      if (saved) return saved;
       throw error;
+    })
+    .finally(() => {
+      // This map is an in-flight coalescer, not an everlasting data cache.
+      // Keeping a fulfilled promise here froze the first standings response for
+      // the lifetime of the tab and made a live championship impossible to refresh.
+      if (apiPromises.get(url) === request) apiPromises.delete(url);
     });
   apiPromises.set(url, request);
   return request;
 }
 
 function hexFor(n) {
+  const name = String(n || '').toLowerCase();
+  const teamId = DRIVER_DATA.teamIdFor(n);
+  const team = teams.find((entry) => entry.id === teamId);
+  if (team) return team.color;
   for (const k in TEAM_HEX) {
-    if ((n || '').includes(k)) return TEAM_HEX[k];
+    if (name.includes(k.toLowerCase())) return TEAM_HEX[k];
   }
   return 'var(--team)';
 }
@@ -2687,6 +2704,7 @@ function showView(route, { push = true, scroll = true } = {}) {
   const prev = $(VIEWS[activeView]);
   if (!next) return;
   const changed = route !== activeView;
+  const previousRoute = activeView;
   if (push) {
     const url = route === 'home' ? '/' : '/' + route;
     if (location.pathname !== url) history.pushState({ view: route }, '', url);
@@ -2700,6 +2718,10 @@ function showView(route, { push = true, scroll = true } = {}) {
     return;
   }
   activeView = route;
+  if (['performance', 'track'].includes(previousRoute) && !['performance', 'track'].includes(route)) {
+    stopPerformanceRefresh();
+    performanceLoadToken++;
+  }
   clearTimeout(viewSwapTimer);
   trackEvent('view', route === 'home' ? '/' : '/' + route);
   document.body.classList.add('view-swapping');
@@ -2836,109 +2858,184 @@ document.querySelectorAll('.foot-links button[data-panel]').forEach((b) => {
 /* ═══════════════ 14. STANDINGS (DRIVERS & CONSTRUCTORS) ═══════════════ */
 const rowsEl = $("standingsList");
 const loadEl = $("standingsLoading");
-let driverStandingsPromise = null;
+const STANDINGS_TTL_MS = 5 * 60 * 1000;
+const standingsMemory = new Map();
+const standingsInflight = new Map();
+let activeStandingsType = 'drivers';
+let standingsRenderToken = 0;
 
-function getDriverStandings() {
-  if (!driverStandingsPromise) {
-    driverStandingsPromise = fetchJson(`${JOLPI}/${SITE_SEASON}/driverstandings/`)
-      .then((data) => data?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings || []);
+function standingsUrl(type) {
+  return `${JOLPI}/${SITE_SEASON}/${type === 'drivers' ? 'driverstandings' : 'constructorstandings'}/?limit=30`;
+}
+
+function standingsListFrom(data, type) {
+  const standingList = data?.MRData?.StandingsTable?.StandingsLists?.[0];
+  return type === 'drivers' ? standingList?.DriverStandings : standingList?.ConstructorStandings;
+}
+
+function getStandingsData(type, { force = false } = {}) {
+  const url = standingsUrl(type);
+  const memory = standingsMemory.get(type);
+  if (!force && memory && Date.now() - memory.at < STANDINGS_TTL_MS) {
+    return Promise.resolve(memory);
   }
-  return driverStandingsPromise;
+  if (standingsInflight.has(type)) return standingsInflight.get(type);
+
+  const saved = readApiFallbackRecord(url);
+  const previous = memory || (saved ? { data: saved.data, at: saved.savedAt, stale: true } : null);
+  const request = fetchJson(url, { fallback: false })
+    .then((data) => {
+      const list = standingsListFrom(data, type);
+      if (!Array.isArray(list) || !list.length) throw new Error('No standings published');
+      const result = { data, at: Date.now(), stale: false };
+      standingsMemory.set(type, result);
+      return result;
+    })
+    .catch((error) => {
+      const fallbackList = previous && standingsListFrom(previous.data, type);
+      if (Array.isArray(fallbackList) && fallbackList.length) {
+        return { ...previous, stale: true, error };
+      }
+      throw error;
+    })
+    .finally(() => {
+      if (standingsInflight.get(type) === request) standingsInflight.delete(type);
+    });
+  standingsInflight.set(type, request);
+  return request;
+}
+
+function setStandingsStatus(message, type = activeStandingsType, retry = false) {
+  if (!loadEl) return;
+  loadEl.replaceChildren(document.createTextNode(message));
+  if (retry) {
+    const button = document.createElement('button');
+    button.className = 'btn sm standings-retry';
+    button.type = 'button';
+    button.textContent = 'Retry';
+    button.addEventListener('click', () => loadStandings(type, { force: true }));
+    loadEl.append(' ', button);
+  }
+  loadEl.style.display = message ? 'block' : 'none';
 }
 
 function renderStandings(type, list) {
   if (!rowsEl) return;
-  rowsEl.innerHTML = '';
+  rowsEl.replaceChildren();
   const fragment = document.createDocumentFragment();
   list.forEach((it, i) => {
     const row = document.createElement('div');
-    row.className = 'row' + (i === 0 ? ' p1' : '');
+    row.className = 'row' + (String(it.position) === '1' ? ' p1' : '');
     row.style.animation = `rowIn .5s var(--ease) ${i * 24}ms both`;
     const name = type === 'drivers'
-      ? `${it.Driver?.givenName || ''} ${it.Driver?.familyName || ''}`
+      ? `${it.Driver?.givenName || ''} ${it.Driver?.familyName || ''}`.trim()
       : (it.Constructor?.name || '');
     const sub = type === 'drivers'
       ? (it.Constructors?.[0]?.name || '')
       : `${it.wins || '0'} wins`;
     const tc = hexFor(type === 'drivers' ? it.Constructors?.[0]?.name : it.Constructor?.name);
     row.style.setProperty('--team', tc);
-    row.innerHTML = `<div class="pos">${escapeHtml(it.position)}</div><div class="who"><b>${escapeHtml(name)}</b><small>${escapeHtml(sub)}</small></div><div class="pts">${escapeHtml(it.points)}<small>PTS</small></div>`;
+    row.innerHTML = `<div class="pos">${escapeHtml(it.position || '–')}</div><div class="who"><b>${escapeHtml(name || '—')}</b><small>${escapeHtml(sub)}</small></div><div class="pts">${escapeHtml(it.points ?? '0')}<small>PTS</small></div>`;
     fragment.appendChild(row);
   });
   rowsEl.replaceChildren(fragment);
-  if (loadEl) loadEl.style.display = 'none';
   rowsEl.style.opacity = '1';
 }
 
-const standingsCache = new Map();
+async function loadStandings(type, { force = false } = {}) {
+  activeStandingsType = type;
+  const token = ++standingsRenderToken;
+  const url = standingsUrl(type);
+  const memory = standingsMemory.get(type);
+  const saved = readApiFallbackRecord(url);
+  const displayed = memory || (saved ? { data: saved.data, at: saved.savedAt, stale: true } : null);
+  const savedList = displayed && standingsListFrom(displayed.data, type);
 
-function loadStandings(type) {
-  const url = `${JOLPI}/${SITE_SEASON}/${type === 'drivers' ? 'driverstandings' : 'constructorstandings'}/?limit=30`;
-  const cached = standingsCache.get(type) || readApiFallback(url);
-
-  // If already in memory or localStorage, render instantly (0ms latency, no flicker)
-  if (cached) {
-    const lists = cached?.MRData?.StandingsTable?.StandingsLists?.[0];
-    const list = type === 'drivers' ? lists?.DriverStandings : lists?.ConstructorStandings;
-    if (list && list.length) {
-      renderStandings(type, list);
-    }
+  if (Array.isArray(savedList) && savedList.length) {
+    renderStandings(type, savedList);
+    setStandingsStatus('Refreshing standings…', type);
   } else {
-    if (loadEl) {
-      loadEl.style.display = 'block';
-      loadEl.textContent = 'Loading standings…';
-    }
+    setStandingsStatus('Loading standings…', type);
     if (rowsEl) rowsEl.style.opacity = '0.35';
   }
 
-  fetchJson(url)
-    .then((data) => {
-      standingsCache.set(type, data);
-      const lists = data?.MRData?.StandingsTable?.StandingsLists?.[0];
-      const list = type === 'drivers' ? lists?.DriverStandings : lists?.ConstructorStandings;
-      if (!list || !list.length) throw new Error('Empty');
-      renderStandings(type, list);
-    })
-    .catch(() => {
-      if (!cached) {
-        if (loadEl) loadEl.textContent = 'Standings unavailable right now.';
-        if (rowsEl) rowsEl.style.opacity = '1';
-      }
-    });
+  try {
+    const result = await getStandingsData(type, { force });
+    if (token !== standingsRenderToken || type !== activeStandingsType) return;
+    const list = standingsListFrom(result.data, type);
+    if (!Array.isArray(list) || !list.length) throw new Error('No standings published');
+    renderStandings(type, list);
+    setStandingsStatus(result.stale ? 'Showing saved standings · the live feed could not refresh.' : '', type, result.stale);
+  } catch (_) {
+    if (token !== standingsRenderToken || type !== activeStandingsType) return;
+    if (Array.isArray(savedList) && savedList.length) {
+      renderStandings(type, savedList);
+      setStandingsStatus('Showing saved standings · the live feed could not refresh.', type, true);
+    } else {
+      if (rowsEl) rowsEl.replaceChildren();
+      if (rowsEl) rowsEl.style.opacity = '1';
+      setStandingsStatus('Standings are not available yet. Check your connection and retry.', type, true);
+    }
+  }
 }
 
-document.querySelectorAll('#standings [role="tab"]').forEach((t) => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('#standings [role="tab"]').forEach((x) => {
-      const active = x === t;
-      x.classList.toggle('active', active);
-      x.setAttribute('aria-selected', String(active));
+document.querySelectorAll('#standings [role="tab"]').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#standings [role="tab"]').forEach((item) => {
+      const active = item === tab;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
     });
-    loadStandings(t.dataset.type);
+    loadStandings(tab.dataset.type);
   });
 });
 
-/* ═══════════════ 15. DRIVER GRID (LIVE ORDER) ═══════════════ */
+/* ═══════════════ 15. DRIVER GRID (LIVE ORDER + CANONICAL 2026 ROSTER) ══════ */
 let driverEntries = [];
+let driverGridRequestToken = 0;
 
-function renderDriverGrid(list) {
-  const el = $("driverGrid");
+function setDriverGridStatus(message, retry = false) {
+  const status = $('driverGridStatus');
+  if (!status) return;
+  status.replaceChildren();
+  if (message) {
+    status.append(document.createTextNode(message));
+    if (retry) {
+      const button = document.createElement('button');
+      button.className = 'btn sm standings-retry';
+      button.type = 'button';
+      button.textContent = 'Retry standings';
+      button.addEventListener('click', () => loadDriverGrid({ force: true }));
+      status.append(' ', button);
+    }
+  }
+  status.hidden = !message;
+}
+
+function renderDriverGrid(list, { stale = false, unavailable = false } = {}) {
+  const el = $('driverGrid');
   if (!el) return;
-  if (!list || !list.length) {
-    el.innerHTML = '<div class="state">Grid unavailable right now.</div>';
+  const normalized = DRIVER_DATA.enrichStandings(list);
+  if (!normalized.length) {
+    el.replaceChildren();
+    setDriverGridStatus('The 2026 driver roster is unavailable.', true);
     return;
   }
-  driverEntries = list.slice();
+
+  driverEntries = normalized;
   const renderFollowing = getFollowing();
   const fragment = document.createDocumentFragment();
-  let rendered = 0;
 
-  list.forEach((it, i) => {
+  normalized.forEach((it, i) => {
     const d = it.Driver || {};
-    const team = it.Constructors?.[0]?.name || '';
+    const roster = DRIVER_DATA.findDriver(d.driverId);
+    const team = it.Constructors?.[0]?.name || roster?.teamName || '';
+    const hasPosition = it._hasStandings && it.position !== '' && it.position !== null && it.position !== undefined;
+    const position = hasPosition ? `P${it.position}` : '—';
+    const points = it._hasStandings ? `${it.points || '0'} PTS · ${it.wins || '0'} WIN${it.wins === '1' ? '' : 'S'}` : 'Standings pending';
     const src = photoFor(d.driverId);
     const a = document.createElement('article');
-    a.className = 'dcard' + (it.position === '1' ? ' lead' : '') + (src ? '' : ' noimg');
+    a.className = 'dcard' + (String(it.position) === '1' ? ' lead' : '') + (src ? '' : ' noimg');
     const accent = hexFor(team);
     a.style.setProperty('--c', accent);
     a.style.setProperty('--c-ink', inkOn(accent));
@@ -2951,11 +3048,11 @@ function renderDriverGrid(list) {
     a.dataset.driverId = d.driverId;
     a.innerHTML = `<div class="dshade"></div><div class="dfall">${escapeHtml((d.givenName?.[0] || '') + (d.familyName?.[0] || ''))}</div>
       ${src ? `<img src="${src}" alt="${escapeHtml(`${d.givenName || ''} ${d.familyName || ''}`)}" width="440" height="587" loading="lazy" decoding="async" fetchpriority="low" referrerpolicy="no-referrer">` : ''}
-      <div class="dpos">P${escapeHtml(it.position)}</div><div class="dnum">${escapeHtml(d.permanentNumber || '')}</div>
+      <div class="dpos">${escapeHtml(position)}</div><div class="dnum">${escapeHtml(d.permanentNumber || '')}</div>
       <div class="dhint">View profile</div>
       <div class="fbadge"${renderFollowing.includes(d.driverId) ? '' : ' hidden'}>★ Following</div>
       <div class="dbody"><div class="dname"><small>${escapeHtml(d.givenName || '')}</small>${escapeHtml(d.familyName || '')}</div>
-      <div class="dteam"><i></i>${escapeHtml(team)}</div><div class="dpts">${escapeHtml(it.points)} PTS · ${escapeHtml(it.wins)} WIN${it.wins === '1' ? '' : 'S'}</div></div>`;
+      <div class="dteam"><i></i>${escapeHtml(team || 'Team pending')}</div><div class="dpts">${escapeHtml(points)}</div></div>`;
     a.querySelector('img')?.addEventListener('error', () => a.classList.add('noimg'), { once: true });
     const open = () => openDriverProfile(d.driverId);
     a.addEventListener('click', open);
@@ -2966,19 +3063,42 @@ function renderDriverGrid(list) {
       }
     });
     fragment.appendChild(a);
-    rendered++;
   });
-  if (rendered) el.replaceChildren(fragment);
-  else el.innerHTML = '<div class="state">Grid unavailable right now.</div>';
+  el.replaceChildren(fragment);
+
+  if (unavailable) {
+    setDriverGridStatus('Championship data is unavailable · showing the 2026 roster without live positions.', true);
+  } else if (stale) {
+    setDriverGridStatus('Showing saved championship positions · the live feed could not refresh.', true);
+  } else if (!Array.isArray(list) || !list.length) {
+    setDriverGridStatus('2026 lineup shown · championship standings have not been published yet.', true);
+  } else {
+    setDriverGridStatus('');
+  }
 }
 
-function loadDriverGrid() {
-  getDriverStandings()
-    .then(renderDriverGrid)
+function getDriverStandings(force = false) {
+  return getStandingsData('drivers', { force }).then((result) => ({
+    list: standingsListFrom(result.data, 'drivers') || [],
+    stale: result.stale === true
+  }));
+}
+
+function loadDriverGrid({ force = false } = {}) {
+  const token = ++driverGridRequestToken;
+  getDriverStandings(force)
+    .then((result) => {
+      if (token === driverGridRequestToken) renderDriverGrid(result.list, { stale: result.stale });
+    })
     .catch(() => {
-      const el = $("driverGrid");
-      if (el) el.innerHTML = '<div class="state">Grid unavailable right now.</div>';
+      if (token === driverGridRequestToken) renderDriverGrid([], { unavailable: true });
     });
+}
+
+function refreshChampionshipData({ force = false } = {}) {
+  if (document.hidden || activeView !== 'home' || dOverlay?.classList.contains('open')) return;
+  loadStandings(activeStandingsType, { force });
+  loadDriverGrid({ force });
 }
 
 /* ═══════════════ 16. DRIVER PROFILE MODAL ═══════════════ */
@@ -2988,7 +3108,7 @@ const dProfile = $("driverProfile");
 let driverProfileToken = 0;
 const driverCareerCache = new Map();
 const CAREER_LS_TTL_MS = 12 * 60 * 60 * 1000; // 12h client cache — Jolpi is slow (multi-page + title checks)
-const CAREER_LS_PREFIX = 'freef1_career_v2_';
+const CAREER_LS_PREFIX = 'freef1_career_v3_';
 const careerTitleCache = new Map(); // year -> champion driverId (or null)
 function readCareerLs(driverId){
   try{
@@ -3016,7 +3136,7 @@ function writeCareerLs(driverId, career){
 function getFollowing() {
   try {
     const list = JSON.parse(store.get(FOLLOW_KEY) || '[]');
-    return Array.isArray(list) ? list.filter((x) => typeof x === 'string') : [];
+    return Array.isArray(list) ? list.filter((x) => typeof x === 'string').map((x) => DRIVER_DATA.canonicalDriverId(x)) : [];
   } catch (_) {
     return [];
   }
@@ -3032,7 +3152,8 @@ function syncFollowBadges() {
 
 function teamEntryForConstructor(name) {
   const n = String(name || '').trim().toLowerCase();
-  if (TEAM_ALIAS[n]) return teams.find((t) => t.id === TEAM_ALIAS[n]) || teams[0];
+  const id = DRIVER_DATA.teamIdFor(name) || TEAM_ALIAS[n];
+  if (id) return teams.find((t) => t.id === id) || teams[0];
   return teams.find((t) => t.id !== 'default' && (n.includes(t.name.toLowerCase()) || t.name.toLowerCase().includes(n))) || teams[0];
 }
 
@@ -3079,7 +3200,26 @@ async function fetchAllResults(driverId) {
   return rows;
 }
 
+function correctProvisionalServerTitle(career, driverId) {
+  if (!career || !Number.isFinite(Number(career.titles))) return career;
+  const finalRace = schedule[schedule.length - 1]?.sessions?.find((session) => session.slug === 'race');
+  const seasonComplete = finalRace && Date.now() > Date.parse(finalRace.start) + 2 * 60 * 60 * 1000;
+  if (seasonComplete) return career;
+
+  // The current API aggregate checks the live 2026 standings as if they were
+  // final championship standings. If the provisional leader has already won a
+  // race, that can add one unearned title; 2026 titles are not final until the
+  // last race is complete.
+  const id = DRIVER_DATA.canonicalDriverId(driverId);
+  const entry = driverEntries.find((row) => DRIVER_DATA.canonicalDriverId(row.Driver?.driverId) === id);
+  if (entry && Number(entry.position) === 1 && Number(entry.wins) > 0 && Number(career.titles) > 0) {
+    return { ...career, titles: Math.max(0, Number(career.titles) - 1) };
+  }
+  return career;
+}
+
 function getDriverCareer(driverId) {
+  driverId = DRIVER_DATA.canonicalDriverId(driverId);
   if (driverCareerCache.has(driverId)) return driverCareerCache.get(driverId);
   const ls = readCareerLs(driverId);
   if (ls) {
@@ -3095,8 +3235,9 @@ function getDriverCareer(driverId) {
         if(r.ok){
           const j = await r.json().catch(()=>null);
           if(j && j.career && typeof j.career.races === 'number'){
-            writeCareerLs(driverId, j.career);
-            return j.career;
+            const career = correctProvisionalServerTitle(j.career, driverId);
+            writeCareerLs(driverId, career);
+            return career;
           }
         }
       }catch(_){}
@@ -3188,26 +3329,33 @@ function getDriverCareer(driverId) {
 }
 
 function openDriverProfile(driverId) {
-  const entry = driverEntries.find((e) => e.Driver?.driverId === driverId);
+  const canonicalId = DRIVER_DATA.canonicalDriverId(driverId);
+  const entry = driverEntries.find((row) => DRIVER_DATA.canonicalDriverId(row.Driver?.driverId) === canonicalId);
   if (!entry || !dOverlay || !dProfile) return;
   const token = ++driverProfileToken;
   const d = entry.Driver || {};
-  const team = entry.Constructors?.[0]?.name || '';
+  const roster = DRIVER_DATA.findDriver(canonicalId);
+  const team = entry.Constructors?.[0]?.name || roster?.teamName || '';
+  const teamId = DRIVER_DATA.teamIdFor(team) || roster?.teamId || '';
   const color = hexFor(team);
   const tEntry = teamEntryForConstructor(team);
-  const photo = photoFor(d.driverId);
-  const code = d.code || ((d.givenName?.[0] || '') + (d.familyName?.slice(0, 2) || '')).toUpperCase() || '-';
-  const num = d.permanentNumber || '';
+  const photo = photoFor(canonicalId);
+  const code = d.code || roster?.code || ((d.givenName?.[0] || '') + (d.familyName?.slice(0, 2) || '')).toUpperCase() || '-';
+  const num = d.permanentNumber || roster?.permanentNumber || '';
   const age = ageFrom(d.dateOfBirth);
-  const mate = driverEntries.find((e) => e !== entry && (e.Constructors?.[0]?.name || '') === team)?.Driver;
+  const mate = driverEntries.find((row) => row !== entry &&
+    (DRIVER_DATA.teamIdFor(row.Constructors?.[0]?.name || DRIVER_DATA.findDriver(row.Driver?.driverId)?.teamName) || '') === teamId)?.Driver;
   const mateName = mate ? `${mate.givenName || ''} ${mate.familyName || ''}`.trim() : '-';
+  const positionLabel = entry._hasStandings && entry.position ? entry.position : '–';
+  const seasonPoints = entry._hasStandings ? (entry.points ?? '0') : '0';
+  const seasonWins = entry._hasStandings ? (entry.wins ?? '0') : '0';
 
   if (dSheet) {
     dSheet.style.setProperty('--dc', color);
     dSheet.style.setProperty('--dc-ink', inkOn(color));
   }
 
-  const following = getFollowing().includes(d.driverId);
+  const following = getFollowing().includes(canonicalId);
   dProfile.innerHTML = `
     <div class="dp-card">
       <div class="dp-shade"></div>
@@ -3216,7 +3364,7 @@ function openDriverProfile(driverId) {
         <div class="dp-name"><small>${escapeHtml(d.givenName || '')}</small>${escapeHtml(d.familyName || '')}</div>
         <div class="dp-team">${tEntry.logo ? `<img src="${TEAM_LOGO(tEntry.logo, 96)}" alt="" width="30" height="30" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}<span>${escapeHtml(team || '-')}</span></div>
         <div class="dp-pills">
-          <span class="dp-pos">P${escapeHtml(entry.position)}</span>
+          <span class="dp-pos">${escapeHtml(positionLabel === '–' ? positionLabel : `P${positionLabel}`)}</span>
           ${num ? `<span class="dp-pill">#${escapeHtml(num)}</span>` : ''}
           <span class="dp-pill">${escapeHtml(code)}</span>
         </div>
@@ -3228,13 +3376,13 @@ function openDriverProfile(driverId) {
     </div>
     <div class="dp-sec">${SITE_SEASON} Season</div>
     <div class="dp-tiles">
-      <div class="dp-tile"><b>P${escapeHtml(entry.position)}</b><span>Standing</span></div>
-      <div class="dp-tile"><b>${escapeHtml(entry.points)}</b><span>Points</span></div>
-      <div class="dp-tile"><b>${escapeHtml(entry.wins)}</b><span>Wins</span></div>
+      <div class="dp-tile"><b>${escapeHtml(positionLabel === '–' ? positionLabel : `P${positionLabel}`)}</b><span>Standing</span></div>
+      <div class="dp-tile"><b>${escapeHtml(seasonPoints)}</b><span>Points</span></div>
+      <div class="dp-tile"><b>${escapeHtml(seasonWins)}</b><span>Wins</span></div>
       <div class="dp-tile"><b id="dpSeasonPod">···</b><span>Podiums</span></div>
     </div>
     <div class="dp-sec">Career</div>
-    <div id="dpCareer">
+    <div id="dpCareer" role="status" aria-live="polite" aria-busy="true">
       <div class="dp-tiles skel"><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div><div class="dp-tile"></div></div>
       <div class="dp-note">Loading career telemetry…</div>
     </div>
@@ -3256,8 +3404,8 @@ function openDriverProfile(driverId) {
   $("dpFollow")?.addEventListener('click', (event) => {
     const btn = event.currentTarget;
     const on = btn.getAttribute('aria-pressed') !== 'true';
-    const list = getFollowing().filter((x) => x !== d.driverId);
-    if (on) list.push(d.driverId);
+    const list = getFollowing().filter((x) => x !== canonicalId);
+    if (on) list.push(canonicalId);
     store.set(FOLLOW_KEY, JSON.stringify(list));
     btn.classList.toggle('on', on);
     btn.setAttribute('aria-pressed', String(on));
@@ -3274,19 +3422,27 @@ function openDriverProfile(driverId) {
 
   openModal(dOverlay);
 
-  getDriverCareer(d.driverId).then((career) => {
+  getDriverCareer(canonicalId).then((career) => {
     if (token !== driverProfileToken) return;
-    renderDriverCareer(career);
+    renderDriverCareer(career, canonicalId);
   });
 }
 
-function renderDriverCareer(career) {
+function renderDriverCareer(career, driverId) {
   const box = $("dpCareer");
   if (!box) return;
+  box.setAttribute('aria-busy', 'false');
   const pod = $("dpSeasonPod");
   if (pod) pod.textContent = career ? career.seasonPodiums : '–';
   if (!career) {
-    box.innerHTML = '<div class="state">Career telemetry unavailable right now.</div>';
+    box.innerHTML = '<div class="state">Career telemetry unavailable right now. <button class="btn sm" id="dpCareerRetry" type="button">Retry</button></div>';
+    $("dpCareerRetry")?.addEventListener('click', async () => {
+      box.setAttribute('aria-busy', 'true');
+      box.innerHTML = '<div class="dp-note">Retrying career telemetry…</div>';
+      const retryToken = driverProfileToken;
+      const result = await getDriverCareer(driverId);
+      if (retryToken === driverProfileToken) renderDriverCareer(result, driverId);
+    }, { once: true });
     return;
   }
   box.innerHTML = `
@@ -3298,7 +3454,7 @@ function renderDriverCareer(career) {
       <div class="dp-tile"><b>${escapeHtml(career.points)}</b><span>Points</span></div>
       <div class="dp-tile hl"><b>${career.titles}</b><span>Title${career.titles === 1 ? '' : 's'}</span></div>
     </div>
-    <div class="dp-note">F1 ${escapeHtml(career.span)} · ${career.seasons} season${career.seasons === 1 ? '' : 's'} · Career data via Ergast</div>`;
+    <div class="dp-note">F1 ${escapeHtml(career.span)} · ${career.seasons} season${career.seasons === 1 ? '' : 's'} · Career data via Jolpica/Ergast</div>`;
 }
 
 $("driverClose")?.addEventListener('click', () => closeModal(dOverlay));
@@ -3362,11 +3518,10 @@ async function resolveMeetingKey(round) {
 const PRELOADED_PERF_DATA = {"15_results": [{"position": "1", "grid": "1", "laps": "51", "status": "Finished", "points": "25", "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5882143", "time": "1:38:02.143"}, "FastestLap": {"rank": "1", "lap": "49", "Time": {"time": "1:44.916"}}}, {"position": "2", "grid": "8", "laps": "51", "status": "Finished", "points": "18", "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5882339", "time": "+0.196"}, "FastestLap": {"rank": "2", "lap": "48", "Time": {"time": "1:44.993"}}}, {"position": "3", "grid": "4", "laps": "51", "status": "Finished", "points": "15", "Driver": {"driverId": "hadjar", "code": "HAD", "givenName": "Isack", "familyName": "Hadjar"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5892847", "time": "+10.704"}, "FastestLap": {"rank": "4", "lap": "49", "Time": {"time": "1:45.618"}}}, {"position": "4", "grid": "2", "laps": "51", "status": "Finished", "points": "12", "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Time": {"millis": "5896279", "time": "+14.136"}, "FastestLap": {"rank": "5", "lap": "44", "Time": {"time": "1:45.784"}}}, {"position": "5", "grid": "16", "laps": "51", "status": "Finished", "points": "10", "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5896655", "time": "+14.512"}, "FastestLap": {"rank": "3", "lap": "50", "Time": {"time": "1:45.413"}}}, {"position": "6", "grid": "6", "laps": "51", "status": "Finished", "points": "8", "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Time": {"millis": "5904525", "time": "+22.382"}, "FastestLap": {"rank": "6", "lap": "49", "Time": {"time": "1:46.170"}}}, {"position": "7", "grid": "15", "laps": "51", "status": "Finished", "points": "6", "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5913302", "time": "+31.159"}, "FastestLap": {"rank": "10", "lap": "44", "Time": {"time": "1:46.849"}}}, {"position": "8", "grid": "13", "laps": "51", "status": "Finished", "points": "4", "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5913332", "time": "+31.189"}, "FastestLap": {"rank": "14", "lap": "44", "Time": {"time": "1:47.068"}}}, {"position": "9", "grid": "10", "laps": "51", "status": "Finished", "points": "2", "Driver": {"driverId": "bearman", "code": "BEA", "givenName": "Oliver", "familyName": "Bearman"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5914072", "time": "+31.929"}, "FastestLap": {"rank": "13", "lap": "45", "Time": {"time": "1:46.978"}}}, {"position": "10", "grid": "14", "laps": "51", "status": "Finished", "points": "1", "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Time": {"millis": "5914559", "time": "+32.416"}, "FastestLap": {"rank": "9", "lap": "49", "Time": {"time": "1:46.737"}}}, {"position": "11", "grid": "18", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5915374", "time": "+33.231"}, "FastestLap": {"rank": "11", "lap": "45", "Time": {"time": "1:46.850"}}}, {"position": "12", "grid": "11", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5916156", "time": "+34.013"}, "FastestLap": {"rank": "12", "lap": "46", "Time": {"time": "1:46.906"}}}, {"position": "13", "grid": "3", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Time": {"millis": "5918544", "time": "+36.401"}, "FastestLap": {"rank": "8", "lap": "48", "Time": {"time": "1:46.602"}}}, {"position": "14", "grid": "20", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Time": {"millis": "5923543", "time": "+41.400"}, "FastestLap": {"rank": "15", "lap": "43", "Time": {"time": "1:47.363"}}}, {"position": "15", "grid": "17", "laps": "51", "status": "Finished", "points": "0", "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5926373", "time": "+44.230"}, "FastestLap": {"rank": "7", "lap": "46", "Time": {"time": "1:46.336"}}}, {"position": "16", "grid": "19", "laps": "49", "status": "Retired", "points": "0", "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Time": {"millis": "5729837", "time": ""}, "FastestLap": {"rank": "20", "lap": "49", "Time": {"time": "1:48.852"}}}, {"position": "17", "grid": "9", "laps": "36", "status": "Retired", "points": "0", "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "FastestLap": {"rank": "19", "lap": "17", "Time": {"time": "1:48.484"}}}, {"position": "18", "grid": "7", "laps": "35", "status": "Retired", "points": "0", "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "FastestLap": {"rank": "17", "lap": "28", "Time": {"time": "1:47.822"}}}, {"position": "19", "grid": "5", "laps": "35", "status": "Retired", "points": "0", "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "FastestLap": {"rank": "16", "lap": "28", "Time": {"time": "1:47.761"}}}, {"position": "20", "grid": "12", "laps": "29", "status": "Retired", "points": "0", "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "FastestLap": {"rank": "18", "lap": "29", "Time": {"time": "1:48.443"}}}, {"position": "21", "grid": "21", "laps": "20", "status": "Retired", "points": "0", "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "FastestLap": {"rank": "21", "lap": "15", "Time": {"time": "1:50.968"}}}, {"position": "22", "grid": "22", "laps": "7", "status": "Retired", "points": "0", "Driver": {"driverId": "stroll", "code": "STR", "givenName": "Lance", "familyName": "Stroll"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "FastestLap": {"rank": "22", "lap": "7", "Time": {"time": "1:51.723"}}}], "15_qualifying": [{"position": "1", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:43.615", "Q2": "1:43.462", "Q3": "1:42.526"}, {"position": "2", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:44.360", "Q2": "1:43.780", "Q3": "1:43.363"}, {"position": "3", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:45.014", "Q2": "1:43.814", "Q3": "1:43.364"}, {"position": "4", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hadjar", "code": "HAD", "givenName": "Isack", "familyName": "Hadjar"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:44.161", "Q2": "1:43.880", "Q3": "1:43.500"}, {"position": "5", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:44.571", "Q2": "1:44.020", "Q3": "1:43.672"}, {"position": "6", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:44.260", "Q2": "1:44.037", "Q3": "1:43.858"}, {"position": "7", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:44.489", "Q2": "1:44.106", "Q3": "1:44.047"}, {"position": "8", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:44.041", "Q2": "1:43.706", "Q3": "1:44.081"}, {"position": "9", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:45.104", "Q2": "1:44.629", "Q3": "1:44.566"}, {"position": "10", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:45.106", "Q2": "1:44.683", "Q3": "1:44.963"}, {"position": "11", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bearman", "code": "BEA", "givenName": "Oliver", "familyName": "Bearman"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Q1": "1:45.228", "Q2": "1:44.775"}, {"position": "12", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:45.535", "Q2": "1:44.860"}, {"position": "13", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:45.031", "Q2": "1:45.001"}, {"position": "14", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Q1": "1:45.039", "Q2": "1:45.016"}, {"position": "15", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:45.381", "Q2": "1:45.106"}, {"position": "16", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:45.504", "Q2": ""}, {"position": "17", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:45.799"}, {"position": "18", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:45.920"}, {"position": "19", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Q1": "1:46.593"}, {"position": "20", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:46.658"}, {"position": "21", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "stroll", "code": "STR", "givenName": "Lance", "familyName": "Stroll"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Q1": "1:47.337"}, {"position": "22", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:48.290"}], "14_results": [{"position": "1", "grid": "2", "laps": "57", "status": "Finished", "points": "25", "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5663754", "time": "1:34:23.754"}, "FastestLap": {"rank": "2", "lap": "57", "Time": {"time": "1:36.030"}}}, {"position": "2", "grid": "3", "laps": "57", "status": "Finished", "points": "18", "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5668105", "time": "+4.351"}, "FastestLap": {"rank": "5", "lap": "52", "Time": {"time": "1:36.760"}}}, {"position": "3", "grid": "1", "laps": "57", "status": "Finished", "points": "15", "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Time": {"millis": "5668843", "time": "+5.089"}, "FastestLap": {"rank": "4", "lap": "52", "Time": {"time": "1:36.680"}}}, {"position": "4", "grid": "5", "laps": "57", "status": "Finished", "points": "12", "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Time": {"millis": "5692870", "time": "+29.116"}, "FastestLap": {"rank": "3", "lap": "50", "Time": {"time": "1:36.063"}}}, {"position": "5", "grid": "6", "laps": "57", "status": "Finished", "points": "10", "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Time": {"millis": "5693583", "time": "+29.829"}, "FastestLap": {"rank": "1", "lap": "49", "Time": {"time": "1:35.587"}}}, {"position": "6", "grid": "8", "laps": "57", "status": "Finished", "points": "8", "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Time": {"millis": "5750500", "time": "+1:26.746"}, "FastestLap": {"rank": "6", "lap": "49", "Time": {"time": "1:36.846"}}}, {"position": "7", "grid": "9", "laps": "57", "status": "Finished", "points": "6", "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Time": {"millis": "5758035", "time": "+1:34.281"}, "FastestLap": {"rank": "9", "lap": "52", "Time": {"time": "1:37.321"}}}, {"position": "8", "grid": "7", "laps": "57", "status": "Finished", "points": "4", "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Time": {"millis": "5759593", "time": "+1:35.839"}, "FastestLap": {"rank": "7", "lap": "48", "Time": {"time": "1:37.226"}}}, {"position": "9", "grid": "10", "laps": "56", "status": "Lapped", "points": "2", "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5674162", "time": "+10.408"}, "FastestLap": {"rank": "14", "lap": "40", "Time": {"time": "1:38.211"}}}, {"position": "10", "grid": "11", "laps": "56", "status": "Lapped", "points": "1", "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5675052", "time": "+11.298"}, "FastestLap": {"rank": "11", "lap": "50", "Time": {"time": "1:38.114"}}}, {"position": "11", "grid": "13", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5678897", "time": "+15.143"}, "FastestLap": {"rank": "12", "lap": "49", "Time": {"time": "1:38.119"}}}, {"position": "12", "grid": "14", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Time": {"millis": "5689906", "time": "+26.152"}, "FastestLap": {"rank": "13", "lap": "36", "Time": {"time": "1:38.141"}}}, {"position": "13", "grid": "12", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Time": {"millis": "5692143", "time": "+28.389"}, "FastestLap": {"rank": "10", "lap": "50", "Time": {"time": "1:37.837"}}}, {"position": "14", "grid": "15", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "tsunoda", "code": "TSU", "givenName": "Yuki", "familyName": "Tsunoda"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Time": {"millis": "5723917", "time": "+1:00.163"}, "FastestLap": {"rank": "15", "lap": "54", "Time": {"time": "1:38.396"}}}, {"position": "15", "grid": "16", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Time": {"millis": "5749966", "time": "+1:26.212"}, "FastestLap": {"rank": "18", "lap": "47", "Time": {"time": "1:39.397"}}}, {"position": "16", "grid": "22", "laps": "56", "status": "Lapped", "points": "0", "Driver": {"driverId": "bearman", "code": "BEA", "givenName": "Oliver", "familyName": "Bearman"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Time": {"millis": "5753717", "time": "+1:29.963"}, "FastestLap": {"rank": "8", "lap": "45", "Time": {"time": "1:37.308"}}}, {"position": "17", "grid": "17", "laps": "55", "status": "Lapped", "points": "0", "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Time": {"millis": "5697530", "time": "+33.776"}, "FastestLap": {"rank": "16", "lap": "40", "Time": {"time": "1:39.003"}}}, {"position": "18", "grid": "19", "laps": "54", "status": "Lapped", "points": "0", "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Time": {"millis": "5713000", "time": "+49.246"}, "FastestLap": {"rank": "17", "lap": "45", "Time": {"time": "1:39.130"}}}, {"position": "19", "grid": "20", "laps": "43", "status": "Retired", "points": "0", "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "FastestLap": {"rank": "20", "lap": "36", "Time": {"time": "1:40.195"}}}, {"position": "20", "grid": "18", "laps": "31", "status": "Retired", "points": "0", "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "FastestLap": {"rank": "21", "lap": "16", "Time": {"time": "1:41.116"}}}, {"position": "21", "grid": "21", "laps": "12", "status": "Retired", "points": "0", "Driver": {"driverId": "stroll", "code": "STR", "givenName": "Lance", "familyName": "Stroll"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "FastestLap": {"rank": "22", "lap": "11", "Time": {"time": "1:43.462"}}}, {"position": "22", "grid": "4", "laps": "6", "status": "Retired", "points": "0", "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "FastestLap": {"rank": "19", "lap": "3", "Time": {"time": "1:39.839"}}}], "14_qualifying": [{"position": "1", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "norris", "code": "NOR", "givenName": "Lando", "familyName": "Norris"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:33.469", "Q2": "1:32.873", "Q3": "1:31.824"}, {"position": "2", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "antonelli", "code": "ANT", "givenName": "Andrea Kimi", "familyName": "Antonelli"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:33.267", "Q2": "1:32.591", "Q3": "1:31.835"}, {"position": "3", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "max_verstappen", "code": "VER", "givenName": "Max", "familyName": "Verstappen"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:33.381", "Q2": "1:32.431", "Q3": "1:31.964"}, {"position": "4", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hamilton", "code": "HAM", "givenName": "Lewis", "familyName": "Hamilton"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:33.531", "Q2": "1:32.710", "Q3": "1:32.013"}, {"position": "5", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "leclerc", "code": "LEC", "givenName": "Charles", "familyName": "Leclerc"}, "Constructor": {"constructorId": "ferrari", "name": "Ferrari"}, "Q1": "1:33.532", "Q2": "1:32.755", "Q3": "1:32.019"}, {"position": "6", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "russell", "code": "RUS", "givenName": "George", "familyName": "Russell"}, "Constructor": {"constructorId": "mercedes", "name": "Mercedes"}, "Q1": "1:33.211", "Q2": "1:32.850", "Q3": "1:32.149"}, {"position": "7", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "piastri", "code": "PIA", "givenName": "Oscar", "familyName": "Piastri"}, "Constructor": {"constructorId": "mclaren", "name": "McLaren"}, "Q1": "1:33.829", "Q2": "1:33.204", "Q3": "1:32.294"}, {"position": "8", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "lawson", "code": "LAW", "givenName": "Liam", "familyName": "Lawson"}, "Constructor": {"constructorId": "red_bull", "name": "Red Bull"}, "Q1": "1:33.310", "Q2": "1:32.780", "Q3": "1:32.316"}, {"position": "9", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "colapinto", "code": "COL", "givenName": "Franco", "familyName": "Colapinto"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:33.963", "Q2": "1:33.038", "Q3": "1:32.903"}, {"position": "10", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "arvid_lindblad", "code": "LIN", "givenName": "Arvid", "familyName": "Lindblad"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:34.340", "Q2": "1:33.204", "Q3": "1:33.041"}, {"position": "11", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "hulkenberg", "code": "HUL", "givenName": "Nico", "familyName": "H\u00fclkenberg"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:34.417", "Q2": "1:33.223"}, {"position": "12", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bortoleto", "code": "BOR", "givenName": "Gabriel", "familyName": "Bortoleto"}, "Constructor": {"constructorId": "audi", "name": "Audi"}, "Q1": "1:33.986", "Q2": "1:33.388"}, {"position": "13", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "ocon", "code": "OCO", "givenName": "Esteban", "familyName": "Ocon"}, "Constructor": {"constructorId": "haas", "name": "Haas F1 Team"}, "Q1": "1:34.667", "Q2": "1:33.667"}, {"position": "14", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "gasly", "code": "GAS", "givenName": "Pierre", "familyName": "Gasly"}, "Constructor": {"constructorId": "alpine", "name": "Alpine F1 Team"}, "Q1": "1:34.246", "Q2": "1:33.753"}, {"position": "15", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "tsunoda", "code": "TSU", "givenName": "Yuki", "familyName": "Tsunoda"}, "Constructor": {"constructorId": "rb", "name": "RB F1 Team"}, "Q1": "1:34.311", "Q2": "1:34.084"}, {"position": "16", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "albon", "code": "ALB", "givenName": "Alexander", "familyName": "Albon"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:35.307", "Q2": "1:35.532"}, {"position": "17", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "sainz", "code": "SAI", "givenName": "Carlos", "familyName": "Sainz"}, "Constructor": {"constructorId": "williams", "name": "Williams"}, "Q1": "1:35.312"}, {"position": "18", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "alonso", "code": "ALO", "givenName": "Fernando", "familyName": "Alonso"}, "Constructor": {"constructorId": "aston_martin", "name": "Aston Martin"}, "Q1": "1:35.388"}, {"position": "19", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "perez", "code": "PER", "givenName": "Sergio", "familyName": "P\u00e9rez"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:35.913"}, {"position": "20", "grid": null, "laps": null, "status": null, "points": null, "Driver": {"driverId": "bottas", "code": "BOT", "givenName": "Valtteri", "familyName": "Bottas"}, "Constructor": {"constructorId": "cadillac", "name": "Cadillac F1 Team"}, "Q1": "1:38.011"}]};
 
 const perfCache = new Map();
-if (typeof PRELOADED_PERF_DATA === "object") {
-  for (const [key, val] of Object.entries(PRELOADED_PERF_DATA)) {
-    perfCache.set(key, { results: val, rcMessages: [], at: Date.now() });
-  }
-}
+const performanceInflight = new Map();
+const PERFORMANCE_LIVE_TTL_MS = 15 * 1000;
+const PERFORMANCE_TTL_MS = 6 * 60 * 60 * 1000;
+const PERFORMANCE_STALE_MAX_MS = 30 * 24 * 60 * 60 * 1000;
 
 function getAvailablePerformanceEvents() {
   const now = Date.now();
@@ -3379,108 +3534,149 @@ function getAvailablePerformanceEvents() {
 
 function getAvailablePerformanceSessions(ev) {
   const now = Date.now();
-  const list = [];
+  const candidates = [
+    { slug: 'qualifying', value: 'qualifying', label: 'Qualifying' },
+    ...(ev.sprint ? [{ slug: 'sprint', value: 'sprint', label: 'Sprint' }] : []),
+    { slug: 'race', value: 'results', label: 'Race (Classification)' }
+  ].map((item) => ({ ...item, session: ev.sessions.find((session) => session.slug === item.slug) }))
+    .filter((item) => item.session && Date.parse(item.session.start) <= now + 2.5 * 3600e3)
+    .sort((a, b) => Date.parse(a.session.start) - Date.parse(b.session.start))
+    .map(({ value, label }) => ({ value, label }));
 
-  // 1. Qualifying
-  const qSess = ev.sessions.find((s) => s.slug === "qualifying");
-  if (qSess && Date.parse(qSess.start) <= now + 2.5 * 3600e3) {
-    list.push({ value: "qualifying", label: "Qualifying" });
-  }
-
-  // 2. Sprint (ONLY if sprint weekend and started)
-  if (ev.sprint) {
-    const spSess = ev.sessions.find((s) => s.slug === "sprint");
-    if (spSess && Date.parse(spSess.start) <= now + 2.5 * 3600e3) {
-      list.push({ value: "sprint", label: "Sprint" });
-    }
-  }
-
-  // 3. Race (Classification)
-  const raceSess = ev.sessions.find((s) => s.slug === "race");
-  if (raceSess && Date.parse(raceSess.start) <= now + 2.5 * 3600e3) {
-    list.push({ value: "results", label: "Race (Classification)" });
-  }
-
-  if (!list.length) {
-    list.push({ value: "results", label: "Race (Classification)" });
-  }
-  return list;
+  return candidates.length ? candidates : [{ value: 'results', label: 'Race (Classification)' }];
 }
 
-async function fetchPerformanceClassification(round, sessionType = "results") {
+function performanceSessionIsLive(round, sessionType, now = Date.now()) {
+  const event = schedule.find((item) => item.round === Number(round));
+  if (!event) return false;
+  const slug = sessionType === 'qualifying' ? 'qualifying' : sessionType === 'sprint' ? 'sprint' : 'race';
+  const session = event.sessions.find((item) => item.slug === slug);
+  if (!session) return false;
+  const start = Date.parse(session.start);
+  return Number.isFinite(start) && now >= start - 15 * 60e3 && now <= start + 2.5 * 3600e3;
+}
+
+function readPerformanceCache(cacheKey) {
+  try {
+    const parsed = JSON.parse(store.get(`freef1_perf_${cacheKey}`) || 'null');
+    const at = Number(parsed?.at || parsed?.savedAt) || 0;
+    if (!parsed || !Array.isArray(parsed.results) || !parsed.results.length || !at || Date.now() - at > PERFORMANCE_STALE_MAX_MS || at > Date.now() + 5 * 60 * 1000) return null;
+    return { results: parsed.results, rcMessages: Array.isArray(parsed.rcMessages) ? parsed.rcMessages : [], at, source: 'stored' };
+  } catch (_) {
+    return null;
+  }
+}
+
+async function fetchPerformanceClassification(round, sessionType = 'results', { force = false } = {}) {
   const cacheKey = `${round}_${sessionType}`;
+  const ttl = performanceSessionIsLive(round, sessionType) ? PERFORMANCE_LIVE_TTL_MS : PERFORMANCE_TTL_MS;
+  const now = Date.now();
   const memoryHit = perfCache.get(cacheKey);
-  if (memoryHit && memoryHit.results?.length) return memoryHit.results;
+  if (!force && memoryHit?.results?.length && memoryHit.source !== 'stale' && memoryHit.source !== 'bundled' && now - Number(memoryHit.at || 0) < ttl) {
+    return memoryHit.results;
+  }
+  if (performanceInflight.has(cacheKey)) return performanceInflight.get(cacheKey);
 
-  // Check localStorage
-  try {
-    const raw = store.get(`freef1_perf_${cacheKey}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.results) && parsed.results.length) {
-        perfCache.set(cacheKey, { results: parsed.results, rcMessages: parsed.rcMessages || [], at: parsed.at });
-        return parsed.results;
-      }
-    }
-  } catch (_) {}
+  const stored = readPerformanceCache(cacheKey);
+  const fallback = memoryHit?.results?.length ? memoryHit : stored;
+  if (!force && !memoryHit && stored && now - stored.at < ttl) {
+    perfCache.set(cacheKey, stored);
+    return stored.results;
+  }
 
-  // Fetch from Jolpica Ergast
-  try {
-    const endpoint = sessionType === "race" ? "results" : sessionType;
-    const jolpicaUrl = `https://api.jolpi.ca/ergast/f1/2026/${round}/${endpoint}.json`;
-    const r = await fetchWithTimeout(jolpicaUrl, { cache: "no-store" }, 5000);
-    if (r.ok) {
-      const data = await r.json();
-      const race = data.MRData?.RaceTable?.Races?.[0];
-      if (race) {
-        const list = race.Results || race.QualifyingResults || race.SprintResults;
-        if (Array.isArray(list) && list.length) {
-          const existing = perfCache.get(cacheKey) || {};
-          const entry = { ...existing, results: list, at: Date.now() };
-          perfCache.set(cacheKey, entry);
-          try { store.set(`freef1_perf_${cacheKey}`, JSON.stringify(entry)); } catch (_) {}
-          return list;
-        }
+  const request = (async () => {
+    try {
+      const endpoint = sessionType === 'race' ? 'results' : sessionType;
+      const jolpicaUrl = `https://api.jolpi.ca/ergast/f1/${SITE_SEASON}/${round}/${endpoint}.json`;
+      const response = await fetchWithTimeout(jolpicaUrl, { cache: 'no-store', headers: { Accept: 'application/json' } }, 6000);
+      if (!response.ok) throw new Error(`Jolpica HTTP ${response.status}`);
+      const data = await response.json();
+      const race = data?.MRData?.RaceTable?.Races?.[0];
+      const list = race?.Results || race?.QualifyingResults || race?.SprintResults;
+      if (!Array.isArray(list) || !list.length) throw new Error('No classification published');
+
+      const entry = { ...(perfCache.get(cacheKey) || {}), results: list, at: Date.now(), source: 'jolpica' };
+      perfCache.set(cacheKey, entry);
+      try { store.set(`freef1_perf_${cacheKey}`, JSON.stringify(entry)); } catch (_) {}
+      return list;
+    } catch (error) {
+      if (fallback?.results?.length) {
+        perfCache.set(cacheKey, { ...fallback, source: 'stale', error: error.message });
+        return fallback.results;
       }
+      const bundled = PRELOADED_PERF_DATA?.[cacheKey];
+      if (Array.isArray(bundled) && bundled.length) {
+        perfCache.set(cacheKey, { results: bundled, rcMessages: [], at: 0, source: 'bundled', error: error.message });
+        return bundled;
+      }
+      perfCache.set(cacheKey, { results: [], rcMessages: [], at: Date.now(), source: 'unavailable', error: error.message });
+      return [];
     }
-  } catch (_) {}
-  return [];
+  })().finally(() => {
+    if (performanceInflight.get(cacheKey) === request) performanceInflight.delete(cacheKey);
+  });
+  performanceInflight.set(cacheKey, request);
+  return request;
 }
 
-async function fetchPerformanceRaceControl(round) {
+const raceControlInflight = new Map();
+
+async function fetchPerformanceRaceControl(round, sessionType = 'results', { force = false } = {}) {
   const mk = await resolveMeetingKey(round);
   if (!mk) return [];               // no key for this round: skip, never guess
   const cacheKey = `rc_${mk}`;
+  const live = performanceSessionIsLive(round, sessionType);
+  const ttl = live ? 10 * 1000 : 5 * 60 * 1000;
   const memoryHit = perfCache.get(cacheKey);
-  if (memoryHit && memoryHit.rcMessages?.length) return memoryHit.rcMessages;
+  if (!force && Array.isArray(memoryHit?.rcMessages) && Date.now() - Number(memoryHit.at || 0) < ttl) {
+    return memoryHit.rcMessages;
+  }
+  if (raceControlInflight.has(cacheKey)) return raceControlInflight.get(cacheKey);
 
-  // Check localStorage
+  let stored = null;
   try {
-    const raw = store.get(`freef1_rc_${mk}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        perfCache.set(cacheKey, { rcMessages: parsed, at: Date.now() });
-        return parsed;
+    const parsed = JSON.parse(store.get(`freef1_rc_${mk}`) || 'null');
+    if (Array.isArray(parsed)) {
+      // Legacy array-only cache has no trustworthy timestamp: use it only if
+      // OpenF1 is down, never as an unbounded "fresh" result.
+      stored = { rcMessages: parsed, at: 0 };
+    } else if (Array.isArray(parsed?.messages)) {
+      const at = Number(parsed.at) || 0;
+      if (at && Date.now() - at <= PERFORMANCE_STALE_MAX_MS) stored = { rcMessages: parsed.messages, at };
+    }
+  } catch (_) {}
+  const fallback = memoryHit?.rcMessages?.length ? memoryHit : stored;
+  if (!force && !memoryHit && stored && stored.at && Date.now() - stored.at < ttl) {
+    perfCache.set(cacheKey, stored);
+    return stored.rcMessages;
+  }
+
+  /* Race control stays behind the ticketed API proxy: OpenF1 has no browser
+     CORS contract, while the server provides coalescing, bounded caching and
+     last-known-good snapshots during its live-session lock window. */
+  const request = (async () => {
+    try {
+      const rcJson = await openf1('race_control', { meeting_key: mk }, live ? 10 * 1000 : 5 * 60 * 1000);
+      const messages = Array.isArray(rcJson) ? rcJson : [];
+      if (messages.length || !fallback?.rcMessages?.length) {
+        const entry = { rcMessages: messages, at: Date.now(), source: 'openf1' };
+        perfCache.set(cacheKey, entry);
+        try { store.set(`freef1_rc_${mk}`, JSON.stringify({ messages, at: entry.at })); } catch (_) {}
+        return messages;
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
 
-  /* Race control is fetched through the OpenF1 proxy on the API host, never
-     directly: our Content-Security-Policy allows connect-src to the API host
-     only, and OpenF1 sends no CORS headers, so a direct browser call could
-     never succeed. The proxy also caches, coalesces concurrent viewers and
-     falls back to its last-known-good snapshot while a session is live, which
-     is what the old hard-coded session fallback was working around. */
-  try {
-    const rcJson = await openf1('race_control', { meeting_key: mk }, 5 * 60e3);
-    if (Array.isArray(rcJson) && rcJson.length) {
-      perfCache.set(cacheKey, { rcMessages: rcJson, at: Date.now() });
-      try { store.set(`freef1_rc_${mk}`, JSON.stringify(rcJson)); } catch (_) {}
-      return rcJson;
+    if (fallback?.rcMessages?.length) {
+      perfCache.set(cacheKey, { ...fallback, source: 'stale' });
+      return fallback.rcMessages;
     }
-  } catch (_) {}
-  return [];
+    perfCache.set(cacheKey, { rcMessages: [], at: Date.now(), source: 'unavailable' });
+    return [];
+  })().finally(() => {
+    if (raceControlInflight.get(cacheKey) === request) raceControlInflight.delete(cacheKey);
+  });
+  raceControlInflight.set(cacheKey, request);
+  return request;
 }
 
 // ── Session Results Modal Engine ──
@@ -3525,35 +3721,56 @@ function updateSessionTypeOptions() {
   }
 }
 
-async function loadSessionResults() {
+let sessionResultsRequestToken = 0;
+
+function setSessionResultsState(message, retry = false) {
+  const text = $('sessionsResultsMessage');
+  const button = $('sessionsResultsRetry');
+  if (text) text.textContent = message;
+  if (button) button.hidden = !retry;
+  if (sLoad) sLoad.style.display = message ? 'flex' : 'none';
+}
+
+async function loadSessionResults({ force = false } = {}) {
   if (!sRace || !sType || !sRes) return;
+  const token = ++sessionResultsRequestToken;
   const round = Number(sRace.value);
   const type = sType.value;
   if (!round) {
-    sRes.innerHTML = "<div class=\"state\">Select a race first.</div>";
+    sRes.innerHTML = '<div class="state">Select a race first.</div>';
+    setSessionResultsState('');
     return;
   }
 
-  // Instant check from cache
   const cacheKey = `${round}_${type}`;
   const cached = perfCache.get(cacheKey);
-  if (cached && cached.results?.length) {
-    renderModalSessionResults(cached.results, type);
+  const hasCached = Boolean(cached?.results?.length);
+  if (hasCached) renderModalSessionResults(cached.results, type);
+  else sRes.replaceChildren();
+
+  setSessionResultsState(hasCached ? 'Refreshing session results…' : 'Loading session results…');
+  let results = [];
+  try {
+    results = await fetchPerformanceClassification(round, type, { force });
+  } catch (_) {}
+  if (token !== sessionResultsRequestToken) return;
+
+  const resultState = perfCache.get(cacheKey);
+  if (!results?.length) {
+    if (!hasCached) sRes.replaceChildren();
+    setSessionResultsState('No classification is published yet, or the Jolpica feed is unavailable.', true);
     return;
   }
 
-  if (sLoad) sLoad.style.display = "block";
-  sRes.innerHTML = "";
-
-  const results = await fetchPerformanceClassification(round, type);
-  if (sLoad) sLoad.style.display = "none";
-
-  if (!results || !results.length) {
-    sRes.innerHTML = "<div class=\"state\">No results published for this session yet.</div>";
-    return;
-  }
   renderModalSessionResults(results, type);
+  if (resultState?.source === 'stale' || resultState?.source === 'bundled') {
+    setSessionResultsState('Showing saved session results · the live data feed could not refresh.', true);
+  } else {
+    setSessionResultsState('');
+  }
 }
+
+$("sessionsResultsRetry")?.addEventListener('click', () => loadSessionResults({ force: true }));
 
 function renderModalSessionResults(results, type) {
   if (!sRes) return;
@@ -4619,6 +4836,10 @@ setInterval(() => {
   if (!document.hidden) updateCurrentStreamButton();
 }, 60000);
 
+// Championship positions move over a race weekend. Refresh the public feeds in
+// the background (the browser request cache is only an in-flight coalescer).
+setInterval(() => refreshChampionshipData({ force: true }), 5 * 60 * 1000);
+
 // SSE connection and Polling Fallback
 setTimeout(initStreamOverrideSSE, 500);
 setTimeout(initStreamPolling, 100);
@@ -4627,6 +4848,12 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     updateClocks();
     updateCurrentStreamButton();
+    if (activeView === 'home') refreshChampionshipData({ force: true });
+    if (['performance', 'track'].includes(activeView) && performanceSessionIsLive(perfActiveRound, perfActiveSessionType)) {
+      loadPerformanceData(perfActiveRound, perfActiveSessionType);
+    }
+  } else {
+    stopPerformanceRefresh();
   }
 }, { passive: true });
 
@@ -4679,8 +4906,146 @@ const PERF_TEAM_COLORS = {
 };
 
 function getTeamColor(constructorId, constructorName) {
-  const key = (constructorId || constructorName || "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
-  return PERF_TEAM_COLORS[key] || PERF_TEAM_COLORS[constructorName?.toLowerCase()] || "#888";
+  const value = constructorName || constructorId || '';
+  const teamId = DRIVER_DATA.teamIdFor(value);
+  const byTeam = {
+    redbull: PERF_TEAM_COLORS.red_bull,
+    astonmartin: PERF_TEAM_COLORS.aston_martin,
+    racingbulls: PERF_TEAM_COLORS.racing_bulls
+  };
+  const key = String(constructorId || constructorName || '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  return byTeam[teamId] || PERF_TEAM_COLORS[teamId] || PERF_TEAM_COLORS[key] || PERF_TEAM_COLORS[String(constructorName || '').toLowerCase()] || '#888';
+}
+
+let performanceLoadToken = 0;
+let performanceRefreshTimer = 0;
+const LIVE_TIMING_REFRESH_MIN_MS = 25 * 1000;
+const LIVE_TIMING_REFRESH_JITTER_MS = 10 * 1000;
+
+function setPerformanceDataState(message, retry = false) {
+  const state = $('perfDataState');
+  const text = $('perfDataMessage');
+  const button = $('perfRetry');
+  if (text) text.textContent = message;
+  if (button) button.hidden = !retry;
+  if (state) state.hidden = !message;
+}
+
+function stopPerformanceRefresh() {
+  clearTimeout(performanceRefreshTimer);
+  performanceRefreshTimer = 0;
+}
+
+function schedulePerformanceRefresh(round, sessionType) {
+  stopPerformanceRefresh();
+  if (document.hidden || !['performance', 'track'].includes(activeView) || !performanceSessionIsLive(round, sessionType)) return;
+  const delay = LIVE_TIMING_REFRESH_MIN_MS + Math.random() * LIVE_TIMING_REFRESH_JITTER_MS;
+  performanceRefreshTimer = setTimeout(() => {
+    if (!document.hidden && ['performance', 'track'].includes(activeView)) {
+      loadPerformanceData(round, sessionType);
+    }
+  }, delay);
+}
+
+async function fetchLiveTiming() {
+  const response = await fetchWithTimeout(`${PUBLIC_API}/api/live/timing`, {
+    cache: 'no-store',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' }
+  }, 7000);
+  if (!response.ok) throw new Error(`Live timing HTTP ${response.status}`);
+  const data = await response.json();
+  if (!data || !Array.isArray(data.competitors)) throw new Error('Live timing payload is invalid');
+  return data;
+}
+
+function normalizeEventLabel(value) {
+  return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function liveTimingMatchesEvent(data, event) {
+  const candidate = normalizeEventLabel(data?.event || data?.name);
+  if (!candidate) return false;
+  const targets = [event?.slug, event?.name, event?.country, event?.locality]
+    .map(normalizeEventLabel).filter((value) => value.length >= 4);
+  return targets.some((target) => candidate.includes(target) || target.includes(candidate));
+}
+
+function renderLiveTimingTower(data, event) {
+  const tbody = $('perfLeaderboard');
+  const thead = $('perfTableHead');
+  const table = $('perfTimingTower')?.querySelector('table');
+  if (!tbody || !Array.isArray(data?.competitors) || !data.competitors.length) return false;
+  if (thead) {
+    thead.innerHTML = `<tr>
+      <th class="th-pos">POS</th><th class="th-driver">DRIVER</th><th class="th-team">TEAM</th>
+      <th class="th-time">STATUS</th><th class="th-laps">LAP</th>
+    </tr>`;
+  }
+  if (table) table.setAttribute('aria-label', `Live timing for ${event.name}`);
+  const lap = Number(data.currentLap) || 0;
+  const total = Number(data.totalLaps) || 0;
+  tbody.innerHTML = data.competitors.map((competitor, index) => {
+    const rawName = competitor.name || competitor.shortName || 'Unknown driver';
+    const roster = DRIVER_DATA.findDriverByName(rawName) || DRIVER_DATA.findDriverByName(competitor.shortName);
+    const entry = roster && driverEntries.find((row) => DRIVER_DATA.canonicalDriverId(row.Driver?.driverId) === roster.id);
+    const driver = entry?.Driver || roster || {};
+    const teamName = entry?.Constructors?.[0]?.name || roster?.teamName || '';
+    const code = driver.code || roster?.code || competitor.shortName || 'F1';
+    const teamColor = getTeamColor(roster?.teamId, teamName);
+    const position = Number(competitor.position) || index + 1;
+    const lapText = lap ? `L${lap}${total ? ` / ${total}` : ''}` : '—';
+    return `<tr${position === 1 ? ' class="fastest-lap-row"' : ''}>
+      <td class="td-pos${position === 1 ? ' perf-pos-p1' : ''}">${escapeHtml(position)}</td>
+      <td><div class="perf-driver-cell"><span class="perf-team-stripe" style="background:${escapeHtml(teamColor)}"></span><span class="perf-driver-code">${escapeHtml(code)}</span><span class="perf-driver-name">${escapeHtml(rawName)}</span></div></td>
+      <td class="td-team">${escapeHtml(teamName || '—')}</td>
+      <td class="td-time mono">${escapeHtml(competitor.status || 'Running')}</td>
+      <td class="td-laps mono">${escapeHtml(lapText)}</td>
+    </tr>`;
+  }).join('');
+  return true;
+}
+
+function updateLiveTimingKpis(data, event, sessionType, rcMessages = []) {
+  const currentLap = Number(data?.currentLap) || 0;
+  const totalLaps = Number(data?.totalLaps) || 0;
+  const sessionName = sessionType === 'qualifying' ? 'QUALIFYING' : sessionType === 'sprint' ? 'SPRINT' : 'RACE';
+  if ($('perfWinnerChip')) $('perfWinnerChip').textContent = `LIVE: ${sessionName}`;
+  if ($('perfFastLapChip')) $('perfFastLapChip').textContent = currentLap
+    ? `LAP: ${currentLap}${totalLaps ? ` / ${totalLaps}` : ''}` : 'LIVE SESSION';
+  if ($('perfLapsChip')) $('perfLapsChip').textContent = `${data.competitors.length} CARS ON TIMING`;
+  if ($('perfLabelTime')) $('perfLabelTime').textContent = 'SESSION STATUS';
+  if ($('perfWinningTime')) $('perfWinningTime').textContent = data.status || 'Live';
+  if ($('perfLabelSpeed')) $('perfLabelSpeed').textContent = 'LIVE SPEED';
+  if ($('perfTopSpeed')) $('perfTopSpeed').textContent = '—';
+  if ($('perfLabelSafety')) $('perfLabelSafety').textContent = 'RACE CONTROL';
+  if ($('perfScCount')) $('perfScCount').textContent = `${rcMessages.length} NOTICES`;
+  if ($('perfLabelFinish')) $('perfLabelFinish').textContent = 'CARS ON TIMING';
+  if ($('perfFinishRate')) $('perfFinishRate').textContent = String(data.competitors.length);
+  if ($('perfTrackLoc')) {
+    const spec = CIRCUIT_SPECS[event.round] || { length: '—' };
+    $('perfTrackLoc').textContent = `${event.locality.toUpperCase()} · ${spec.length}`;
+  }
+}
+
+function updateLiveTimingUnavailable(event, sessionType, rcMessages = []) {
+  const name = sessionType === 'qualifying' ? 'QUALIFYING' : sessionType === 'sprint' ? 'SPRINT' : 'RACE';
+  if ($('perfWinnerChip')) $('perfWinnerChip').textContent = `LIVE: ${name}`;
+  if ($('perfFastLapChip')) $('perfFastLapChip').textContent = 'LIVE TIMING: STANDBY';
+  if ($('perfLapsChip')) $('perfLapsChip').textContent = 'WAITING FOR FEED';
+  if ($('perfLabelTime')) $('perfLabelTime').textContent = 'SESSION STATUS';
+  if ($('perfWinningTime')) $('perfWinningTime').textContent = 'In progress';
+  if ($('perfLabelSpeed')) $('perfLabelSpeed').textContent = 'LIVE SPEED';
+  if ($('perfTopSpeed')) $('perfTopSpeed').textContent = '—';
+  if ($('perfLabelSafety')) $('perfLabelSafety').textContent = 'RACE CONTROL';
+  if ($('perfScCount')) $('perfScCount').textContent = `${rcMessages.length} NOTICES`;
+  if ($('perfLabelFinish')) $('perfLabelFinish').textContent = 'CARS ON TIMING';
+  if ($('perfFinishRate')) $('perfFinishRate').textContent = '—';
+  if ($('perfTrackLoc')) {
+    const spec = CIRCUIT_SPECS[event.round] || { length: '—' };
+    $('perfTrackLoc').textContent = `${event.locality.toUpperCase()} · ${spec.length}`;
+  }
 }
 
 function syncPerformanceSessionSelect(ev) {
@@ -4751,78 +5116,107 @@ function initPerformanceView() {
   loadPerformanceData(perfActiveRound, perfActiveSessionType);
 }
 
-async function loadPerformanceData(round, sessionType = "results") {
-  const leaderboard = $("perfLeaderboard");
-  const rcFeed = $("perfRcFeed");
-  const gpNameEl = $("perfGrandPrixName");
-  const statusPill = $("perfStatusPill");
-  const sessionBadge = $("perfSessionBadge");
-  const liveBadge = $("perfLiveBadge");
+async function loadPerformanceData(round, sessionType = 'results', { force = false } = {}) {
+  const token = ++performanceLoadToken;
+  stopPerformanceRefresh();
+  perfActiveRound = Number(round) || perfActiveRound;
+  perfActiveSessionType = sessionType;
 
-  const ev = schedule.find((e) => e.round === round) || schedule[0];
+  const leaderboard = $('perfLeaderboard');
+  const rcFeed = $('perfRcFeed');
+  const gpNameEl = $('perfGrandPrixName');
+  const statusPill = $('perfStatusPill');
+  const sessionBadge = $('perfSessionBadge');
+  const liveBadge = $('perfLiveBadge');
+  const ev = schedule.find((item) => item.round === Number(round)) || schedule[0];
+  const typeLabel = sessionType === 'qualifying' ? 'QUALIFYING' : sessionType === 'sprint' ? 'SPRINT' : 'RACE';
+  const liveSession = performanceSessionIsLive(round, sessionType);
+
   if (gpNameEl) gpNameEl.textContent = `${ev.name.toUpperCase()} · ${ev.locality.toUpperCase()} CIRCUIT`;
-  if (sessionBadge) sessionBadge.textContent = `2026 ROUND ${ev.round}`;
-
-  // Check if session is live right now
-  const now = Date.now();
-  const liveSession = ev.sessions.find((s) => {
-    const start = Date.parse(s.start);
-    const end = Date.parse(s.start) + 2.5 * 3600e3;
-    return now >= start - 15 * 60e3 && now <= end;
-  });
-
+  if (sessionBadge) sessionBadge.textContent = `${SITE_SEASON} ROUND ${ev.round}`;
   if (liveBadge) {
-    liveBadge.textContent = liveSession ? "● LIVE SESSION" : "OFFICIAL CLASSIFICATION";
-    liveBadge.className = `pill mono ${liveSession ? "live-status" : ""}`;
+    liveBadge.textContent = liveSession ? '● LIVE TIMING' : 'SESSION RESULTS';
+    liveBadge.className = `pill mono${liveSession ? ' live' : ''}`;
   }
-  if (statusPill) {
-    const typeLabel = sessionType === "qualifying" ? "QUALIFYING" : sessionType === "sprint" ? "SPRINT" : "FINAL CLASSIFICATION";
-    statusPill.textContent = liveSession ? `${typeLabel} IN PROGRESS` : `${typeLabel}`;
-  }
+  if (statusPill) statusPill.textContent = liveSession ? `${typeLabel} IN PROGRESS` : `${typeLabel} CLASSIFICATION`;
 
   const cacheKey = `${round}_${sessionType}`;
   const cached = perfCache.get(cacheKey);
-
-  // If already in memory cache, render instantaneously (0ms)
-  if (cached && cached.results?.length) {
+  if (cached?.results?.length) {
     renderPerformanceTower(cached.results, ev, sessionType);
-    renderPerformanceRc(cached.rcMessages);
-    updatePerformanceKpis(cached.results, cached.rcMessages, ev, sessionType);
-    if (!liveSession && cached.rcMessages?.length) return;
+    renderPerformanceRc(cached.rcMessages || []);
+    if (!liveSession) updatePerformanceKpis(cached.results, cached.rcMessages || [], ev, sessionType);
+    setPerformanceDataState(liveSession ? 'Connecting to live timing…' : 'Refreshing session data…');
   } else {
-    if (leaderboard) {
-      leaderboard.innerHTML = `<tr><td colspan="7" class="perf-empty-state">Loading official session telemetry…</td></tr>`;
-    }
-    if (rcFeed) {
-      rcFeed.innerHTML = `<div class="ti-item" style="color:var(--dim)">Connecting to Race Control wire…</div>`;
-    }
+    if (leaderboard) leaderboard.innerHTML = '<tr><td colspan="7" class="perf-empty-state">Loading session data…</td></tr>';
+    if (rcFeed) rcFeed.innerHTML = '<div class="ti-item" style="color:var(--dim)">Connecting to Race Control wire…</div>';
+    setPerformanceDataState(liveSession ? 'Connecting to live timing…' : 'Loading session results…');
   }
 
-  // Fetch Jolpica classification and OpenF1 RC wire concurrently
-  const [results, rcMessages] = await Promise.all([
-    fetchPerformanceClassification(round, sessionType),
-    fetchPerformanceRaceControl(round)
+  const timingPromise = liveSession
+    ? fetchLiveTiming().then((data) => ({ data, error: null })).catch((error) => ({ data: null, error }))
+    : Promise.resolve({ data: null, error: null });
+  const [results, rcMessages, timingResult] = await Promise.all([
+    fetchPerformanceClassification(round, sessionType, { force }),
+    fetchPerformanceRaceControl(round, sessionType, { force }),
+    timingPromise
   ]);
+  if (token !== performanceLoadToken) return;
 
-  // Update memory cache with both
-  perfCache.set(cacheKey, { results, rcMessages, at: Date.now() });
-
-  // Render timing tower
-  renderPerformanceTower(results, ev, sessionType);
-
-  // Render Race Control wire
+  const previous = perfCache.get(cacheKey) || {};
+  perfCache.set(cacheKey, {
+    ...previous,
+    results: Array.isArray(results) ? results : [],
+    rcMessages: Array.isArray(rcMessages) ? rcMessages : [],
+    at: previous.at || Date.now()
+  });
   renderPerformanceRc(rcMessages);
 
-  // Update Summary KPIs
-  updatePerformanceKpis(results, rcMessages, ev, sessionType);
+  const liveData = timingResult.data;
+  const hasLiveTiming = liveSession && liveTimingMatchesEvent(liveData, ev) && renderLiveTimingTower(liveData, ev);
+  if (hasLiveTiming) {
+    if (liveBadge) liveBadge.textContent = '● LIVE TIMING';
+    if (statusPill) {
+      const lap = Number(liveData.currentLap) || 0;
+      const total = Number(liveData.totalLaps) || 0;
+      statusPill.textContent = liveData.status || (lap ? `LAP ${lap}${total ? ` / ${total}` : ''}` : 'LIVE SESSION');
+    }
+    updateLiveTimingKpis(liveData, ev, sessionType, rcMessages);
+    const stamp = new Date(Number(liveData.updatedAt) || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setPerformanceDataState(`Live timing via FreeF1 API · updated ${stamp}.`);
+  } else {
+    renderPerformanceTower(results, ev, sessionType);
+    if (statusPill) statusPill.textContent = liveSession ? `${typeLabel} IN PROGRESS` : `${typeLabel} CLASSIFICATION`;
+    if (liveSession) {
+      updateLiveTimingUnavailable(ev, sessionType, rcMessages);
+      setPerformanceDataState(results?.length
+        ? 'Live timing is unavailable · showing the latest Jolpica classification instead.'
+        : 'Live timing and session classification are not available yet.', true);
+    } else {
+      updatePerformanceKpis(results, rcMessages, ev, sessionType);
+      const source = perfCache.get(cacheKey)?.source;
+      if (source === 'stale' || source === 'bundled') {
+        setPerformanceDataState('Showing saved classification · the Jolpica feed could not refresh.', true);
+      } else if (!results?.length) {
+        setPerformanceDataState('No classification is published yet, or the Jolpica feed is unavailable.', true);
+      } else {
+        setPerformanceDataState('Session classification via Jolpica/Ergast.');
+      }
+    }
+  }
+  schedulePerformanceRefresh(round, sessionType);
 }
+
+$('perfRetry')?.addEventListener('click', () => loadPerformanceData(perfActiveRound, perfActiveSessionType, { force: true }));
 
 function renderPerformanceTower(results, event, sessionType = "results") {
   const tbody = $("perfLeaderboard");
   const thead = $("perfTableHead");
+  const table = $('perfTimingTower')?.querySelector('table');
   if (!tbody) return;
 
   const isQuali = sessionType === "qualifying";
+  if (table) table.setAttribute('aria-label', `${isQuali ? 'Qualifying' : 'Race'} classification for ${event.name}`);
 
   // Update table header row dynamically
   if (thead) {
@@ -5013,6 +5407,7 @@ function updatePerformanceKpis(results, rcMessages, event, sessionType = "result
 
   const spec = CIRCUIT_SPECS[event.round] || { length: "5.500 KM", topSpeed: "335 km/h" };
   if (trackLocEl) trackLocEl.textContent = `${event.locality.toUpperCase()} · ${spec.length}`;
+  if (labelSpeed) labelSpeed.textContent = 'CIRCUIT REFERENCE';
   if (speedEl) speedEl.textContent = spec.topSpeed;
 
   const isQuali = sessionType === "qualifying";

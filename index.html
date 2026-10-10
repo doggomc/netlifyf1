@@ -334,9 +334,8 @@
       </div>
       <p style="color:var(--muted);font-size:.85rem;max-width:340px">All 22 drivers, ordered by live championship position. Select a driver for the full profile. Driver imagery © Formula 1, served from the official F1 media CDN.</p>
     </div>
-    <div class="drivers" id="driverGrid">
-      <div class="state">Loading the grid…</div>
-    </div>
+    <div class="driver-grid-state" id="driverGridStatus" role="status" aria-live="polite">Loading the 2026 grid…</div>
+    <div class="drivers" id="driverGrid"></div>
   </div>
 </section>
 
@@ -368,7 +367,7 @@
       </div>
     </div>
     <div class="card rv d1" id="standingsPanel" role="tabpanel" aria-labelledby="standingsTitle" aria-live="polite" style="padding:20px">
-      <div class="state" id="standingsLoading">Loading standings…</div>
+      <div class="state" id="standingsLoading" role="status" aria-live="polite">Loading standings…</div>
       <div class="rows" id="standingsList"></div>
     </div>
   </div>
@@ -528,7 +527,7 @@
         <div class="rule" style="width:140px"></div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="pill mono live-status" id="perfLiveBadge">OFFICIAL RESULTS</div>
+        <div class="pill mono" id="perfLiveBadge">SESSION RESULTS</div>
         <div class="pill mono" id="perfSessionBadge">2026 ROUND 15</div>
       </div>
     </div>
@@ -567,16 +566,20 @@
       <div class="card perf-tower-card" id="perfTimingTower">
         <div class="perf-tower-head">
           <div class="pth-left">
-            <h4>Official Timing Tower</h4>
+            <h4>Live Timing &amp; Classification</h4>
             <span class="mono" id="perfGrandPrixName">AZERBAIJAN GRAND PRIX · BAKU CITY CIRCUIT</span>
           </div>
           <div class="pth-right">
             <span class="pill mono" id="perfStatusPill">FINAL CLASSIFICATION</span>
           </div>
         </div>
+        <div class="perf-data-state" id="perfDataState" role="status" aria-live="polite" hidden>
+          <span id="perfDataMessage"></span>
+          <button class="btn sm" id="perfRetry" type="button" hidden>Retry data</button>
+        </div>
 
         <div class="perf-table-wrap">
-          <table class="perf-table" aria-label="Official Driver Classification">
+          <table class="perf-table" aria-label="Live timing and session classification">
             <thead id="perfTableHead">
               <tr>
                 <th class="th-pos">POS</th>
@@ -712,7 +715,10 @@
         <option value="results">Race</option><option value="qualifying">Qualifying</option><option value="sprint">Sprint</option>
       </select></div>
     </div>
-    <div class="state" id="sessionsResultsLoading" style="display:none">Loading results…</div>
+    <div class="state session-results-state" id="sessionsResultsLoading" role="status" aria-live="polite" style="display:none">
+      <span id="sessionsResultsMessage">Loading results…</span>
+      <button class="btn sm" id="sessionsResultsRetry" type="button" hidden>Retry</button>
+    </div>
     <div class="rows" id="sessionsResults"></div>
   </div>
 </div>
@@ -809,6 +815,7 @@
 
 <script src="/runtime-config.js?v=20261010-scale1" defer></script>
 <script src="/round-meeting.js?v=20261006-r1" defer></script>
-<script src="/app.js?v=20261010-scale1" defer></script>
+<script src="/driver-data.js?v=20261010-r1" defer></script>
+<script src="/app.js?v=20261010-driver-audit1" defer></script>
 </body>
 </html>
