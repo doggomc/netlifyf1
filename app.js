@@ -49,6 +49,10 @@ const OPENF1_API = PREVIEW_HOST ? `${location.origin}/api/openf1` : 'https://fre
 const JOLPI = 'https://api.jolpi.ca/ergast/f1';
 
 const NAV_TIMEOUT_MS = 9000;
+const RUNTIME = Object.freeze({
+  heartbeatMs: Math.max(30000, Number(window.__FREEF1_CONFIG__?.heartbeatMs) || 120000),
+  fallbackPollMs: Math.max(60000, Number(window.__FREEF1_CONFIG__?.fallbackPollMs) || 120000)
+});
 const API_TIMEOUT_MS = 10000;
 const API_STALE_FALLBACK_MS = 24 * 60 * 60 * 1000;
 const API_CACHE_MAX = 40;
@@ -795,13 +799,7 @@ const sources=[
  {id:"f1tv",label:"F1TV"},
  {id:"appletv",label:"AppleTV"},
  {id:"dazn",label:"DAZN"},
- {id:"wikisport",label:"WikiSport"},
- /* Played by the API itself rather than redirected to a provider: the
-    upstream playlist is signed and short-lived, so the server re-mints it
-    and /api/stream/ticket returns an alias resolved at play time. Same
-    contract as every other id here — an id and a label, never an address. */
- {id:"cdnlivetv-f1",label:"Sky F1 (CDN)"},
- {id:"strmfree-f1",label:"Sky F1 (Mirror)"}
+ {id:"wikisport",label:"WikiSport"}
 ];
 
 var LIVE247_STATIONS = [
@@ -1219,15 +1217,8 @@ function showStreamBlocked() {
   confirmService();
 }
 
-/* ═══════════════ DISCORD ACCOUNT GATE ═══════════════
-   The relay source is limited to linked Discord accounts. The check is a
-   convenience, not the wall: the server refuses the ticket, the player page
-   and the playlist for an unlinked browser regardless of what happens here,
-   so closing this dialog is the same as declining it.
-
-   The entitlement lives on the Discord account, so one account works from any
-   number of browsers, and /unlink in Discord revokes all of them at once. */
-const GATED_SOURCE_IDS = new Set(['cdnlivetv-f1', 'strmfree-f1']);
+/* ═══════════════ DISCORD ACCOUNT LINKING (currently no gated feeds) ═══════ */
+const GATED_SOURCE_IDS = new Set();
 let discordGateEl = null;
 let discordLinkCache = null;      // { linked, profile } once known
 let discordGateResolve = null;
@@ -2037,7 +2028,7 @@ function initStreamPolling() {
     pollSourceConfig();
     pollExperimentalStatus();
     pollStreamWindow();
-  }, 30000);
+  }, RUNTIME.fallbackPollMs);
   if (streamPollVisibilityBound) return;
   streamPollVisibilityBound = true;
   document.addEventListener('visibilitychange', () => {
@@ -2075,7 +2066,7 @@ function initVisitorCounter() {
     store.set('freef1_user_id', uid);
   }
   const API = PREVIEW_HOST ? location.origin : 'https://freef1.onrender.com';
-  const INTERVAL = 15000;
+  const INTERVAL = RUNTIME.heartbeatMs;
   let timer = 0;
   let inFlight = false;
 
@@ -2156,7 +2147,7 @@ function initVisitorCounter() {
     try {
       if (!visitorToken || visitorTokenExpiresAt - Date.now() < 60000) await refreshVisitorToken();
       if (document.hidden) return;
-      const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}`, {
+      const r = await fetchWithTimeout(`${API}/api/visitors/heartbeat?page=${encodeURIComponent(location.pathname)}&minimal=1`, {
         cache: 'no-store',
         credentials: 'omit',
         keepalive: true,
@@ -2165,7 +2156,9 @@ function initVisitorCounter() {
       if (r.status === 403) {
         clearTokenCache();
         nextDelay = 800;
-      } else if (r.ok) {
+      } else if (r.ok && r.status !== 204) {
+        // Older servers return the count; scaled servers acknowledge with no body
+        // because the live count already arrives on the shared SSE connection.
         updateCount(await r.json());
       }
     } catch (_) {}
