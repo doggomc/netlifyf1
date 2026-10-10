@@ -800,7 +800,8 @@ const sources=[
     upstream playlist is signed and short-lived, so the server re-mints it
     and /api/stream/ticket returns an alias resolved at play time. Same
     contract as every other id here — an id and a label, never an address. */
- {id:"cdnlivetv-f1",label:"Sky F1 (CDN)"}
+ {id:"cdnlivetv-f1",label:"Sky F1 (CDN)"},
+ {id:"strmfree-f1",label:"Sky F1 (Mirror)"}
 ];
 
 var LIVE247_STATIONS = [
@@ -1226,7 +1227,7 @@ function showStreamBlocked() {
 
    The entitlement lives on the Discord account, so one account works from any
    number of browsers, and /unlink in Discord revokes all of them at once. */
-const GATED_SOURCE_IDS = new Set(['cdnlivetv-f1']);
+const GATED_SOURCE_IDS = new Set(['cdnlivetv-f1', 'strmfree-f1']);
 let discordGateEl = null;
 let discordLinkCache = null;      // { linked, profile } once known
 let discordGateResolve = null;
@@ -1258,6 +1259,20 @@ function dgStyle() {
     .dg-actions{display:flex;gap:10px}
     .dg-actions .btn{flex:1;min-height:44px}
     .dg-error{color:#ff6b6b;font-size:.87rem;margin:0 0 10px}
+    /* A real button, not a text link: the link alone was too easy to miss,
+       and this is the step a non-member cannot get past without it. */
+    .dg-discord{display:flex;align-items:center;justify-content:center;gap:9px;
+      margin:12px 0 0;padding:0 16px;min-height:44px;border-radius:var(--r-sm);
+      background:#5865f2;color:#fff;font-weight:600;font-size:.94rem;
+      text-decoration:none;transition:background .15s}
+    .dg-discord:hover,.dg-discord:focus-visible{background:#4752c4}
+    .dg-discord svg{width:20px;height:20px;fill:currentColor;flex:0 0 auto}
+    .dg-invite{color:var(--dim);font-size:.78rem;margin:8px 0 0;text-align:center;line-height:1.5}
+    /* Shown when there is no avatar or the CDN image fails: a Discord-blue
+       disc carrying the member's initial, sized to match the 46px image. */
+    .dg-av-fallback{width:46px;height:46px;border-radius:50%;flex:0 0 auto;
+      display:flex;align-items:center;justify-content:center;
+      background:#5865f2;color:#fff;font-weight:700;font-size:1.1rem}
     .dg-note{color:var(--dim);font-size:.8rem;margin:14px 0 0;line-height:1.5}
   `;
   document.head.appendChild(style);
@@ -1302,15 +1317,19 @@ function dgBuild() {
       <p class="dg-error" id="dgError" hidden></p>
       <div id="dgStep1">
         <div class="dg-actions"><button class="btn" id="dgGetCode" type="button">Get my code</button></div>
+        <a class="dg-discord" id="dgJoinBtn" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.398 2.728.077.077 0 0 0 .084-.028c.461-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.011c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.01c.12.099.245.198.372.292a.077.077 0 0 1-.006.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.04.107c.36.698.771 1.362 1.225 1.993a.076.076 0 0 0 .084.029 19.84 19.84 0 0 0 5.406-2.729.077.077 0 0 0 .032-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029ZM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.211 0 2.176 1.095 2.157 2.419 0 1.333-.956 2.419-2.157 2.419Zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.211 0 2.176 1.095 2.157 2.419 0 1.333-.946 2.419-2.157 2.419Z"/></svg><span>Join the FreeF1 Discord</span></a>
+        <p class="dg-invite">Not a member yet? Join first, then come back for your code.</p>
       </div>
       <div id="dgStep2" hidden>
         <div class="dg-code" id="dgCode">·····</div>
-        <p class="dg-hint">In the FreeF1 Discord, go to <b>#link</b> and run:<br><code>/link <span id="dgCodeInline">·····</span></code></p>
+        <p class="dg-hint">Open <b>#link</b> in the FreeF1 Discord and run:<br><code>/link <span id="dgCodeInline">·····</span></code></p>
+        <a class="dg-discord" id="dgOpenBtn" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.319 13.58.099 18.058a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.398 2.728.077.077 0 0 0 .084-.028c.461-.63.873-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.011c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.01c.12.099.245.198.372.292a.077.077 0 0 1-.006.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.04.107c.36.698.771 1.362 1.225 1.993a.076.076 0 0 0 .084.029 19.84 19.84 0 0 0 5.406-2.729.077.077 0 0 0 .032-.055c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029ZM8.02 15.331c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.211 0 2.176 1.095 2.157 2.419 0 1.333-.956 2.419-2.157 2.419Zm7.975 0c-1.183 0-2.157-1.086-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.211 0 2.176 1.095 2.157 2.419 0 1.333-.946 2.419-2.157 2.419Z"/></svg><span>Open #link in Discord</span></a>
         <p class="dg-waiting" id="dgWaiting">Waiting for Discord…</p>
       </div>
       <div id="dgStep3" hidden>
         <p class="dg-hint" style="margin-bottom:12px">Is this you?</p>
         <div class="dg-profile">
+          <span id="dgAvatarFallback" class="dg-av-fallback" aria-hidden="true" hidden></span>
           <img id="dgAvatar" alt="" src="">
           <div>
             <div class="dg-name" id="dgName"></div>
@@ -1370,10 +1389,33 @@ async function dgRequestCode() {
   try {
     const r = await discordApi('/api/discord/link-code', { method: 'POST', body: '{}' });
     const data = r.ok ? await r.json().catch(() => null) : null;
-    if (!data || !data.code) { dgFail('Could not get a code. Try again in a moment.'); return; }
+    if (!data || !data.code) {
+      /* "Try again in a moment" was a lie for the most common cause. A 404
+         means the server is running older code that has no such endpoint, so
+         the only honest message names the deploy; 403 means the site was not
+         recognised as the site, and 429 is a real rate limit. */
+      if (r.status === 404) {
+        dgFail('The backend is out of date: it has no code endpoint yet. The site was updated, but the server was not redeployed.');
+      } else if (r.status === 403) {
+        dgFail('The server refused this request. Reload the page from the site itself and try again.');
+      } else if (r.status === 429) {
+        dgFail('Too many codes requested from here. Wait a minute and try again.');
+      } else {
+        dgFail('Could not get a code (server responded ' + (r.status || 'with an error') + '). Try again in a moment.');
+      }
+      return;
+    }
     discordGateCode = data.code;
     dgEl('dgCode').textContent = data.code;
     dgEl('dgCodeInline').textContent = data.code;
+    /* The server sends the invite so it can be changed by env var without
+       shipping a new front end. */
+    if (data.inviteUrl) {
+      for (const id of ['dgJoinBtn', 'dgOpenBtn']) {
+        const a = dgEl(id);
+        if (a) a.href = data.inviteUrl;
+      }
+    }
     dgEl('dgWaiting').textContent = 'Waiting for Discord…';
     dgShow('dgStep2');
     dgStopPolling();
@@ -1386,8 +1428,23 @@ async function dgRequestCode() {
         if (!st) return;
         if (st.state === 'claimed' && st.profile) {
           dgStopPolling();
-          dgEl('dgAvatar').src = st.profile.avatar || '';
-          dgEl('dgName').textContent = st.profile.globalName || st.profile.username || 'Discord user';
+          const name = st.profile.globalName || st.profile.username || 'Discord user';
+          const avatarEl = dgEl('dgAvatar');
+          const fallbackEl = dgEl('dgAvatarFallback');
+          const showFallback = () => {
+            if (avatarEl) avatarEl.hidden = true;
+            if (fallbackEl) { fallbackEl.textContent = name.trim().charAt(0).toUpperCase() || '?'; fallbackEl.hidden = false; }
+          };
+          if (avatarEl) {
+            avatarEl.onload = () => { if (fallbackEl) fallbackEl.hidden = true; };
+            avatarEl.onerror = showFallback;
+          }
+          if (st.profile.avatar) {
+            if (avatarEl) { avatarEl.hidden = false; avatarEl.src = st.profile.avatar; }
+          } else {
+            showFallback();
+          }
+          dgEl('dgName').textContent = name;
           dgEl('dgSub').textContent = st.profile.username && st.profile.globalName !== st.profile.username ? `@${st.profile.username}` : '';
           dgShow('dgStep3');
         } else if (st.state === 'expired') {
@@ -1426,6 +1483,91 @@ async function ensureDiscordLink() {
   return true;
 }
 
+/* ── revocation ─────────────────────────────────────────────────────────
+   /unlink in Discord drops the account server-side, so the very next playlist
+   fetch is refused. A browser that is already playing would sit on a draining
+   buffer and never find out, so the link is re-checked on a slow poll and the
+   moment the tab regains focus. Anything that comes back unlinked is torn
+   down at once rather than left to fail confusingly mid-race. */
+const DISCORD_RECHECK_MS = 45_000;
+let discordRecheckTimer = null;
+
+function startDiscordRecheck() {
+  stopDiscordRecheck();
+  discordRecheckTimer = setInterval(recheckDiscordLink, DISCORD_RECHECK_MS);
+}
+
+function stopDiscordRecheck() {
+  if (discordRecheckTimer) { clearInterval(discordRecheckTimer); discordRecheckTimer = null; }
+}
+
+async function recheckDiscordLink() {
+  if (!discordLinkCache || !discordLinkCache.linked) return;
+  /* Never interrupt someone who is mid-link in the dialog. */
+  if (discordGateEl && discordGateEl.classList.contains('open')) return;
+  try {
+    const r = await discordApi('/api/discord/me');
+    const d = r.ok ? await r.json().catch(() => null) : null;
+    if (!d || d.linked) return;
+    discordLinkCache = { linked: false };
+    stopDiscordRecheck();
+    handleDiscordRevoked();
+  } catch (_) { /* a transient failure must not kill a working stream */ }
+}
+
+function handleDiscordRevoked() {
+  /* Drop this browser's cookie so the stale link is not presented again. */
+  discordApi('/api/discord/unlink', { method: 'POST', body: '{}' }).catch(() => {});
+  if (!GATED_SOURCE_IDS.has(sources[currentSource] && sources[currentSource].id)) return;
+  const enabled = [];
+  sources.forEach((s, i) => { if (sourceEnabled(s) && !GATED_SOURCE_IDS.has(s.id)) enabled.push(i); });
+  if (!enabled.length) {
+    showNoStream({
+      blocked: true,
+      title: 'Your Discord link was removed',
+      text: 'Run /link again in the FreeF1 Discord to restore access to this source. The other sources are unavailable right now.'
+    });
+    return;
+  }
+  currentSource = enabled[0];
+  renderButtons();
+  updateHeader();
+  load();
+}
+
+/* Coming back to a backgrounded tab can mean minutes of missed revocation. */
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) recheckDiscordLink();
+});
+
+/* Closing the wall is a choice, not a failure: fall through to the next
+   source this visitor is allowed to watch. If the gated source was the last
+   option left, say so plainly and leave Retry / Next source / Open in a new
+   tab available rather than inventing an ad-blocker story. */
+function declineGatedSource(token, order, idx, startedAt) {
+  let next = -1;
+  for (let i = idx + 1; i < order.length; i++) {
+    if (!GATED_SOURCE_IDS.has(sources[order[i]].id)) { next = i; break; }
+  }
+  if (next >= 0) {
+    setLoaderText("Switching source…");
+    currentSource = order[next];
+    renderButtons();
+    updateHeader();
+    attemptSource(token, order, next, startedAt);
+    return;
+  }
+  showGatedNotice();
+}
+
+function showGatedNotice() {
+  showNoStream({
+    blocked: true,
+    title: "Sky F1 (CDN) needs a linked Discord account",
+    text: "You closed the link prompt, so this source stays locked. Use \"Next source\" to try another feed, or pick Sky F1 (CDN) again to link your Discord account."
+  });
+}
+
 function attemptSource(token, order, idx, startedAt) {
   if (token !== playerLoadToken) return;
   if (idx >= order.length) {
@@ -1438,11 +1580,19 @@ function attemptSource(token, order, idx, startedAt) {
     setLoaderText("Checking access…");
     ensureDiscordLink().then((ok) => {
       if (token !== playerLoadToken) return;
-      if (!ok) { showStreamBlocked(); return; }
-      /* Straight to playback, never back through attemptSource: the gate
-         branch would see the same source, find the cached link true, and
-         call itself forever without ever asking for an alias. */
-      playFromSource(token, order, idx, startedAt);
+      if (ok) {
+        /* Straight to playback, never back through attemptSource: the gate
+           branch would see the same source, find the cached link true, and
+           call itself forever without ever asking for an alias. */
+        playFromSource(token, order, idx, startedAt);
+        return;
+      }
+      /* Dismissed, not blocked. The gate promise only resolves false when the
+         visitor closes the dialog or answers No — a failed fetch calls
+         dgFail() and leaves it open, so this is never a network fault. Move
+         on to a source they can actually watch instead of telling them their
+         device is blocking the feed. */
+      declineGatedSource(token, order, idx, startedAt);
     }).catch(() => {
       if (token !== playerLoadToken) return;
       showStreamBlocked();
@@ -1454,6 +1604,7 @@ function attemptSource(token, order, idx, startedAt) {
 
 function playFromSource(token, order, idx, startedAt) {
   setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable - switching source…");
+  if (GATED_SOURCE_IDS.has(sources[order[idx]].id)) startDiscordRecheck();
   const params = streamPlayParams();
   streamAlias(sources[order[idx]].id).then((href) => {
     if (token !== playerLoadToken) return;
@@ -1520,6 +1671,7 @@ function mountAttempt(token, order, idx, startedAt, targetUrl) {
 function load() {
   const token = ++playerLoadToken;
   ticketCallFailed = false;
+  stopDiscordRecheck();
   loaderEl?.classList.remove("hidden");
   hideNoStream();
   setLoaderText("Establishing feed…");
