@@ -893,10 +893,13 @@ function streamPlayParams() {
 }
 
 async function requestStreamAlias(sourceId, params) {
+  /* A gated source is only issued to a browser carrying the link cookie, so
+     that one request travels with credentials. The rest stay credential-less:
+     they have nothing to prove and nothing to leak. */
   const r = await fetchWithTimeout(`${PUBLIC_API}/api/stream/ticket`, {
     method: "POST",
     cache: "no-store",
-    credentials: "omit",
+    credentials: GATED_SOURCE_IDS.has(sourceId) ? "include" : "omit",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sourceId, params: params || {} })
   }, 8000);
@@ -1215,12 +1218,241 @@ function showStreamBlocked() {
   confirmService();
 }
 
+/* ═══════════════ DISCORD ACCOUNT GATE ═══════════════
+   The relay source is limited to linked Discord accounts. The check is a
+   convenience, not the wall: the server refuses the ticket, the player page
+   and the playlist for an unlinked browser regardless of what happens here,
+   so closing this dialog is the same as declining it.
+
+   The entitlement lives on the Discord account, so one account works from any
+   number of browsers, and /unlink in Discord revokes all of them at once. */
+const GATED_SOURCE_IDS = new Set(['cdnlivetv-f1']);
+let discordGateEl = null;
+let discordLinkCache = null;      // { linked, profile } once known
+let discordGateResolve = null;
+let discordPollTimer = null;
+let discordGateCode = '';
+
+function dgStyle() {
+  if (document.getElementById('dgStyle')) return;
+  const style = document.createElement('style');
+  style.id = 'dgStyle';
+  style.textContent = `
+    #discordGate .sheet{max-width:460px}
+    #dgCopy{color:var(--muted);font-size:.95rem;line-height:1.6;margin:0 0 18px}
+    .dg-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:2.1rem;
+      font-weight:700;letter-spacing:.22em;text-align:center;padding:16px 10px;margin:0 0 12px;
+      border:1px dashed var(--line-2);border-radius:var(--r-sm);background:rgba(0,0,0,.35);
+      user-select:all;cursor:text}
+    .dg-hint,.dg-waiting{color:var(--muted);font-size:.88rem;line-height:1.55;margin:0 0 10px}
+    .dg-hint code{background:rgba(255,255,255,.1);padding:2px 7px;border-radius:4px;
+      font-size:.95rem;user-select:all}
+    .dg-waiting::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;
+      border-radius:50%;background:var(--team);animation:dgPulse 1.4s infinite;vertical-align:middle}
+    @keyframes dgPulse{0%,100%{opacity:1}50%{opacity:.25}}
+    .dg-profile{display:flex;align-items:center;gap:14px;padding:14px;margin:0 0 16px;
+      border:1px solid var(--line);border-radius:var(--r-sm);background:rgba(0,0,0,.3)}
+    .dg-profile img{width:46px;height:46px;border-radius:50%;background:#222;flex:0 0 auto}
+    .dg-name{font-weight:700;font-size:1rem}
+    .dg-sub{color:var(--dim);font-size:.82rem;margin-top:2px}
+    .dg-actions{display:flex;gap:10px}
+    .dg-actions .btn{flex:1;min-height:44px}
+    .dg-error{color:#ff6b6b;font-size:.87rem;margin:0 0 10px}
+    .dg-note{color:var(--dim);font-size:.8rem;margin:14px 0 0;line-height:1.5}
+  `;
+  document.head.appendChild(style);
+}
+
+function discordApi(path, options = {}) {
+  /* credentials:'include' — the link is a cookie on the API's domain, and
+     every other call here deliberately omits credentials. */
+  return fetchWithTimeout(`${PUBLIC_API}${path}`, {
+    cache: 'no-store',
+    credentials: 'include',
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+  });
+}
+
+function dgEl(id) { return document.getElementById(id); }
+
+function dgShow(step) {
+  for (const n of ['dgStep1', 'dgStep2', 'dgStep3']) {
+    const el = dgEl(n);
+    if (el) el.hidden = (n !== step);
+  }
+}
+
+function dgBuild() {
+  if (discordGateEl) return discordGateEl;
+  dgStyle();
+  const wrap = document.createElement('div');
+  wrap.id = 'discordGate';
+  wrap.className = 'modal';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-labelledby', 'dgTitle');
+  wrap.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2 id="dgTitle">Get Access</h2>
+        <button class="x" id="dgClose" type="button" aria-label="Close">&times;</button>
+      </div>
+      <p id="dgCopy">This stream has zero ads or hidden adlayers. The quality is good, but it's not the most reliable. To get access to this stream source, you have to link your discord account</p>
+      <p class="dg-error" id="dgError" hidden></p>
+      <div id="dgStep1">
+        <div class="dg-actions"><button class="btn" id="dgGetCode" type="button">Get my code</button></div>
+      </div>
+      <div id="dgStep2" hidden>
+        <div class="dg-code" id="dgCode">·····</div>
+        <p class="dg-hint">In the FreeF1 Discord, go to <b>#link</b> and run:<br><code>/link <span id="dgCodeInline">·····</span></code></p>
+        <p class="dg-waiting" id="dgWaiting">Waiting for Discord…</p>
+      </div>
+      <div id="dgStep3" hidden>
+        <p class="dg-hint" style="margin-bottom:12px">Is this you?</p>
+        <div class="dg-profile">
+          <img id="dgAvatar" alt="" src="">
+          <div>
+            <div class="dg-name" id="dgName"></div>
+            <div class="dg-sub" id="dgSub"></div>
+          </div>
+        </div>
+        <div class="dg-actions">
+          <button class="btn" id="dgYes" type="button">Yes</button>
+          <button class="btn" id="dgNo" type="button">No</button>
+        </div>
+      </div>
+      <p class="dg-note">Lost access? Run <b>/unlink</b> in #link to revoke every browser at once, then link again.</p>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  const close = (result) => {
+    wrap.classList.remove('open');
+    dgStopPolling();
+    if (discordGateResolve) { const r = discordGateResolve; discordGateResolve = null; r(result); }
+  };
+  dgEl('dgClose').addEventListener('click', () => close(null));
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close(null); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && wrap.classList.contains('open')) close(null);
+  });
+
+  dgEl('dgGetCode').addEventListener('click', () => dgRequestCode());
+  dgEl('dgNo').addEventListener('click', async () => {
+    try { await discordApi('/api/discord/link-confirm', { method: 'POST', body: JSON.stringify({ code: discordGateCode, yes: false }) }); } catch (_) {}
+    discordGateCode = '';
+    dgShow('dgStep1');
+  });
+  dgEl('dgYes').addEventListener('click', async () => {
+    try {
+      const r = await discordApi('/api/discord/link-confirm', { method: 'POST', body: JSON.stringify({ code: discordGateCode, yes: true }) });
+      const data = r.ok ? await r.json().catch(() => null) : null;
+      if (!data || !data.ok) { dgFail('That link could not be confirmed. Try a new code.'); return; }
+      close(data.profile || { linked: true });
+    } catch (_) { dgFail('Network error. Check your connection and try again.'); }
+  });
+
+  discordGateEl = wrap;
+  return wrap;
+}
+
+function dgFail(message) {
+  const err = dgEl('dgError');
+  if (err) { err.textContent = message; err.hidden = false; }
+}
+
+function dgStopPolling() {
+  if (discordPollTimer) { clearInterval(discordPollTimer); discordPollTimer = null; }
+}
+
+async function dgRequestCode() {
+  dgFail('');
+  try {
+    const r = await discordApi('/api/discord/link-code', { method: 'POST', body: '{}' });
+    const data = r.ok ? await r.json().catch(() => null) : null;
+    if (!data || !data.code) { dgFail('Could not get a code. Try again in a moment.'); return; }
+    discordGateCode = data.code;
+    dgEl('dgCode').textContent = data.code;
+    dgEl('dgCodeInline').textContent = data.code;
+    dgEl('dgWaiting').textContent = 'Waiting for Discord…';
+    dgShow('dgStep2');
+    dgStopPolling();
+    let waited = 0;
+    discordPollTimer = setInterval(async () => {
+      waited += 2500;
+      try {
+        const sr = await discordApi(`/api/discord/link-status?code=${encodeURIComponent(discordGateCode)}`);
+        const st = sr.ok ? await sr.json().catch(() => null) : null;
+        if (!st) return;
+        if (st.state === 'claimed' && st.profile) {
+          dgStopPolling();
+          dgEl('dgAvatar').src = st.profile.avatar || '';
+          dgEl('dgName').textContent = st.profile.globalName || st.profile.username || 'Discord user';
+          dgEl('dgSub').textContent = st.profile.username && st.profile.globalName !== st.profile.username ? `@${st.profile.username}` : '';
+          dgShow('dgStep3');
+        } else if (st.state === 'expired') {
+          dgStopPolling();
+          dgFail('That code expired. Generate a new one.');
+          dgShow('dgStep1');
+        } else if (waited % 10000 === 0) {
+          dgEl('dgWaiting').textContent = 'Still waiting — run the /link command in #link.';
+        }
+      } catch (_) {}
+    }, 2500);
+  } catch (_) { dgFail('Network error. Check your connection and try again.'); }
+}
+
+/* Resolves with the profile on success, or null if the visitor closed it. */
+function openDiscordGate() {
+  const wrap = dgBuild();
+  dgShow('dgStep1');
+  dgFail('');
+  discordGateCode = '';
+  wrap.classList.add('open');
+  return new Promise((resolve) => { discordGateResolve = resolve; });
+}
+
+async function ensureDiscordLink() {
+  if (!discordLinkCache) {
+    try {
+      const r = await discordApi('/api/discord/me');
+      discordLinkCache = r.ok ? await r.json().catch(() => ({ linked: false })) : { linked: false };
+    } catch (_) { discordLinkCache = { linked: false }; }
+  }
+  if (discordLinkCache && discordLinkCache.linked) return true;
+  const profile = await openDiscordGate();
+  if (!profile) return false;
+  discordLinkCache = { linked: true, profile };
+  return true;
+}
+
 function attemptSource(token, order, idx, startedAt) {
   if (token !== playerLoadToken) return;
   if (idx >= order.length) {
     showStreamBlocked();
     return;
   }
+  /* Gated sources are checked before an alias is even requested, so an
+     unlinked visitor sees the wall instead of a player that then 403s. */
+  if (GATED_SOURCE_IDS.has(sources[order[idx]].id)) {
+    setLoaderText("Checking access…");
+    ensureDiscordLink().then((ok) => {
+      if (token !== playerLoadToken) return;
+      if (!ok) { showStreamBlocked(); return; }
+      /* Straight to playback, never back through attemptSource: the gate
+         branch would see the same source, find the cached link true, and
+         call itself forever without ever asking for an alias. */
+      playFromSource(token, order, idx, startedAt);
+    }).catch(() => {
+      if (token !== playerLoadToken) return;
+      showStreamBlocked();
+    });
+    return;
+  }
+  playFromSource(token, order, idx, startedAt);
+}
+
+function playFromSource(token, order, idx, startedAt) {
   setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable - switching source…");
   const params = streamPlayParams();
   streamAlias(sources[order[idx]].id).then((href) => {
@@ -2078,24 +2310,41 @@ function enhanceSelect(select) {
   sync();
 }
 
+function closeSelectShell(shell) {
+  const trigger = shell.querySelector('.select-trigger');
+  const menu = shell.querySelector('.select-menu');
+  if (!trigger || !menu || menu.hidden) return false;
+  menu.hidden = true;
+  trigger.setAttribute('aria-expanded', 'false');
+  shell.classList.remove('is-open');
+  shell.closest('.sel')?.classList.remove('is-open');
+  shell.closest('.deck-box')?.classList.remove('has-open-menu');
+  shell.closest('.deck')?.classList.remove('has-open-menu');
+  return true;
+}
+
 function setupCustomSelects() {
   document.querySelectorAll('.sel > select').forEach(enhanceSelect);
   document.addEventListener('click', (event) => {
     document.querySelectorAll('.select-shell').forEach((shell) => {
-      if (!shell.contains(event.target)) {
-        const trigger = shell.querySelector('.select-trigger');
-        const menu = shell.querySelector('.select-menu');
-        if (trigger && menu && !menu.hidden) {
-          menu.hidden = true;
-          trigger.setAttribute('aria-expanded', 'false');
-          shell.classList.remove('is-open');
-          shell.closest('.sel')?.classList.remove('is-open');
-          shell.closest('.deck-box')?.classList.remove('has-open-menu');
-          shell.closest('.deck')?.classList.remove('has-open-menu');
-        }
-      }
+      if (!shell.contains(event.target)) closeSelectShell(shell);
     });
   });
+
+  /* The menu is position:absolute at z-index 80, so inside a modal it paints
+     over the modal's sticky heading (z-index 5) the moment the sheet scrolls —
+     the options appear to slide up above the title. Close on scroll, the way a
+     native select does. Capture phase, because scroll does not bubble.
+     Scrolling inside the menu itself is ignored so long lists stay usable. */
+  document.addEventListener('scroll', (event) => {
+    const scroller = event.target;
+    document.querySelectorAll('.select-shell').forEach((shell) => {
+      const menu = shell.querySelector('.select-menu');
+      if (!menu || menu.hidden) return;
+      if (menu === scroller || menu.contains(scroller)) return;
+      closeSelectShell(shell);
+    });
+  }, true);
 }
 
 function populate() {
