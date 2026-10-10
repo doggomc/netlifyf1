@@ -84,7 +84,7 @@
       const hostname = location.hostname;
       const sameOrigin = hostname === 'localhost' ||
         hostname === '127.0.0.1' ||
-        hostname === 'f1free.onrender.com' || hostname === 'freef1.onrender.com' ||
+        hostname === 'freef1.onrender.com' ||
         hostname.endsWith('.e2b.app');
       const api = sameOrigin ? location.origin : 'https://freef1.onrender.com';
       let done = false;
@@ -334,8 +334,9 @@
       </div>
       <p style="color:var(--muted);font-size:.85rem;max-width:340px">All 22 drivers, ordered by live championship position. Select a driver for the full profile. Driver imagery © Formula 1, served from the official F1 media CDN.</p>
     </div>
-    <div class="driver-grid-state" id="driverGridStatus" role="status" aria-live="polite">Loading the 2026 grid…</div>
-    <div class="drivers" id="driverGrid"></div>
+    <div class="drivers" id="driverGrid">
+      <div class="state">Loading the grid…</div>
+    </div>
   </div>
 </section>
 
@@ -367,7 +368,7 @@
       </div>
     </div>
     <div class="card rv d1" id="standingsPanel" role="tabpanel" aria-labelledby="standingsTitle" aria-live="polite" style="padding:20px">
-      <div class="state" id="standingsLoading" role="status" aria-live="polite">Loading standings…</div>
+      <div class="state" id="standingsLoading">Loading standings…</div>
       <div class="rows" id="standingsList"></div>
     </div>
   </div>
@@ -515,195 +516,7 @@
 
 </div><!-- /viewDiscord -->
 
-<!-- ══ VIEW: PERFORMANCE (EXPERIMENTAL) ══ -->
-<div class="view view-performance" id="viewPerformance" data-view="performance" hidden>
-<section class="sec sub-sec" id="perfViewSec">
-  <div class="wrap">
-    <div class="sec-head rv">
-      <div>
-        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
-        <span class="eyebrow">Real Telemetry &amp; Classification</span>
-        <h2>Telemetry &amp; <span class="accent">Performance</span></h2>
-        <div class="rule" style="width:140px"></div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="pill mono" id="perfLiveBadge">SESSION RESULTS</div>
-        <div class="pill mono" id="perfSessionBadge">2026 ROUND 15</div>
-      </div>
-    </div>
 
-    <!-- Session Control Deck -->
-    <div class="card deck-box rv d1" style="margin-top:24px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
-        <h3>Session Telemetry Selector</h3>
-        <div class="track-info-chips">
-          <span class="chip-metric" id="perfWinnerChip">WINNER: Loading…</span>
-          <span class="chip-metric" id="perfFastLapChip">FAST LAP: Loading…</span>
-          <span class="chip-metric" id="perfLapsChip">LAPS: Loading…</span>
-        </div>
-      </div>
-      <div class="selects">
-        <div class="sel" style="flex:2">
-          <label for="perfMeetingSelect">Grand Prix Weekend</label>
-          <select id="perfMeetingSelect">
-            <!-- Dynamically populated from official 2026 calendar -->
-          </select>
-        </div>
-        <div class="sel" style="flex:1">
-          <label for="perfSessionSelect">Session Type</label>
-          <select id="perfSessionSelect">
-            <option value="results" selected>Race (Classification)</option>
-            <option value="qualifying">Qualifying</option>
-            <option value="sprint">Sprint</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Performance Arena Grid: Timing Tower + Race Control Wire -->
-    <div class="perf-grid rv d2">
-      <!-- Official Timing Tower Card -->
-      <div class="card perf-tower-card" id="perfTimingTower">
-        <div class="perf-tower-head">
-          <div class="pth-left">
-            <h4>Live Timing &amp; Classification</h4>
-            <span class="mono" id="perfGrandPrixName">AZERBAIJAN GRAND PRIX · BAKU CITY CIRCUIT</span>
-          </div>
-          <div class="pth-right">
-            <span class="pill mono" id="perfStatusPill">FINAL CLASSIFICATION</span>
-          </div>
-        </div>
-        <div class="perf-data-state" id="perfDataState" role="status" aria-live="polite" hidden>
-          <span id="perfDataMessage"></span>
-          <button class="btn sm" id="perfRetry" type="button" hidden>Retry data</button>
-        </div>
-
-        <div class="perf-table-wrap">
-          <table class="perf-table" aria-label="Live timing and session classification">
-            <thead id="perfTableHead">
-              <tr>
-                <th class="th-pos">POS</th>
-                <th class="th-driver">DRIVER</th>
-                <th class="th-team">TEAM</th>
-                <th class="th-time">TIME / GAP</th>
-                <th class="th-laps">LAPS</th>
-                <th class="th-fastest">FASTEST LAP</th>
-                <th class="th-pts">PTS</th>
-              </tr>
-            </thead>
-            <tbody id="perfLeaderboard">
-              <!-- Dynamically rendered real rows P1 - P22 -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Race Control Live Wire -->
-      <div class="perf-sidebar">
-        <!-- Session Summary Card -->
-        <div class="card perf-summary-card">
-          <div class="psc-head">
-            <h4>Circuit &amp; Conditions</h4>
-            <span class="mono" id="perfTrackLoc">BAKU · 6.003 KM</span>
-          </div>
-          <div class="psc-metrics">
-            <div class="psc-metric-box">
-              <span class="pm-label" id="perfLabelTime">WINNING TIME</span>
-              <span class="pm-val mono" id="perfWinningTime">-</span>
-            </div>
-            <div class="psc-metric-box">
-              <span class="pm-label" id="perfLabelSafety">SAFETY CARS</span>
-              <span class="pm-val mono" id="perfScCount">-</span>
-            </div>
-            <div class="psc-metric-box">
-              <span class="pm-label" id="perfLabelSpeed">MAX SPEED</span>
-              <span class="pm-val mono" id="perfTopSpeed">-</span>
-            </div>
-            <div class="psc-metric-box">
-              <span class="pm-label" id="perfLabelFinish">FINISH RATE</span>
-              <span class="pm-val mono" id="perfFinishRate">-</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Real Race Control Wire Card -->
-        <div class="card perf-incident-card">
-          <div class="ti-head">
-            <h4>Race Control Wire</h4>
-            <span class="mono" id="perfRcCount">NOTICES</span>
-          </div>
-          <div class="ti-feed" id="perfRcFeed">
-            <!-- Dynamically populated real Race Control messages from OpenF1 -->
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-</div><!-- /viewPerformance -->
-
-<!-- ══ VIEW: 24/7 (EXPERIMENTAL) ══ -->
-<div class="view view-audio" id="view247" data-view="247" hidden>
-<section class="sec sub-sec" id="live247Sec">
-  <div class="wrap">
-    <div class="sec-head rv">
-      <div>
-        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
-        <span class="eyebrow">Experimental</span>
-        <h2><span class="accent">24/7</span> Streams</h2>
-        <div class="rule" style="width:140px"></div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="pill mono live-status" id="live247Badge">ON AIR · 24/7</div>
-        <div class="pill mono" id="live247StatusChip">STANDBY</div>
-      </div>
-    </div>
-
-    <div class="card deck-box rv d1" style="margin-top:24px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
-        <h3>Channels</h3>
-        <div class="track-info-chips">
-          <span class="chip-metric" id="live247StationChip">CHANNEL: —</span>
-        </div>
-      </div>
-      <div class="audio-station-chips" id="live247StationChips"></div>
-    </div>
-
-    <div class="audio-grid rv d2">
-      <div class="card audio-player-card" id="live247Card">
-        <div class="audio-player-head">
-          <div class="aph-left">
-            <div class="station-pulse-badge">
-              <span class="pulse-dot"></span>
-              <span class="mono" id="live247StationLabel">SKY UK</span>
-            </div>
-            <span class="mono aph-sub" id="live247StationSub">24/7 live feed</span>
-          </div>
-          <div class="aph-right">
-            <button class="btn sm" id="live247ReloadBtn" type="button">Reload</button>
-          </div>
-        </div>
-
-        <div class="live247-frame-wrap" id="live247FrameWrap"></div>
-
-        <div class="live247-controls" id="live247Controls">
-          <button class="btn sm" id="live247PlayBtn" type="button">Play</button>
-          <button class="btn sm" id="live247StopBtn" type="button">Stop</button>
-          <button class="btn sm" id="live247ShieldBtn" type="button" aria-pressed="true">Shield: on</button>
-          <button class="btn sm" id="live247FsBtn" type="button">Fullscreen</button>
-        </div>
-
-        <div class="audio-player-footer">
-          <div class="apf-hint">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:6px;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span><strong>Sky UK 2</strong> starts automatically and is the reliable feed. Other channels load behind a click shield — <strong>Start stream</strong> hands control to the host player. <strong>Shield</strong> re-covers the player any time. In fullscreen, use the on-screen <strong>Exit</strong> button (phones have no Escape key). Volume sits on the host player.</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-</div><!-- /view247 -->
 
 <!-- ══ MODALS ══ -->
 <div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
@@ -715,10 +528,7 @@
         <option value="results">Race</option><option value="qualifying">Qualifying</option><option value="sprint">Sprint</option>
       </select></div>
     </div>
-    <div class="state session-results-state" id="sessionsResultsLoading" role="status" aria-live="polite" style="display:none">
-      <span id="sessionsResultsMessage">Loading results…</span>
-      <button class="btn sm" id="sessionsResultsRetry" type="button" hidden>Retry</button>
-    </div>
+    <div class="state" id="sessionsResultsLoading" style="display:none">Loading results…</div>
     <div class="rows" id="sessionsResults"></div>
   </div>
 </div>
@@ -784,13 +594,6 @@
           <button data-panel="faqPanel" data-route="info">FAQ</button>
         </div>
       </div>
-      <div id="footExperimental">
-        <h4>Experimental</h4>
-        <div class="foot-links">
-          <a href="/performance" data-route="performance">Performance</a>
-          <a href="/247" data-route="247">24/7</a>
-        </div>
-      </div>
     </div>
   </div>
   <div class="checker"></div>
@@ -813,9 +616,6 @@
 </div>
 
 
-<script src="/runtime-config.js?v=20261010-scale1" defer></script>
-<script src="/round-meeting.js?v=20261006-r1" defer></script>
-<script src="/driver-data.js?v=20261010-r1" defer></script>
-<script src="/app.js?v=20261010-driver-audit1" defer></script>
+<script src="/app.js?v=20261007-livecount1" defer></script>
 </body>
 </html>

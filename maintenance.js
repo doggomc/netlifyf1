@@ -10,7 +10,7 @@ for (const evt of ['contextmenu', 'selectstart', 'dragstart']) {
 const productionApi = 'https://freef1.onrender.com';
 const backendHost = location.hostname === 'localhost' ||
   location.hostname === '127.0.0.1' ||
-  location.hostname === 'f1free.onrender.com' || location.hostname === 'freef1.onrender.com' ||
+  location.hostname === 'freef1.onrender.com' ||
   location.hostname.endsWith('.e2b.app');
 const API = backendHost ? location.origin : productionApi;
 
