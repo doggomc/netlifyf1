@@ -9,9 +9,9 @@
   <meta name="description" content="Secret Paddock Access: Meet Beertjie, Chief Morale Officer of FreeF1.">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <title>Beertjie - Chief Morale Officer · FreeF1</title>
-  <link rel="stylesheet" href="/fonts.css?v=20261006-selfhost1">
-  <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
-  <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Archivo-latin.woff2" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
   
   <style>
     :root {
@@ -701,15 +701,6 @@
     }
 
     @media (max-width: 640px) {
-      /* The nav carries the decorative "Paddock Easter Egg" pill plus the
-         Return to Cockpit button. Together they are wider than a phone: the
-         button ran off the right edge and was unreachable. The pill is
-         decoration and goes first; the brand text follows below 430px, the
-         same way the rest of the site does it. */
-      .nav-right .pill.secret {
-        display: none;
-      }
-
       .lightbox-nav {
         width: 40px;
         height: 40px;
@@ -718,14 +709,6 @@
       .lightbox-nav.prev { left: 8px; }
       .lightbox-nav.next { right: 8px; }
       .lightbox-toolbar { top: 12px; left: 14px; right: 14px; }
-    }
-  </style>
-
-  <style>
-    @media (max-width: 430px) {
-      .nav .brand-text {
-        display: none;
-      }
     }
   </style>
 
