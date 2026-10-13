@@ -283,18 +283,20 @@ body {
 
 h1 {
   font-size: clamp(3.4rem, 11.2vw, 9.6rem);
-  font-weight: 950;
+  font-weight: 900;
   font-style: italic;
   text-transform: uppercase;
   line-height: 0.86;
-  letter-spacing: -0.072em;
+  letter-spacing: -0.065em;
   text-wrap: balance;
 }
 
 h1 em {
   display: inline-block;
   color: transparent;
-  -webkit-text-stroke: clamp(1px, 0.14vw, 2px) var(--red-2);
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  -webkit-text-stroke: clamp(1px, 0.12vw, 1.65px) var(--red-2);
   filter: drop-shadow(0 0 25px rgba(225, 6, 0, 0.2));
 }
 

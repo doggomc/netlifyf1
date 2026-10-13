@@ -9,8 +9,10 @@ const BACKEND_API = 'https://f1admin.onrender.com';
 const SITE_CONFIG_CACHE_KEY = 'freef1_site_config_v2';
 const SITE_CONFIG_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const SITE_CONFIG_TIMEOUT_MS = 2500;
+const SITE_CONFIG_FOCUS_COOLDOWN_MS = 5000;
+const SITE_CONFIG_UPDATES_URL = `${BACKEND_API}/api/site/updates`;
 let streamWindowState = { active: false, reason: '', startedAt: null, updatedAt: null };
-const BYPASS_MAINTENANCE = new URLSearchParams(location.search).get('bypass-maintenance') === '1';
+let siteConfigEventSource = null;
 const OPENF1_API = 'https://api.openf1.org/v1';
 const JOLPI = 'https://api.jolpi.ca/ergast/f1';
 
@@ -1076,9 +1078,9 @@ function load() {
 
 /* ═══════════════ 7. OPTIONAL RACE-CONTROL SNAPSHOT ═══════════════ */
 /* Playback feeds and motorsport data are fetched directly by the browser.
-   Race Control contributes a small, cached configuration snapshot only; if
-   Render is asleep or unavailable the site continues with local defaults and
-   its last saved snapshot. No public SSE connection or recurring poll. */
+   Race Control supplies compact config snapshots over a push-only update
+   stream; if Render is unavailable the site continues with local defaults and
+   its last saved snapshot. No visitor analytics, heartbeat, or polling. */
 let streamOverride = { active: false, url: null, type: null };
 let lastOverrideToastKey = '';
 
@@ -1144,9 +1146,9 @@ function applyStreamWindow(payload) {
 }
 
 function applyMaintenanceMode(state, { fresh = false } = {}) {
-  // Stale maintenance state must never strand someone when Render is offline.
-  // Only a successful response from Race Control can redirect this page.
-  if (fresh && state?.active && !BYPASS_MAINTENANCE && location.pathname !== '/maintenance.html') {
+  // Cached state may be stale while Race Control is offline; only a live
+  // snapshot can redirect a public session into maintenance.
+  if (fresh && state?.active && location.pathname !== '/maintenance.html') {
     location.replace('/maintenance.html');
   }
 }
@@ -1174,35 +1176,99 @@ function applySiteConfig(config, { fresh = false } = {}) {
   if (fresh) applyMaintenanceMode(config.maintenance, { fresh: true });
 }
 
-async function bootstrapSiteConfig() {
+let siteConfigRefreshPromise = null;
+let lastSiteConfigRefreshAt = 0;
+
+function acceptFreshSiteConfig(config) {
+  if (!config || typeof config !== 'object') return false;
+  const saved = { savedAt: Date.now(), config };
+  try { store.set(SITE_CONFIG_CACHE_KEY, JSON.stringify(saved)); } catch (_) {}
+  applySiteConfig(config, { fresh: true });
+  return true;
+}
+
+async function refreshSiteConfig({ force = false } = {}) {
+  if (siteConfigRefreshPromise) return siteConfigRefreshPromise;
+  const now = Date.now();
+  if (!force && now - lastSiteConfigRefreshAt < SITE_CONFIG_FOCUS_COOLDOWN_MS) return false;
+  lastSiteConfigRefreshAt = now;
+
+  const pending = (async () => {
+    try {
+      const response = await fetchWithTimeout(`${BACKEND_API}/api/site/config`, {
+        cache: 'no-cache',
+        credentials: 'omit',
+        headers: { Accept: 'application/json' }
+      }, SITE_CONFIG_TIMEOUT_MS);
+      if (!response.ok) throw new Error(`Race Control returned ${response.status}`);
+      acceptFreshSiteConfig(await response.json());
+      return true;
+    } catch (_) {
+      // The site remains usable from its local/default data when the optional
+      // Race Control service is offline; this fallback does not poll.
+      updateNewsStatus(false);
+      return false;
+    }
+  })();
+
+  siteConfigRefreshPromise = pending;
+  try {
+    return await pending;
+  } finally {
+    if (siteConfigRefreshPromise === pending) siteConfigRefreshPromise = null;
+  }
+}
+
+function connectSiteConfigEvents() {
+  if (document.hidden || siteConfigEventSource) return;
+  if (typeof window.EventSource !== 'function') {
+    void refreshSiteConfig({ force: true });
+    return;
+  }
+
+  try {
+    const stream = new window.EventSource(SITE_CONFIG_UPDATES_URL);
+    siteConfigEventSource = stream;
+    stream.addEventListener('config', (event) => {
+      try {
+        acceptFreshSiteConfig(JSON.parse(event.data));
+      } catch (_) {
+        updateNewsStatus(false);
+      }
+    });
+    stream.addEventListener('error', () => {
+      // EventSource performs its own bounded reconnect. No heartbeat or
+      // application-level polling is added while Race Control is unavailable.
+      updateNewsStatus(false);
+    });
+  } catch (_) {
+    siteConfigEventSource = null;
+    void refreshSiteConfig({ force: true });
+  }
+}
+
+function bootstrapSiteConfig() {
   let cached = null;
   try {
     const saved = JSON.parse(store.get(SITE_CONFIG_CACHE_KEY) || 'null');
     if (saved?.config && Number.isFinite(Number(saved.savedAt)) && Date.now() - Number(saved.savedAt) <= SITE_CONFIG_CACHE_MAX_AGE_MS) cached = saved;
   } catch (_) {}
 
+  // Paint a local snapshot immediately, then use a single config-only stream
+  // for the authoritative snapshot and subsequent Race Control edits.
   if (cached) applySiteConfig(cached.config, { fresh: false });
-  // Avoid waking Render on rapid reloads. The HTTP response also carries
-  // Cache-Control so browsers can reuse it for five minutes.
-  if (cached && Date.now() - Number(cached.savedAt) < 5 * 60 * 1000) return;
-
-  try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/site/config`, {
-      cache: 'default',
-      credentials: 'omit',
-      headers: { Accept: 'application/json' }
-    }, SITE_CONFIG_TIMEOUT_MS);
-    if (!response.ok) throw new Error(`Race Control returned ${response.status}`);
-    const config = await response.json();
-    const saved = { savedAt: Date.now(), config };
-    try { store.set(SITE_CONFIG_CACHE_KEY, JSON.stringify(saved)); } catch (_) {}
-    applySiteConfig(config, { fresh: true });
-  } catch (_) {
-    // Cached news/sources/override stay usable. The site never waits for the
-    // admin service, and no automatic retry or heartbeat is scheduled.
-    updateNewsStatus(false);
-  }
+  connectSiteConfigEvents();
 }
+
+function refreshSiteConfigOnReturn() {
+  if (document.hidden) return;
+  if (typeof window.EventSource === 'function') connectSiteConfigEvents();
+  else void refreshSiteConfig();
+}
+
+document.addEventListener('visibilitychange', refreshSiteConfigOnReturn, { passive: true });
+window.addEventListener('focus', refreshSiteConfigOnReturn, { passive: true });
+window.addEventListener('online', refreshSiteConfigOnReturn, { passive: true });
 
 /* ═══════════════ 9. CLOCKS & COUNTDOWN ═══════════════ */
 function updateCountdown() {
@@ -3160,8 +3226,19 @@ function renderNews(items) {
   newsFeedEl.replaceChildren(fragment);
 }
 
+let lastNewsSignature = null;
 function applyNewsUpdate(payload, online = true) {
-  renderNews(newsFromPayload(payload));
+  const list = newsFromPayload(payload).filter((item) => item && item.title && item.body).slice(0, 8);
+  const signature = JSON.stringify(list.map((item) => [
+    String(item.id || ''), String(item.title), String(item.body), String(item.tag || ''),
+    Number(item.createdAt) || null, Number(item.updatedAt) || null
+  ]));
+  // A Force Live, source, or maintenance edit also carries the public news
+  // array. Leave the existing DOM untouched unless its visible content changed.
+  if (signature !== lastNewsSignature) {
+    renderNews(list);
+    lastNewsSignature = signature;
+  }
   updateNewsStatus(online);
 }
 
