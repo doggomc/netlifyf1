@@ -403,6 +403,41 @@ body.has-stream .deck:has([aria-expanded="true"]) {
   gap: 10px;
 }
 
+/* Keep the desktop tab group pinned to the viewport centre. The right-side
+   pills (including the variable-width viewer count) must not shift it. */
+@media(min-width:901px) {
+  .nav-links {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    white-space: nowrap;
+  }
+}
+
+/* Compact the centred links at narrower desktop widths so they stay clear of
+   the brand and status pills while retaining the same true-centre alignment. */
+@media(min-width:901px) and (max-width:1200px) {
+  .nav-links {
+    gap: 0;
+  }
+
+  .nav-links a {
+    font-size: .7rem;
+    padding-inline: 7px;
+  }
+
+  .nav-right {
+    gap: 6px;
+  }
+}
+
+@media(min-width:901px) and (max-width:980px) {
+  .nav-right #badge {
+    display: none;
+  }
+}
+
 @media(max-width:900px) {
 .nav-links {
     display: none;
@@ -448,6 +483,51 @@ body.has-stream .deck:has([aria-expanded="true"]) {
   background: var(--red);
   box-shadow: 0 0 12px var(--red);
   animation: beat 1.6s ease-in-out infinite;
+}
+
+.pill.viewer-count[hidden] {
+  display: none !important;
+}
+
+.pill.viewer-count {
+  color: var(--muted);
+  cursor: default;
+  gap: 6px;
+  letter-spacing: .01em;
+}
+
+.pill.viewer-count:hover {
+  border-color: var(--line);
+  transform: none;
+}
+
+.viewer-count-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+.viewer-count-label {
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.pill.viewer-count[data-state="live"] {
+  color: var(--green);
+  border-color: rgba(0,213,126,.28);
+  background: rgba(0,213,126,.08);
+}
+
+.pill.viewer-count[data-state="live"] .viewer-count-dot {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(0,213,126,.65);
+}
+
+.pill.viewer-count[data-state="offline"] .viewer-count-dot {
+  background: var(--amber);
 }
 
 @keyframes beat {
