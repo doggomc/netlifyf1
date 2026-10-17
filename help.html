@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07080a">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Contact FreeF1 support and follow your help ticket.">
+  <meta name="freef1-help-api" content="https://f1admin.onrender.com">
+  <link rel="canonical" href="https://freef1.netlify.app/help.html">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
+  <link rel="stylesheet" href="/fonts.css">
+  <link rel="stylesheet" href="/help.css?v=20261016-help-v1">
+  <title>Help - FreeF1</title>
+  <script src="/interaction-guard.js?v=20261016-right-click-f12" defer></script>
+  <script src="/help.js?v=20261016-help-v1" defer></script>
+</head>
+<body>
+  <div class="help-glow" aria-hidden="true"></div>
+  <header class="help-header">
+    <a class="help-brand" href="/" aria-label="FreeF1 home">
+      <span class="help-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 17.5 7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2Z"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4Z" opacity=".72"/></svg></span>
+      <span><b>FreeF1</b><small>SUPPORT PIT</small></span>
+    </a>
+    <nav class="help-nav" aria-label="Help navigation">
+      <a href="/">Back to cockpit</a>
+      <a class="help-nav-current" href="/help.html" aria-current="page">Help<span class="help-notification-dot" hidden aria-label="Unread support reply"></span></a>
+    </nav>
+  </header>
+
+  <main class="help-main">
+    <section class="help-card" id="helpRequestPanel" aria-labelledby="helpTitle">
+      <div class="help-kicker"><span class="status-light" aria-hidden="true"></span> FREEF1 SUPPORT</div>
+      <h1 id="helpTitle">Looking for <em>help?</em></h1>
+      <p class="help-intro">Tell us what’s going wrong. Your request opens a private support ticket, and you can continue the conversation here.</p>
+      <div class="help-status" id="helpStatus" role="status" aria-live="polite">Checking support availability…</div>
+
+      <form id="helpRequestForm" novalidate>
+        <label class="help-field">
+          <span>Your name</span>
+          <input id="helpName" name="name" type="text" maxlength="48" autocomplete="nickname" required placeholder="What should we call you?">
+        </label>
+        <label class="help-field">
+          <span>Category</span>
+          <select id="helpCategory" name="category" required>
+            <option value="" selected disabled>Choose the kind of help you need</option>
+            <option value="website">Website issue</option>
+            <option value="playback">Playback issue</option>
+            <option value="timing">Timing or results</option>
+            <option value="discord">Discord or account help</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label class="help-field">
+          <span>Describe the issue <small>Up to 4,000 characters</small></span>
+          <textarea id="helpMessage" name="message" rows="7" maxlength="4000" required placeholder="What happened, what did you expect, and what have you tried?"></textarea>
+          <span class="help-count" id="helpMessageCount">0 / 4,000</span>
+        </label>
+
+        <div class="help-upload-note"><b>Image uploads are coming soon.</b> For now, please describe the issue in text. Never include passwords or payment details.</div>
+        <details class="diagnostics-details">
+          <summary>What device details are included?</summary>
+          <p>If you leave the box checked, we attach your browser/OS identifier, screen and viewport size, language, time zone, online status, and this Help page’s path to the initial ticket only. We do not collect browsing history or use these details to identify you across visits.</p>
+        </details>
+        <label class="diagnostics-check"><input id="includeDiagnostics" type="checkbox" checked> <span>Include basic browser and device diagnostics to help troubleshoot</span></label>
+        <p class="help-privacy">Your name, category, messages, and any selected diagnostics go to a private Discord support channel. The browser keeps a ticket access key and a small local chat cache so you can return to this ticket.</p>
+        <button class="help-submit" id="helpSubmit" type="submit"><span>Submit ticket</span><span aria-hidden="true">↗</span></button>
+        <p class="help-error" id="helpFormError" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section class="help-card ticket-card" id="activeTicketPanel" aria-labelledby="ticketHeading" hidden>
+      <div class="ticket-topline">
+        <div>
+          <div class="help-kicker"><span class="status-light" aria-hidden="true"></span> PRIVATE SUPPORT CHAT</div>
+          <h1 class="ticket-heading" id="ticketHeading">Your <em>ticket</em></h1>
+        </div>
+        <span class="ticket-state" id="ticketState">OPEN</span>
+      </div>
+      <div class="ticket-summary"><span>Ticket</span><strong id="ticketId">ticket-0000</strong><span id="ticketCategory"></span></div>
+      <p class="help-status" id="ticketStatus" role="status" aria-live="polite">Loading conversation…</p>
+      <div class="chat-messages" id="chatMessages" role="log" aria-label="Ticket conversation" aria-live="polite" aria-relevant="additions text"></div>
+      <form class="chat-form" id="chatForm">
+        <label class="help-field" for="chatMessage"><span>Reply to support <small>Up to 2,000 characters</small></span></label>
+        <textarea id="chatMessage" rows="4" maxlength="2000" placeholder="Write a message…" required></textarea>
+        <div class="chat-actions"><small>Messages are sent to your private Discord ticket channel.</small><button class="help-submit" id="chatSend" type="submit">Send reply <span aria-hidden="true">↗</span></button></div>
+        <p class="help-error" id="chatError" role="alert" hidden></p>
+      </form>
+      <div class="ticket-delete-row"><span>Finished getting help?</span><button class="delete-ticket" id="deleteTicket" type="button">Delete this ticket</button></div>
+    </section>
+    <p class="help-footer-note">Ticket drafts are saved in this browser. If the support service is offline, the rest of FreeF1 and stream playback remain available.</p>
+  </main>
+</body>
+</html>

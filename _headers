@@ -10,6 +10,9 @@
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
+/help.html
+  Cache-Control: public, max-age=0, must-revalidate
+
 /maintenance.html
   Cache-Control: public, max-age=0, must-revalidate
 
@@ -22,7 +25,16 @@
 /app.js
   Cache-Control: public, max-age=0, must-revalidate
 
+/help.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/help.css
+  Cache-Control: public, max-age=0, must-revalidate
+
 /viewer-counter.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/interaction-guard.js
   Cache-Control: public, max-age=0, must-revalidate
 
 /fonts.css
@@ -36,9 +48,6 @@
 
 /maintenance.js
   Cache-Control: public, max-age=3600, must-revalidate
-
-/news
-  Cache-Control: public, max-age=0, must-revalidate
 
 /info
   Cache-Control: public, max-age=0, must-revalidate

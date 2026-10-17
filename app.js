@@ -73,8 +73,10 @@ const BLOCKED_COPY = IS_IOS
 const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
-const VIEWS = { home: 'viewHome', news: 'viewNews', info: 'viewInfo', discord: 'viewDiscord' };
-const VIEW_TITLES = { news: 'News - FreeF1', info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1' };
+// Keep News data and rendering intact for admins, but hide its public view until re-enabled.
+const PUBLIC_NEWS_ENABLED = false;
+const VIEWS = { home: 'viewHome', ...(PUBLIC_NEWS_ENABLED ? { news: 'viewNews' } : {}), info: 'viewInfo', discord: 'viewDiscord' };
+const VIEW_TITLES = { ...(PUBLIC_NEWS_ENABLED ? { news: 'News - FreeF1' } : {}), info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
@@ -1172,7 +1174,7 @@ function applySiteConfig(config, { fresh = false } = {}) {
   if (config.streamWindow) applyStreamWindow(config.streamWindow);
   if (config.sources) applySourceConfig(config.sources);
   if (config.streamOverride || config.override) applyStreamOverride(config.streamOverride || config.override);
-  if (Array.isArray(config.news)) applyNewsUpdate(config.news, fresh);
+  if (PUBLIC_NEWS_ENABLED && Array.isArray(config.news)) applyNewsUpdate(config.news, fresh);
   if (fresh) applyMaintenanceMode(config.maintenance, { fresh: true });
 }
 
