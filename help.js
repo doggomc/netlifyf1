@@ -423,6 +423,154 @@
     }
   }
 
+  let syncHelpCategorySelect = () => {};
+
+  function enhanceHelpCategorySelect() {
+    const select = document.getElementById('helpCategory');
+    if (!select || select.dataset.customEnhanced === 'true') return;
+    select.dataset.customEnhanced = 'true';
+
+    const shell = document.createElement('div');
+    shell.className = 'select-shell';
+    select.parentNode.insertBefore(shell, select);
+    shell.appendChild(select);
+
+    const label = document.getElementById('helpCategoryLabel');
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'select-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-controls', 'helpCategoryMenu');
+    trigger.innerHTML = '<span class="select-value" id="helpCategoryValue"></span><span class="select-chevron" aria-hidden="true"></span>';
+    if (label) trigger.setAttribute('aria-labelledby', `${label.id} helpCategoryValue`);
+
+    const menu = document.createElement('div');
+    menu.className = 'select-menu';
+    menu.id = 'helpCategoryMenu';
+    menu.setAttribute('role', 'listbox');
+    if (label) menu.setAttribute('aria-labelledby', label.id);
+    menu.hidden = true;
+    shell.insertBefore(trigger, select);
+    shell.appendChild(menu);
+
+    select.classList.add('native-select-source');
+    select.tabIndex = -1;
+    select.setAttribute('aria-hidden', 'true');
+
+    let optionButtons = [];
+    const getAvailableIndex = (start, direction) => {
+      let index = start;
+      while (index >= 0 && index < optionButtons.length) {
+        const option = optionButtons[index];
+        if (!option.disabled && !option.hidden) return index;
+        index += direction;
+      }
+      return -1;
+    };
+
+    const close = (returnFocus = false) => {
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      shell.classList.remove('is-open');
+      if (returnFocus) trigger.focus();
+    };
+
+    const sync = () => {
+      const selected = select.options[select.selectedIndex];
+      const value = trigger.querySelector('.select-value');
+      if (value) value.textContent = selected?.textContent || 'Choose a category';
+      trigger.disabled = select.disabled || !select.options.length;
+      menu.replaceChildren();
+      optionButtons = [];
+      [...select.options].forEach((option, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'select-option';
+        button.textContent = option.textContent;
+        button.setAttribute('role', 'option');
+        button.setAttribute('aria-selected', String(index === select.selectedIndex));
+        button.disabled = Boolean(option.disabled);
+        button.hidden = Boolean(option.hidden);
+        if (option.disabled) button.classList.add('is-disabled');
+        button.addEventListener('click', () => {
+          if (option.disabled || option.hidden) return;
+          select.value = option.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          close();
+          trigger.focus();
+        });
+        menu.appendChild(button);
+        optionButtons.push(button);
+      });
+    };
+
+    const open = (direction = 0) => {
+      if (trigger.disabled) return;
+      sync();
+      menu.hidden = false;
+      menu.classList.remove('above');
+      const menuRect = menu.getBoundingClientRect();
+      const shellRect = shell.getBoundingClientRect();
+      if (menuRect.bottom > window.innerHeight - 12 && shellRect.top > menuRect.height + 12) {
+        menu.classList.add('above');
+      }
+      trigger.setAttribute('aria-expanded', 'true');
+      shell.classList.add('is-open');
+      const selectedIndex = select.selectedIndex >= 0 ? select.selectedIndex : 0;
+      const target = direction
+        ? getAvailableIndex(selectedIndex + direction, direction)
+        : getAvailableIndex(selectedIndex, 1);
+      (optionButtons[target >= 0 ? target : selectedIndex] || optionButtons[0])?.focus();
+    };
+
+    trigger.addEventListener('click', () => {
+      if (menu.hidden) open();
+      else close();
+    });
+    trigger.addEventListener('keydown', event => {
+      if (!['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) return;
+      event.preventDefault();
+      if (menu.hidden) open(event.key === 'ArrowUp' ? -1 : 1);
+      else close();
+    });
+    menu.addEventListener('keydown', event => {
+      const current = optionButtons.indexOf(document.activeElement);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        close(true);
+        return;
+      }
+      if (event.key === 'Tab') {
+        close();
+        return;
+      }
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        document.activeElement?.click();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        const next = getAvailableIndex(current + step, step);
+        if (next >= 0) optionButtons[next].focus();
+      }
+      if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        const next = getAvailableIndex(event.key === 'Home' ? 0 : optionButtons.length - 1, event.key === 'Home' ? 1 : -1);
+        if (next >= 0) optionButtons[next].focus();
+      }
+    });
+    select.addEventListener('change', sync);
+    document.addEventListener('click', event => {
+      if (!shell.contains(event.target) && !menu.hidden) close();
+    });
+    syncHelpCategorySelect = sync;
+    sync();
+  }
+
   function restoreDraft() {
     const draft = state.draft || {};
     const name = document.getElementById('helpName');
@@ -430,6 +578,7 @@
     const message = document.getElementById('helpMessage');
     if (name) name.value = String(draft.name || state.name || '').slice(0, 48);
     if (category) category.value = String(draft.category || state.category || '');
+    syncHelpCategorySelect();
     if (message) message.value = String(draft.message || '').slice(0, 4000);
     const count = document.getElementById('helpMessageCount');
     if (count && message) count.textContent = `${message.value.length} / 4,000`;
@@ -549,11 +698,13 @@
 
   function bindHelpForm() {
     if (!isHelpPage) return;
+    enhanceHelpCategorySelect();
     restoreDraft();
     const form = document.getElementById('helpRequestForm');
     form?.addEventListener('submit', submitTicket);
-    const draftFields = ['helpName', 'helpCategory', 'helpMessage'];
+    const draftFields = ['helpName', 'helpMessage'];
     for (const id of draftFields) document.getElementById(id)?.addEventListener('input', saveDraftFromForm);
+    document.getElementById('helpCategory')?.addEventListener('change', saveDraftFromForm);
     const textarea = document.getElementById('helpMessage');
     textarea?.addEventListener('input', () => {
       const count = document.getElementById('helpMessageCount');

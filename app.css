@@ -4814,6 +4814,11 @@ body.view-swapping {
 
 }
 
-/* Minimal unread indicator for the Help ticket; hidden until a staff reply arrives. */
-.help-notification-dot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; vertical-align: middle; border-radius: 50%; background: #ff3931; box-shadow: 0 0 12px rgba(255, 57, 49, .85); }
+/* Unread Help badge: pin it to the top-right corner of the Help nav link. */
+.help-nav-link { position: relative; }
+.help-nav-link .help-notification-dot {
+  position: absolute; top: 5px; right: 6px; z-index: 2;
+  display: block; width: 8px; height: 8px; margin: 0; border-radius: 50%;
+  background: #ff3931; box-shadow: 0 0 12px rgba(255, 57, 49, .85);
+}
 .help-notification-dot[hidden] { display: none !important; }

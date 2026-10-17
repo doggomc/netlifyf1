@@ -3,21 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#07080a">
+  <meta name="theme-color" content="#0A0A0B">
   <meta name="color-scheme" content="dark">
   <meta name="description" content="Contact FreeF1 support and follow your help ticket.">
   <meta name="freef1-help-api" content="https://f1admin.onrender.com">
   <link rel="canonical" href="https://freef1.netlify.app/help.html">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Archivo-latin.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/JetBrainsMono-latin.woff2" crossorigin>
   <link rel="stylesheet" href="/fonts.css">
-  <link rel="stylesheet" href="/help.css?v=20261016-help-v1">
+  <link rel="stylesheet" href="/help.css?v=20261017-help-v3">
   <title>Help - FreeF1</title>
   <script src="/interaction-guard.js?v=20261016-right-click-f12" defer></script>
-  <script src="/help.js?v=20261016-help-v1" defer></script>
+  <script src="/help.js?v=20261017-help-v3" defer></script>
 </head>
 <body>
   <div class="help-glow" aria-hidden="true"></div>
+  <div class="help-speedlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
   <header class="help-header">
     <a class="help-brand" href="/" aria-label="FreeF1 home">
       <span class="help-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 17.5 7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2Z"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4Z" opacity=".72"/></svg></span>
@@ -25,15 +31,15 @@
     </a>
     <nav class="help-nav" aria-label="Help navigation">
       <a href="/">Back to cockpit</a>
-      <a class="help-nav-current" href="/help.html" aria-current="page">Help<span class="help-notification-dot" hidden aria-label="Unread support reply"></span></a>
+      <a class="help-nav-link help-nav-current" href="/help.html" aria-current="page">Help<span class="help-notification-dot" hidden aria-label="Unread support reply"></span></a>
     </nav>
   </header>
 
   <main class="help-main">
     <section class="help-card" id="helpRequestPanel" aria-labelledby="helpTitle">
-      <div class="help-kicker"><span class="status-light" aria-hidden="true"></span> FREEF1 SUPPORT</div>
+      <div class="help-kicker">PIT WALL / SUPPORT DESK</div>
       <h1 id="helpTitle">Looking for <em>help?</em></h1>
-      <p class="help-intro">Tell us what’s going wrong. Your request opens a private support ticket, and you can continue the conversation here.</p>
+      <p class="help-intro">Report an issue to the FreeF1 pit wall. Your request opens a private ticket, and you can follow the conversation here.</p>
       <div class="help-status" id="helpStatus" role="status" aria-live="polite">Checking support availability…</div>
 
       <form id="helpRequestForm" novalidate>
@@ -41,8 +47,8 @@
           <span>Your name</span>
           <input id="helpName" name="name" type="text" maxlength="48" autocomplete="nickname" required placeholder="What should we call you?">
         </label>
-        <label class="help-field">
-          <span>Category</span>
+        <div class="help-field">
+          <span id="helpCategoryLabel">Category</span>
           <select id="helpCategory" name="category" required>
             <option value="" selected disabled>Choose the kind of help you need</option>
             <option value="website">Website issue</option>
@@ -51,7 +57,7 @@
             <option value="discord">Discord or account help</option>
             <option value="other">Other</option>
           </select>
-        </label>
+        </div>
         <label class="help-field">
           <span>Describe the issue <small>Up to 4,000 characters</small></span>
           <textarea id="helpMessage" name="message" rows="7" maxlength="4000" required placeholder="What happened, what did you expect, and what have you tried?"></textarea>
@@ -73,7 +79,7 @@
     <section class="help-card ticket-card" id="activeTicketPanel" aria-labelledby="ticketHeading" hidden>
       <div class="ticket-topline">
         <div>
-          <div class="help-kicker"><span class="status-light" aria-hidden="true"></span> PRIVATE SUPPORT CHAT</div>
+          <div class="help-kicker">TICKET CONTROL / PRIVATE CHAT</div>
           <h1 class="ticket-heading" id="ticketHeading">Your <em>ticket</em></h1>
         </div>
         <span class="ticket-state" id="ticketState">OPEN</span>
