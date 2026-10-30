@@ -1,0 +1,31 @@
+{
+  "baselineCommit": "1256feb269db136d0f458589eed2d906321b1f94",
+  "baselineStartupJsGzipBytes": 56093,
+  "startupJsReductionPercent": 62.7,
+  "baselineAppCssGzipBytes": 18115,
+  "startupJsGzipBytes": 20924,
+  "startupJsFiles": [
+    "bundles/index-M-A_IRbM.js",
+    "bundles/interaction-guard-4Vwlk-Z6.js",
+    "bundles/dom-C3mHM79r.js",
+    "bundles/site-config-BTTtiErb.js"
+  ],
+  "initialCssGzipBytes": 12985,
+  "lazyFeatures": {
+    "championship": {
+      "gzipBytes": 4618
+    },
+    "results": {
+      "gzipBytes": 4796
+    },
+    "race-times": {
+      "gzipBytes": 1471
+    },
+    "radio": {
+      "gzipBytes": 4789
+    },
+    "diagnostics": {
+      "gzipBytes": 3606
+    }
+  }
+}

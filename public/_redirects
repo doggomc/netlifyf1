@@ -1,0 +1,12 @@
+# Public News view is temporarily hidden; its data and admin controls remain intact.
+/news    /    302
+/news/   /    302
+# Help is a standalone page so the support chat can keep running independently of the cockpit.
+/help    /help.html   301
+/help/   /help.html   301
+# In-app views: serve the SPA shell; the frontend opens the matching view.
+/info    /index.html   200
+/info/   /index.html   200
+/discord    /index.html   200
+/discord/   /index.html   200
+# Everything else that doesn't exist falls through to /404.html (Netlify default).
