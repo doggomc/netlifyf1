@@ -1,25 +1,17 @@
+import { $ } from './services/dom';
 (() => {
   'use strict';
 
-  const endpointMeta = document.querySelector('meta[name="freef1-viewer-counter-ws"]');
-  const counter = document.getElementById('viewerCounter');
-  const countNode = document.getElementById('viewerCount');
+  const endpointMeta = document.querySelector<HTMLMetaElement>('meta[name="freef1-viewer-counter-ws"]');
+  const counter = $('viewerCounter');
+  const countNode = $('viewerCount');
   if (!endpointMeta || !counter || !countNode || typeof WebSocket !== 'function') return;
 
-  const isLocalPreview = ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port === '4173';
-  let endpoint;
-  try {
-    endpoint = isLocalPreview
-      ? new URL('ws://127.0.0.1:8787/ws')
-      : new URL(endpointMeta.content.trim(), window.location.href);
-  } catch (_) {
-    return;
-  }
-
-  const expectedOrigin = isLocalPreview
-    ? 'ws://127.0.0.1:8787'
-    : 'wss://freef1-viewer-counter.calvinbotha1julie.workers.dev';
-  const expectedProtocol = isLocalPreview ? 'ws:' : 'wss:';
+  let endpoint: URL;
+  try { endpoint = new URL(endpointMeta.content.trim(), window.location.href); }
+  catch { return; }
+  const expectedOrigin = 'wss://freef1-viewer-counter.calvinbotha1julie.workers.dev';
+  const expectedProtocol = 'wss:';
   if (endpoint.protocol !== expectedProtocol || endpoint.origin !== expectedOrigin || endpoint.pathname !== '/ws' || endpoint.search || endpoint.hash) return;
 
   const numberFormat = new Intl.NumberFormat('en-US');

@@ -1,3 +1,4 @@
+import { $ } from './services/dom';
 /* Best-effort deterrent only: browser source and DevTools remain accessible. */
 (() => {
   'use strict';

@@ -35,7 +35,7 @@
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Archivo-latin.woff2" crossorigin>
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/JetBrainsMono-latin.woff2" crossorigin>
 <link rel="stylesheet" href="/fonts.css">
-<link rel="stylesheet" href="/app.css?v=20261017-help-v3">
+<link rel="stylesheet" href="/src/styles/app.css">
 </head>
 <body>
 <a class="skip-link" href="#watch">Skip to cockpit</a>
@@ -210,10 +210,32 @@
         <h2>The <span class="accent">Grid</span></h2>
         <div class="rule" style="width:120px"></div>
       </div>
-      <p style="color:var(--muted);font-size:.85rem;max-width:340px">All 22 drivers, ordered by live championship position. Select a driver for the full profile. Driver imagery © Formula 1, served from the official F1 media CDN.</p>
+      <p style="color:var(--muted);font-size:.85rem;max-width:340px">Every driver on the 2026 grid, ordered by live championship position. Select a driver for the full profile. Driver imagery © Formula 1, served from the official F1 media CDN.</p>
     </div>
-    <div class="drivers" id="driverGrid">
-      <div class="state">Loading the grid…</div>
+    <div class="drivers" id="driverGrid" aria-busy="true">
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
+      <div class="dcard skel" aria-hidden="true"></div>
     </div>
   </div>
 </section>
@@ -246,8 +268,31 @@
       </div>
     </div>
     <div class="card rv d1" id="standingsPanel" role="tabpanel" aria-labelledby="standingsTitle" aria-live="polite" style="padding:20px">
-      <div class="state" id="standingsLoading">Loading standings…</div>
-      <div class="rows" id="standingsList"></div>
+      <div class="rows" id="standingsList" aria-busy="true">
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -501,9 +546,10 @@
 </div>
 
 
-<script src="/interaction-guard.js?v=20261016-right-click-f12" defer></script>
-<script src="/app.js?v=20261016-help-news-hide" defer></script>
-<script src="/viewer-counter.js?v=20261013-live-count" defer></script>
-<script src="/help.js?v=20261017-help-v3" defer></script>
+
+
+
+
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>

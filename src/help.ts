@@ -1,14 +1,14 @@
+import { BACKEND_API } from './config';
+import './interaction-guard';
+import type { HelpResponse } from "./types/help";
+import { $ } from './services/dom';
 (() => {
   'use strict';
 
   const STORAGE_KEY = 'freef1.help.ticket.v1';
   const MAX_LOCAL_MESSAGES = 100;
-  const isHelpPage = Boolean(document.getElementById('helpRequestForm'));
-  const apiMeta = document.querySelector('meta[name="freef1-help-api"]');
-  const host = window.location.hostname;
-  const apiBase = ['localhost', '127.0.0.1'].includes(host)
-    ? 'http://127.0.0.1:3000'
-    : String(apiMeta?.content || 'https://f1admin.onrender.com').trim().replace(/\/+$/, '');
+  const isHelpPage = Boolean($('helpRequestForm'));
+  const apiBase = BACKEND_API;
 
   function emptyState() {
     return { version: 1, token: '', ticketId: '', name: '', category: '', messages: [], lastSeenStaffMessageId: '', unread: false, draft: {} };
@@ -52,7 +52,7 @@
   }
 
   function updateNotificationDot() {
-    document.querySelectorAll('.help-notification-dot').forEach(dot => {
+    document.querySelectorAll<HTMLElement>('.help-notification-dot').forEach(dot => {
       dot.hidden = !state.unread;
       if (state.unread) {
         dot.setAttribute('title', 'New reply from FreeF1 Support');
@@ -67,7 +67,7 @@
   }
 
   function showNotice(message, stateName = '') {
-    const status = document.getElementById('helpStatus');
+    const status = $('helpStatus');
     if (status) {
       status.textContent = message;
       status.dataset.state = stateName;
@@ -75,7 +75,7 @@
   }
 
   function showError(id, message) {
-    const node = document.getElementById(id);
+    const node = $(id);
     if (!node) return;
     node.textContent = message;
     node.hidden = !message;
@@ -96,7 +96,7 @@
     return headers;
   }
 
-  async function request(path, options = {}) {
+  async function request(path: string, options: RequestInit = {}): Promise<HelpResponse> {
     const headers = authorizationHeaders();
     if (options.headers) new Headers(options.headers).forEach((value, key) => headers.set(key, value));
     if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
@@ -113,7 +113,7 @@
       error.offline = true;
       throw error;
     }
-    let data = {};
+    let data: HelpResponse = {};
     try { data = await response.json(); } catch (_) {}
     if (!response.ok) {
       const error = new Error(String(data.error || `Support returned ${response.status}.`));
@@ -127,7 +127,7 @@
   function diagnostics() {
     const browser = String(navigator.userAgent || 'Unknown browser').slice(0, 160);
     const platform = String(navigator.platform || 'Unknown platform').slice(0, 80);
-    const scr = window.screen || {};
+    const scr = window.screen;
     let timezone = 'Unknown';
     try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || timezone; } catch (_) {}
     return {
@@ -178,8 +178,8 @@
   }
 
   function setPanels(hasTicket) {
-    const requestPanel = document.getElementById('helpRequestPanel');
-    const ticketPanel = document.getElementById('activeTicketPanel');
+    const requestPanel = $('helpRequestPanel');
+    const ticketPanel = $('activeTicketPanel');
     if (requestPanel) requestPanel.hidden = hasTicket;
     if (ticketPanel) ticketPanel.hidden = !hasTicket;
   }
@@ -190,7 +190,7 @@
   }
 
   function renderMessages() {
-    const list = document.getElementById('chatMessages');
+    const list = $('chatMessages');
     if (!list) return;
     list.replaceChildren();
     if (!state.messages.length) {
@@ -221,9 +221,9 @@
   }
 
   function updateTicketHeading(ticket) {
-    const id = document.getElementById('ticketId');
+    const id = $('ticketId');
     if (id) id.textContent = ticket?.id || state.ticketId || 'Ticket';
-    const category = document.getElementById('ticketCategory');
+    const category = $('ticketCategory');
     if (category) {
       const labels = { website: 'Website issue', playback: 'Playback issue', timing: 'Timing or results', discord: 'Discord or account help', other: 'Other' };
       category.textContent = labels[ticket?.category || state.category] || '';
@@ -249,7 +249,7 @@
       setPanels(true);
       updateTicketHeading(result.ticket);
       renderMessages();
-      const status = document.getElementById('ticketStatus');
+      const status = $('ticketStatus');
       if (status) { status.textContent = 'Connected to your private support ticket.'; status.dataset.state = 'ready'; }
       startEventStream();
       return true;
@@ -267,7 +267,7 @@
         setPanels(true);
         updateTicketHeading(null);
         renderMessages();
-        const status = document.getElementById('ticketStatus');
+        const status = $('ticketStatus');
         if (status) { status.textContent = 'Support is offline. Your saved conversation is still available in this browser; sending and new replies will resume when support is back.'; status.dataset.state = 'offline'; }
       }
       return false;
@@ -295,7 +295,7 @@
         saveState();
         if (isHelpPage) setPanels(false);
       } else if (isHelpPage && (error.offline || Number(error.status) >= 500)) {
-        const status = document.getElementById('ticketStatus');
+        const status = $('ticketStatus');
         if (status) { status.textContent = 'Support is offline. Your saved conversation remains in this browser; sending and new replies will resume when support is back.'; status.dataset.state = 'offline'; }
       }
       return false;
@@ -309,7 +309,7 @@
     if (isHelpPage) {
       setPanels(true);
       updateTicketHeading(null);
-      const status = document.getElementById('ticketStatus');
+      const status = $('ticketStatus');
       if (status) { status.textContent = 'Connected to your private support ticket.'; status.dataset.state = 'ready'; }
     }
     return true;
@@ -410,15 +410,15 @@
     try {
       const config = await request('/api/help/config', { headers: { Accept: 'application/json' } });
       serviceAvailable = config.available === true;
-      const status = document.getElementById('helpStatus');
+      const status = $('helpStatus');
       if (serviceAvailable) showNotice('Support is online. Your ticket will open in a private Discord channel.', 'ready');
       else showNotice('Support is not configured or is temporarily offline. Your form draft stays in this browser; you can still use FreeF1.', 'offline');
-      const submit = document.getElementById('helpSubmit');
+      const submit = $('helpSubmit');
       if (submit) submit.disabled = !serviceAvailable;
     } catch (error) {
       serviceAvailable = false;
       showNotice(error.message, 'offline');
-      const submit = document.getElementById('helpSubmit');
+      const submit = $('helpSubmit');
       if (submit) submit.disabled = true;
     }
   }
@@ -426,7 +426,7 @@
   let syncHelpCategorySelect = () => {};
 
   function enhanceHelpCategorySelect() {
-    const select = document.getElementById('helpCategory');
+    const select = $('helpCategory');
     if (!select || select.dataset.customEnhanced === 'true') return;
     select.dataset.customEnhanced = 'true';
 
@@ -435,7 +435,7 @@
     select.parentNode.insertBefore(shell, select);
     shell.appendChild(select);
 
-    const label = document.getElementById('helpCategoryLabel');
+    const label = $('helpCategoryLabel');
     const trigger = document.createElement('button');
     trigger.type = 'button';
     trigger.className = 'select-trigger';
@@ -478,7 +478,7 @@
 
     const sync = () => {
       const selected = select.options[select.selectedIndex];
-      const value = trigger.querySelector('.select-value');
+      const value = trigger.querySelector<HTMLElement>('.select-value');
       if (value) value.textContent = selected?.textContent || 'Choose a category';
       trigger.disabled = select.disabled || !select.options.length;
       menu.replaceChildren();
@@ -548,7 +548,7 @@
       }
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        document.activeElement?.click();
+        (document.activeElement as HTMLElement)?.click();
         return;
       }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -565,7 +565,7 @@
     });
     select.addEventListener('change', sync);
     document.addEventListener('click', event => {
-      if (!shell.contains(event.target) && !menu.hidden) close();
+      if (!shell.contains(event.target as Node) && !menu.hidden) close();
     });
     syncHelpCategorySelect = sync;
     sync();
@@ -573,21 +573,21 @@
 
   function restoreDraft() {
     const draft = state.draft || {};
-    const name = document.getElementById('helpName');
-    const category = document.getElementById('helpCategory');
-    const message = document.getElementById('helpMessage');
+    const name = $('helpName');
+    const category = $('helpCategory');
+    const message = $('helpMessage');
     if (name) name.value = String(draft.name || state.name || '').slice(0, 48);
     if (category) category.value = String(draft.category || state.category || '');
     syncHelpCategorySelect();
     if (message) message.value = String(draft.message || '').slice(0, 4000);
-    const count = document.getElementById('helpMessageCount');
+    const count = $('helpMessageCount');
     if (count && message) count.textContent = `${message.value.length} / 4,000`;
   }
 
   function saveDraftFromForm() {
-    const name = document.getElementById('helpName');
-    const category = document.getElementById('helpCategory');
-    const message = document.getElementById('helpMessage');
+    const name = $('helpName');
+    const category = $('helpCategory');
+    const message = $('helpMessage');
     state.draft = {
       name: String(name?.value || '').slice(0, 48),
       category: String(category?.value || '').slice(0, 32),
@@ -604,15 +604,15 @@
       showError('helpFormError', 'The support service is offline. Your draft is saved here; please try again later.');
       return;
     }
-    const name = String(document.getElementById('helpName')?.value || '').trim();
-    const category = String(document.getElementById('helpCategory')?.value || '');
-    const message = String(document.getElementById('helpMessage')?.value || '').trim();
+    const name = String($('helpName')?.value || '').trim();
+    const category = String($('helpCategory')?.value || '');
+    const message = String($('helpMessage')?.value || '').trim();
     if (name.length < 2 || !category || message.length < 10) {
       showError('helpFormError', 'Please enter your name, choose a category, and describe the issue in at least 10 characters.');
       return;
     }
     creating = true;
-    const button = document.getElementById('helpSubmit');
+    const button = $('helpSubmit');
     if (button) { button.disabled = true; button.dataset.original = button.textContent; button.textContent = 'Opening private ticket…'; }
     showError('helpFormError', '');
     try {
@@ -620,7 +620,7 @@
       state.name = name.slice(0, 48);
       state.category = category;
       saveState();
-      const includeDiagnostics = document.getElementById('includeDiagnostics')?.checked !== false;
+      const includeDiagnostics = $('includeDiagnostics')?.checked !== false;
       const result = await request('/api/help/tickets', {
         method: 'POST',
         body: JSON.stringify({ name, category, message, diagnostics: includeDiagnostics ? diagnostics() : {} }),
@@ -636,7 +636,7 @@
       setPanels(true);
       updateTicketHeading(result.ticket);
       renderMessages();
-      const ticketStatus = document.getElementById('ticketStatus');
+      const ticketStatus = $('ticketStatus');
       if (ticketStatus) { ticketStatus.textContent = 'Your private ticket is open. Replies will appear here.'; ticketStatus.dataset.state = 'ready'; }
       startEventStream();
     } catch (error) {
@@ -655,12 +655,12 @@
   async function sendChatMessage(event) {
     event.preventDefault();
     if (sending || !state.token || !state.ticketId) return;
-    const field = document.getElementById('chatMessage');
+    const field = $('chatMessage');
     const text = String(field?.value || '').trim();
     if (!text) return;
     if (text.length > 2000) { showError('chatError', 'Keep each message to 2,000 characters or fewer.'); return; }
     sending = true;
-    const button = document.getElementById('chatSend');
+    const button = $('chatSend');
     if (button) button.disabled = true;
     showError('chatError', '');
     try {
@@ -678,7 +678,7 @@
   async function deleteTicket() {
     if (!state.token || !state.ticketId) return;
     if (!window.confirm('Delete this ticket? The private Discord channel and its conversation will be deleted.')) return;
-    const button = document.getElementById('deleteTicket');
+    const button = $('deleteTicket');
     if (button) button.disabled = true;
     try {
       await request('/api/help/ticket', { method: 'DELETE' });
@@ -689,7 +689,7 @@
       showNotice('Ticket deleted. You can open a new request if you need help again.', 'ready');
       restoreDraft();
     } catch (error) {
-      const status = document.getElementById('ticketStatus');
+      const status = $('ticketStatus');
       if (status) { status.textContent = error.message || 'The ticket could not be deleted. It remains open.'; status.dataset.state = 'error'; }
     } finally {
       if (button) button.disabled = false;
@@ -700,18 +700,18 @@
     if (!isHelpPage) return;
     enhanceHelpCategorySelect();
     restoreDraft();
-    const form = document.getElementById('helpRequestForm');
+    const form = $('helpRequestForm');
     form?.addEventListener('submit', submitTicket);
     const draftFields = ['helpName', 'helpMessage'];
-    for (const id of draftFields) document.getElementById(id)?.addEventListener('input', saveDraftFromForm);
-    document.getElementById('helpCategory')?.addEventListener('change', saveDraftFromForm);
-    const textarea = document.getElementById('helpMessage');
+    for (const id of draftFields) $(id)?.addEventListener('input', saveDraftFromForm);
+    $('helpCategory')?.addEventListener('change', saveDraftFromForm);
+    const textarea = $('helpMessage');
     textarea?.addEventListener('input', () => {
-      const count = document.getElementById('helpMessageCount');
+      const count = $('helpMessageCount');
       if (count) count.textContent = `${textarea.value.length} / 4,000`;
     });
-    document.getElementById('chatForm')?.addEventListener('submit', sendChatMessage);
-    document.getElementById('deleteTicket')?.addEventListener('click', deleteTicket);
+    $('chatForm')?.addEventListener('submit', sendChatMessage);
+    $('deleteTicket')?.addEventListener('click', deleteTicket);
   }
 
   updateNotificationDot();

@@ -1,0 +1,158 @@
+diff --git a/package.json b/package.json
+index 15d4f03..c8dcfbc 100644
+--- a/package.json
++++ b/package.json
+@@ -7,9 +7,9 @@
+     "start": "node server.js",
+     "dev": "node --watch server.js",
+     "check": "npm run check:syntax && npm run check:unit && npm run check:site && npm run check:admin && npm run check:security && npm run check:motion && npm run check:csp && npm run check:discord",
+-    "check:syntax": "node --check server.js && node --check support-tickets.js && node --check admin/admin.js && node --check bot/discord-bot.js && node --check ../netlifyf1/app.js && node --check ../netlifyf1/maintenance.js && node --check ../netlifyf1/viewer-counter.js && node --check ../netlifyf1/help.js",
+-    "check:unit": "node scripts/smoke-test.js && node scripts/race-times-check.js && node scripts/help-tickets-check.js",
+-    "check:site": "node scripts/site-dom-check.js && node scripts/help-dom-check.js",
++    "check:syntax": "node --check server.js && node --check support-tickets.js && node --check admin/admin.js && node --check bot/discord-bot.js",
++    "check:unit": "node scripts/smoke-test.js && node scripts/help-tickets-check.js",
++    "check:site": "npm --prefix ../netlifyf1 run check",
+     "check:admin": "node scripts/admin-dom-check.js",
+     "check:security": "node scripts/security-check.js",
+     "check:motion": "node scripts/motion-check.js",
+@@ -17,7 +17,7 @@
+     "check:discord": "node scripts/discord-bot-check.js",
+     "smoke": "node scripts/smoke-test.js",
+     "dom": "node scripts/admin-dom-check.js",
+-    "site": "node scripts/site-dom-check.js",
++    "site": "npm run check:site",
+     "security": "node scripts/security-check.js",
+     "csp": "node scripts/csp-check.js",
+     "motion": "node scripts/motion-check.js"
+diff --git a/scripts/csp-check.js b/scripts/csp-check.js
+index bd3159c..f27978c 100644
+--- a/scripts/csp-check.js
++++ b/scripts/csp-check.js
+@@ -10,7 +10,10 @@ const os = require('os');
+ const path = require('path');
+ 
+ const root = path.resolve(__dirname, '..');
+-const siteDir = path.resolve(process.env.SITE_DIR || path.join(root, '..', 'netlifyf1'));
++const sourceDir = path.resolve(process.env.SITE_DIR || path.join(root, '..', 'netlifyf1'));
++const modern = fs.existsSync(path.join(sourceDir, 'src/app.ts'));
++const siteDir = modern ? path.join(sourceDir, 'dist') : sourceDir;
++const browserSource = name => fs.readFileSync(path.join(sourceDir, modern ? `src/${name}.ts` : `${name}.js`), 'utf8');
+ let port = 37000 + Math.floor(Math.random() * 1000);
+ 
+ function startServer() {
+@@ -83,25 +86,28 @@ function walk(dir) {
+   const counterOrigin = 'wss://freef1-viewer-counter.calvinbotha1julie.workers.dev';
+   const counterEndpoint = `${counterOrigin}/ws`;
+   const indexHtml = fs.readFileSync(path.join(siteDir, 'index.html'), 'utf8');
+-  const viewerCounterJs = fs.readFileSync(path.join(siteDir, 'viewer-counter.js'), 'utf8');
++  const viewerCounterJs = browserSource('viewer-counter');
+   check('site connect-src allows the exact deployed Cloudflare WebSocket host',
+     directives.get('connect-src')?.split(/\s+/).includes(counterOrigin), directives.get('connect-src') || '');
+   check('index configures and loads the matching live-count client',
+     indexHtml.includes(`name=\"freef1-viewer-counter-ws\" content=\"${counterEndpoint}\"`) &&
+-    /<script src=\"\/viewer-counter\.js\?v=[^\"]+\" defer><\/script>/.test(indexHtml));
++    (modern ? /<script type="module"[^>]+src="\/bundles\/index-[^"]+\.js"/.test(indexHtml) :
++      /<script src=\"\/viewer-counter\.js\?v=[^\"]+\" defer><\/script>/.test(indexHtml)));
+   check('live-count client sends no application messages or periodic heartbeats',
+     !/\.send\s*\(|setInterval\s*\(/.test(viewerCounterJs));
+   check('site framing and media allow HTTPS embeds directly from hosts', directives.get('frame-src')?.includes('https:') && directives.get('media-src')?.includes('https:'));
+   check('site fonts are self-hosted', directives.get('font-src')?.includes("'self'") && !/fonts\.(?:googleapis|gstatic)\.com/.test(sitePolicy));
+   check('site does not enable external font stylesheets in CSP', !directives.get('style-src')?.includes('fonts.googleapis.com'));
+   const helpHtml = fs.readFileSync(path.join(siteDir, 'help.html'), 'utf8');
+-  const helpJs = fs.readFileSync(path.join(siteDir, 'help.js'), 'utf8');
+-  const helpCacheRules = ['/help.html', '/help.css', '/help.js'].every(route =>
+-    headersText.includes(`${route}\n  Cache-Control: public, max-age=0, must-revalidate`));
+-  check('Help page declares the same-origin backend and loads local cached-busting assets',
++  const helpJs = browserSource('help');
++  const helpCacheRules = modern
++    ? headersText.includes('/*.html\n  Cache-Control: public, max-age=0, must-revalidate') &&
++      headersText.includes('/bundles/*\n  Cache-Control: public, max-age=31536000, immutable')
++    : ['/help.html', '/help.css', '/help.js'].every(route => headersText.includes(`${route}\n  Cache-Control: public, max-age=0, must-revalidate`));
++  check('Help page uses local build assets with safe HTML and versioned-asset caching',
+     helpHtml.includes('https://f1admin.onrender.com') &&
+-    /<script src=\"\/help\.js\?v=[^\"]+\" defer><\/script>/.test(helpHtml) &&
+-    helpHtml.includes('/help.css?v=') && helpCacheRules);
++    (modern ? /<script type="module"[^>]+src="\/bundles\//.test(helpHtml) && /href="\/bundles\/help-[^"]+\.css"/.test(helpHtml)
++      : helpHtml.includes('/help.js?v=') && helpHtml.includes('/help.css?v=')) && helpCacheRules);
+   check('Help chat uses POST plus SSE and contains no polling or upload code',
+     helpJs.includes('/api/help/ticket/messages') && helpJs.includes('/api/help/events') &&
+     !/setInterval\s*\(|EventSource\s*\(/.test(helpJs) && !/input[^>]+type=\"file\"/i.test(helpHtml));
+@@ -146,7 +152,7 @@ function walk(dir) {
+   }
+   check('all local preload references resolve to files', brokenPreloads.length === 0, brokenPreloads.join(', '));
+ 
+-  const siteJs = fs.readFileSync(path.join(siteDir, 'app.js'), 'utf8') + viewerCounterJs + helpJs;
++  const siteJs = browserSource('app') + viewerCounterJs + helpJs;
+   const retired = ['/api/visitors/', '/api/analytics', '/api/events', '/api/stream/ticket', 'sky-uk-2', 'sky-sports-f1', 'flyembed.click/embed/44.php'];
+   const retiredFound = retired.filter(value => siteJs.includes(value));
+   check('front-end bundle has no retired tracking or removed stream APIs', retiredFound.length === 0, retiredFound.join(', '));
+diff --git a/scripts/motion-check.js b/scripts/motion-check.js
+index fd46c74..8722cde 100644
+--- a/scripts/motion-check.js
++++ b/scripts/motion-check.js
+@@ -32,6 +32,13 @@ const path = require('path');
+ const root = path.resolve(__dirname, '..');
+ const siteDir = process.env.SITE_DIR || path.resolve(root, '..', 'netlifyf1');
+ 
++const modern = fs.existsSync(path.join(siteDir, 'src', 'app.ts'));
++const siteCssSource = fs.readFileSync(path.join(siteDir, modern ? 'src/styles/app.css' : 'app.css'), 'utf8') +
++  (modern ? fs.readFileSync(path.join(siteDir, 'src/styles/radio.css'), 'utf8') : '');
++const siteJsSource = fs.readFileSync(path.join(siteDir, modern ? 'src/app.ts' : 'app.js'), 'utf8') +
++  (modern ? fs.readdirSync(path.join(siteDir, 'src/features')).filter(name => name.endsWith('.ts'))
++    .map(name => fs.readFileSync(path.join(siteDir, 'src/features', name), 'utf8')).join('\n') : '');
++
+ const checks = [];
+ const check = (label, pass, detail = '') => checks.push({ label, pass: Boolean(pass), detail });
+ 
+@@ -63,9 +70,9 @@ function keyframesOf(css) {
+   return out;
+ }
+ 
+-function auditStylesheet(label, cssPath) {
+-  if (!fs.existsSync(cssPath)) { check(`${label}: stylesheet found`, false, cssPath); return; }
+-  const css = stripComments(fs.readFileSync(cssPath, 'utf8'));
++function auditStylesheet(label, cssPath, source) {
++  if (!source && !fs.existsSync(cssPath)) { check(`${label}: stylesheet found`, false, cssPath); return; }
++  const css = stripComments(source || fs.readFileSync(cssPath, 'utf8'));
+ 
+   // 1. no keyframe animates layout
+   const offenders = [];
+@@ -111,9 +118,9 @@ function auditStylesheet(label, cssPath) {
+   check(`${label}: every @keyframes is actually used`, orphans.length === 0, orphans.join(', '));
+ }
+ 
+-function auditScript(label, jsPath, { scrollHandler, tickerLoop, canvasLoop }) {
+-  if (!fs.existsSync(jsPath)) { check(`${label}: script found`, false, jsPath); return; }
+-  const src = fs.readFileSync(jsPath, 'utf8');
++function auditScript(label, jsPath, { scrollHandler, tickerLoop, canvasLoop }, source) {
++  if (!source && !fs.existsSync(jsPath)) { check(`${label}: script found`, false, jsPath); return; }
++  const src = source || fs.readFileSync(jsPath, 'utf8');
+   const code = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/[^\n]*/gm, ' ');
+ 
+   // 5. the scroll handler must measure before it writes
+@@ -156,12 +163,12 @@ function auditScript(label, jsPath, { scrollHandler, tickerLoop, canvasLoop }) {
+   check(`${label}: scripts honour reduced motion`, /prefers-reduced-motion/.test(code), '');
+ }
+ 
+-auditStylesheet('site', path.join(siteDir, 'app.css'));
++auditStylesheet('site', path.join(siteDir, 'app.css'), siteCssSource);
+ auditScript('site', path.join(siteDir, 'app.js'), {
+   scrollHandler: true,
+   tickerLoop: false,
+   canvasLoop: 'function initSpeedCanvas'
+-});
++}, siteJsSource);
+ 
+ auditStylesheet('admin', path.join(root, 'admin', 'admin.css'));
+ auditScript('admin', path.join(root, 'admin', 'admin.js'), {});
+@@ -170,8 +177,8 @@ auditScript('admin', path.join(root, 'admin', 'admin.js'), {});
+    with the hero call to action (measured overlapping at every width from 641px
+    to 940px before this). */
+ {
+-  const siteCss = fs.readFileSync(path.join(siteDir, 'app.css'), 'utf8');
+-  const siteJs = fs.readFileSync(path.join(siteDir, 'app.js'), 'utf8');
++  const siteCss = siteCssSource;
++  const siteJs = siteJsSource;
+   const tickerBase = /\.ticker-track\s*\{([^}]*)\}/.exec(siteCss)?.[1] || '';
+   const liteTicker = /html\.lite-motion\s+\.ticker-track\s*\{([^}]*)\}/.exec(siteCss)?.[1] || '';
+   check('site: telemetry ribbon stays animated on small and data-saver devices',

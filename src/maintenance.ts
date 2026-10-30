@@ -1,13 +1,17 @@
+import { BACKEND_API, SITE_CONFIG_CACHE_KEY } from './config';
+import { parseSiteConfig } from './types/site-config';
+import './interaction-guard';
+import { $ } from './services/dom';
 'use strict';
 
 /* The maintenance page listens only for public Race Control config changes.
    It sends no visitor/presence data and runs no network polling or heartbeat. */
-const BACKEND_API = 'https://f1admin.onrender.com';
-const SITE_CONFIG_CACHE_KEY = 'freef1_site_config_v2';
-const messageEl = document.getElementById('maintenanceMessage');
-const returnEtaEl = document.getElementById('returnEta');
-const garageTimeEl = document.getElementById('garageTime');
-const autoStatusEl = document.getElementById('autoStatus');
+
+
+const messageEl = $('maintenanceMessage');
+const returnEtaEl = $('returnEta');
+const garageTimeEl = $('garageTime');
+const autoStatusEl = $('autoStatus');
 let startedAt = Date.now();
 let updateStream = null;
 let releaseStarted = false;
@@ -44,10 +48,11 @@ function releaseSite() {
   window.setTimeout(() => window.location.replace('/'), 360);
 }
 
-function applyConfig(config) {
-  if (!config || typeof config !== 'object') return;
+function applyConfig(input: unknown) {
+  const config = parseSiteConfig(input);
+  if (!config || !config.maintenance) return;
   saveConfig(config);
-  const maintenance = config.maintenance || {};
+  const maintenance = config.maintenance;
   if (maintenance.active !== true) {
     releaseSite();
     return;

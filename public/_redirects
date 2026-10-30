@@ -4,7 +4,7 @@
 # Help is a standalone page so the support chat can keep running independently of the cockpit.
 /help    /help.html   301
 /help/   /help.html   301
-# In-app views: serve the SPA shell; app.js opens the matching view.
+# In-app views: serve the SPA shell; the frontend opens the matching view.
 /info    /index.html   200
 /info/   /index.html   200
 /discord    /index.html   200
