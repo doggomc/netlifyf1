@@ -3179,10 +3179,18 @@ to {
 
 .acc-a-in {
   min-height: 0;
-  padding: 0 20px 18px;
+  /* No bottom padding here. A grid item's padding is added to the automatic minimum size of
+     its track, so `grid-template-rows: 0fr` could never reach 0 while the padding existed -
+     every collapsed row stayed 18px tall and leaked a sliver of its first line. The closing
+     gap now comes from the last child's margin, which the 0fr track ignores. */
+  padding: 0 20px;
   font-size: .86rem;
   line-height: 1.85;
   color: #B8BDC5;
+}
+
+.acc-a-in > :last-child {
+  margin-bottom: 18px;
 }
 
 .acc-a-in p {
@@ -3926,12 +3934,14 @@ button:focus-visible,a:focus-visible,select:focus-visible {
 
   .modal {
     padding: max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
-    align-items: flex-end;
+    /* Centred, with equal breathing room above and below. It used to be pinned to the bottom
+       edge (align-items: flex-end), which left a 125px hole above the sheet on a phone. */
+    align-items: center;
   }
 
   .sheet {
     max-height: min(92svh,780px);
-    border-radius: 16px 16px 8px 8px;
+    border-radius: 16px;
     padding: 17px;
     overscroll-behavior: contain;
   }
@@ -3970,7 +3980,11 @@ button:focus-visible,a:focus-visible,select:focus-visible {
   }
 
   .acc-a-in {
-    padding: 0 14px 16px;
+    padding: 0 14px;
+  }
+
+  .acc-a-in > :last-child {
+    margin-bottom: 16px;
   }
 
   .rrow {

@@ -419,7 +419,11 @@ const sources: StreamSource[]=[
  {id:"dazn",label:"DAZN",taid:31365,rp:"unsafe-url"},
  {id:"viaplay",label:"Viaplay",taid:31369,rp:"unsafe-url"},
  {id:"sky-italia",label:"Sky Sport Italia",taid:31367,rp:"unsafe-url"},
- {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"}
+ {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"},
+ /* Pulled off the WikiSport player page. Note: xstream.st only serves the real player when
+    the request carries a wikisport.info referrer; from this origin it answers with a
+    parked-domain page. Kept here so it is one line away from working if we proxy it. */
+ {id:"xstream",label:"XStream F1",url:"https://xstream.st/fslivepro.php?stream=F81"}
 ];
 
 
