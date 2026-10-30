@@ -519,6 +519,18 @@
     <div class="sheet-head"><h2 id="teamSelectTitle">Choose Your Livery</h2><button class="x" id="teamSelectClose" type="button" aria-label="Close team selector">&times;</button></div>
     <p style="color:var(--muted);font-size:.82rem;margin-bottom:18px">Pick a team and the whole cockpit takes its colours. Team marks © Formula 1 and their respective teams, served from the official F1 media CDN.</p>
     <div class="teams" id="teamGrid"></div>
+    <div class="livery-custom">
+      <div class="lc-copy">
+        <h3>Run your own colour</h3>
+        <p>Pick a shade or paste any hex code — the whole cockpit repaints to it.</p>
+      </div>
+      <div class="lc-controls">
+        <input type="color" id="liveryColorPicker" value="#E10600" aria-label="Pick a custom livery colour">
+        <input type="text" id="liveryColorHex" maxlength="7" spellcheck="false" autocomplete="off" inputmode="text" placeholder="#E10600" aria-label="Custom livery hex code">
+        <button class="btn sm primary" id="liveryColorApply" type="button">Apply colour</button>
+      </div>
+      <div class="lc-swatches" id="liverySwatches" role="group" aria-label="Suggested custom colours"></div>
+    </div>
   </div>
 </div>
 

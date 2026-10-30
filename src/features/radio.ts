@@ -314,9 +314,11 @@ async function radioRcSelectSession(sessionKey, { retry = false, animate = true 
   } catch (err) {
     if (token !== radioRc.loadToken) return;
     if (err.code === 'live') {
-      radioRcSetStatus('Session in progress · polling telemetry feeds (every 10s)', 'live', { animate });
-      radioRcSetListMessage(radioRcRadioList, 'Session in progress. Team radio clips will appear as soon as broadcast audio publishes.', { animate });
-      radioRcSetListMessage(radioRcRcList, 'Monitoring race control messages…', { animate });
+      /* 401 here is not an outage: OpenF1 locks its free feed for the whole duration of a live
+         session. Say so plainly, keep the retry loop running, and stop implying data is coming. */
+      radioRcSetStatus('Live session · OpenF1 has locked its feed until the chequered flag', 'live', { animate });
+      radioRcSetListMessage(radioRcRadioList, 'Team radio is locked while the session is running. We keep checking every 10 s and clips appear the moment the feed reopens.', { animate });
+      radioRcSetListMessage(radioRcRcList, 'Race control messages reopen when the session ends.', { animate });
       nextRefresh = 10e3;
     } else if (err.code === 'rate' && !retry) {
       radioRcSetStatus('Data feed busy · retrying in 5 s', 'warn', { animate });
@@ -326,10 +328,14 @@ async function radioRcSelectSession(sessionKey, { retry = false, animate = true 
         if (radioRc.open && radioRc.sessionKey === sessionKey) radioRcSelectSession(sessionKey, { retry: true });
       }, 5e3);
     } else {
-      const msg = err.code === 'net' ? 'Telemetry standby · waiting for session transmission' : (err.message || 'Telemetry standby');
+      /* A browser cannot read OpenF1's 401 when the response carries no CORS headers, so a locked
+         live session and a real network fault both land here. Say both, honestly. */
+      const msg = err.code === 'net'
+        ? 'OpenF1 is not answering. Its free feed locks while a session is live and reopens after the chequered flag — this panel retries on its own.'
+        : (err.message || 'Telemetry standby');
       radioRcSetListMessage(radioRcRadioList, msg, { animate });
       radioRcSetListMessage(radioRcRcList, msg, { animate });
-      radioRcSetStatus(err.code === 'live' ? 'Live session in progress · polling' : err.code === 'rate' ? 'Data feed busy · retrying' : 'Telemetry standby', 'warn', { animate });
+      radioRcSetStatus(err.code === 'live' ? 'Live session in progress · polling' : err.code === 'rate' ? 'Data feed busy · retrying' : 'Telemetry standby · OpenF1 locked or unreachable', 'warn', { animate });
     }
   }
 
@@ -503,9 +509,11 @@ function radioRcSetOpen(open, { animate = true, save = true } = {}) {
         radioRcSetStatus(err.code === 'rate'
           ? 'OpenF1 is busy · try again in a minute'
           : err.code === 'live'
-            ? 'OpenF1 free tier locked while a session is live'
+            ? 'Live session · OpenF1 locked until the chequered flag'
             : (err.message || 'OpenF1 unavailable'), 'warn');
-        radioRcSetListMessage(radioRcRadioList, err.message || 'OpenF1 unavailable', { error: true });
+        radioRcSetListMessage(radioRcRadioList, err.code === 'live'
+          ? 'Team radio and race control are locked by OpenF1 while a session is live. They reopen after the chequered flag — reopen this panel then.'
+          : (err.message || 'OpenF1 unavailable'), { error: true });
         radioRcSetListMessage(radioRcRcList, '');
       });
     } else if (radioRcIsLiveWindow(radioRc.sessions.find((s) => s.session_key === radioRc.sessionKey))) {

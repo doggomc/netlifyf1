@@ -1,5 +1,6 @@
 import { setupCustomSelects } from './ui/select';
 import { TEAM_LOGO, TEAM_HEX, TEAM_ALIAS, photoFor, teams } from './data/teams';
+import { NO_STREAM_MESSAGES, LOADER_LINES, BLOCKED_TITLE, BLOCKED_COPY_IOS, BLOCKED_COPY, HIJACK_TITLE, HIJACK_COPY } from './data/cockpit-messages';
 import { BACKEND_API, SITE_CONFIG_CACHE_KEY, SITE_SEASON, OPENF1_API, JOLPI } from './config';
 import { parseSiteConfig, type SiteConfig } from './types/site-config';
 import { onIdle, onVisible, lazyButton } from './services/lazy';
@@ -67,12 +68,7 @@ function fadeSwapContent(element, render, { animate = true } = {}) {
   }, CONTENT_FADE_MS);
 }
 
-const BLOCKED_COPY = IS_IOS
-  ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site and reload."
-  : "The stream host never responded on this network - the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, then retry.";
-
-const HIJACK_TITLE = "The feed tried to send you to another site";
-const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
+const BLOCKED_COPY_TEXT = IS_IOS ? BLOCKED_COPY_IOS : BLOCKED_COPY;
 
 // Keep News data and rendering intact for admins, but hide its public view until re-enabled.
 const PUBLIC_NEWS_ENABLED = false;
@@ -413,13 +409,71 @@ function getTaidUrl(num) {
 /* taid  -> numbered taifood embed (/embed/<event>---<session>-<id>)
    ppv   -> path-scheme taifood embed (/embed/f1/<season>/<city>/<session>)
    url   -> fixed address that does not vary by round */
-interface StreamSource { id: string; label: string; url?: string; suffix?: string; streamNum?: number; taid?: number; rp?: ReferrerPolicy; ppv?: boolean; }
+interface StreamSource { id: string; label: string; url?: string; suffix?: string; streamNum?: number; taid?: number; rp?: ReferrerPolicy; ppv?: boolean; embdlol?: string; gated?: boolean; }
+
+/* ═══ embdlol ═══
+   embdlol.st publishes its channel directory at https://api.embdlol.st/struct (CORS: *), each
+   entry being { id: <ULID>, channelname: 'f1frisky' }. The embed is then /embed/<id>, and the
+   player itself resolves the playlist with POST https://api.embdlol.st/watch {watchId:<id>},
+   which returns a tokenised HLS url. Channel ids rotate, so they are resolved at runtime and
+   the fallbacks below are only a safety net for when the directory call fails. */
+const EMBDLOL_STRUCT = 'https://api.embdlol.st/struct';
+const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
+const EMBDLOL_FALLBACK: Record<string, string> = {
+  f1frisky: '01a18dc5-b97c-737c-96db-147ef2ac4c49',
+  f1friapple: '01a18dc6-1eb0-72ed-bd95-6ed59bea9202',
+  f1fridazn: '01a18dc6-afce-741b-b969-3b382841bf7f',
+  f1friskyit: '01a18dc7-1542-77fd-bb59-2ef66eebd20f',
+  f1friskyde: '01a18dc7-8432-703b-ac15-c045a7a9c6c3'
+};
+/* Channels the open feeds may use. Anything not listed here is never resolved in the browser. */
+const PUBLIC_EMBDLOL = ['f1frisky', 'f1friapple', 'f1fridazn', 'f1friskyit', 'f1friskyde'];
+let embdlolChannels: Record<string, string> = {};
+let embdlolLoadedAt = 0;
+
+async function loadEmbdlolChannels() {
+  if (Date.now() - embdlolLoadedAt < 5 * 60_000 && Object.keys(embdlolChannels).length) return;
+  try {
+    const response = await fetchWithTimeout(EMBDLOL_STRUCT, { cache: 'default', headers: { Accept: 'application/json' } }, 4000);
+    if (!response.ok) throw new Error(`embdlol struct ${response.status}`);
+    const json = await response.json();
+    const next: Record<string, string> = {};
+    for (const channel of Array.isArray(json?.channels) ? json.channels : []) {
+      const name = String(channel?.channelname || '').toLowerCase();
+      /* Allowlist, not a blocklist: the members-only 4K channel is resolved by the server and
+         must not be named or id'd anywhere in the public bundle. */
+      if (PUBLIC_EMBDLOL.includes(name) && channel?.id) next[name] = String(channel.id);
+    }
+    if (Object.keys(next).length) {
+      embdlolChannels = next;
+      embdlolLoadedAt = Date.now();
+    }
+  } catch (_) {
+    /* Directory unreachable: the fallbacks keep the feeds working. */
+  }
+}
+
+function embdlolUrl(name: string) {
+  const id = embdlolChannels[name] || EMBDLOL_FALLBACK[name];
+  return id ? `${EMBDLOL_EMBED}${id}` : '';
+}
 /* Sky UHD is the main source: it is first in the row and it is what plays on load, on a
    session change and on "jump to live". If Race Control disables it, the player falls through
    to the first source that is still enabled. */
 const DEFAULT_SOURCE_ID = "sky-uk";
 const sources: StreamSource[]=[
  {id:"sky-uk",label:"Sky UHD",url:"https://strmfree.st/embed/racing/skyf1"},
+ {id:"skyf1-1080",label:"Sky F1 1080p",url:"https://streamfree.top/embed/racing/skyf11080p"},
+ {id:"emb-sky",label:"Sky F1 (EMB)",embdlol:"f1frisky"},
+ {id:"emb-apple",label:"Apple TV (EMB)",embdlol:"f1friapple"},
+ {id:"emb-dazn",label:"DAZN ES (EMB)",embdlol:"f1fridazn"},
+ {id:"emb-italia",label:"Sky Italia (EMB)",embdlol:"f1friskyit"},
+ {id:"emb-de",label:"Sky DE (EMB)",embdlol:"f1friskyde"},
+ /* HEVC-only 4K and it is the single rendition in the master playlist, so any browser without
+    HEVC decode shows nothing at all. Kept, named, and placed after the H.264 feeds. */
+ /* Members-only: the channel id is never in the bundle, it comes from /api/discord/4k after the
+    server has checked the visitor is in the Discord server. */
+ {id:"emb-uhd",label:"F1 UHD 4K",gated:true},
  {id:"sky-f1-uk",label:"Sky Sports F1 UK",url:"https://cdnlivetv.tv/api/v1/channels/player/?name=Sky%20Sports%20F1%20FHD%20UK&code=&user=cdnlivetv&plan=free",rp:"unsafe-url"},
  {id:"sky-sports",label:"Sky Sports",url:"https://hakunamatata5.org/hakunamatata5.html",rp:"unsafe-url"},
  {id:"appletv",label:"AppleTV",taid:31374,rp:"unsafe-url"},
@@ -438,7 +492,7 @@ const sources: StreamSource[]=[
 
 
 let disabledSources = new Set();
-const sourceEnabled = (s) => !disabledSources.has(s.id);
+const sourceEnabled = (s) => !disabledSources.has(s.id) && (!s.gated || discordGate.verified);
 
 /* The main source, unless Race Control has switched it off - then the first enabled one. */
 function preferredSourceIndex() {
@@ -480,6 +534,8 @@ const buildUrl = (i) => {
   if (!s) return "";
   if (s.taid) return getTaidUrl(s.taid);
   if (s.ppv) return `https://taifood-blog.asia/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}`;
+  if (s.gated) return discordGate.url || '';
+  if (s.embdlol) return embdlolUrl(s.embdlol);
   if (s.streamNum) {
     const slug = getStreamEastSlug(currentEvent, currentSession);
     return `https://embed.st/embed/admin/${slug}/${s.streamNum}`;
@@ -520,11 +576,97 @@ function updateHeader() {
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
 
+/* ═══ Discord gate ═══
+   discordGate mirrors /api/discord/status. The 4K chip only appears once the server says the
+   visitor is a member; until then a single "Join for 4K" chip opens the invite. */
+let discordGate = { configured: false, verified: false, invite: '', user: null, url: '' };
+
+async function loadDiscordGate() {
+  try {
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/status`, { credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' } }, 6000);
+    const json = await response.json();
+    discordGate = { ...discordGate, ...json };
+    if (json?.verified) await fetchFourKUrl();
+  } catch (_) {
+    discordGate = { ...discordGate, configured: false, verified: false };
+  }
+  renderButtons();
+  return discordGate;
+}
+
+async function fetchFourKUrl() {
+  try {
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' } }, 6000);
+    if (!response.ok) {
+      const json = await response.json().catch(() => ({}));
+      discordGate = { ...discordGate, verified: false, url: '' };
+      if (json?.code === 'left-server') showToast('You left the Discord server, so 4K is locked again.', 'warning');
+      return '';
+    }
+    const json = await response.json();
+    discordGate = { ...discordGate, url: String(json.url || '') };
+    return discordGate.url;
+  } catch (_) {
+    return '';
+  }
+}
+
+function unlockFourK() {
+  /* Full-page redirect: the OAuth handshake needs top-level navigation, and it comes back
+     with ?discord=verified so we can repaint the row. */
+  location.href = `${BACKEND_API}/api/discord/login`;
+}
+
+function joinDiscord() {
+  if (discordGate.invite) window.open(discordGate.invite, '_blank', 'noopener');
+  else location.href = '/discord';
+}
+
+/* Reports the ?discord= result of the handshake, then re-checks with the server. */
+function handleDiscordReturn() {
+  let status = '';
+  try {
+    status = new URLSearchParams(location.search).get('discord') || '';
+  } catch (_) {}
+  if (!status) return;
+  const copy = {
+    verified: ['4K unlocked. Welcome to the paddock.', 'success'],
+    notmember: ['You are not in the Discord server yet, so 4K stays locked.', 'warning'],
+    norole: ['You are in the server but missing the member role for 4K.', 'warning'],
+    cancelled: ['Discord sign-in cancelled.', 'warning'],
+    badstate: ['That sign-in link expired. Try again.', 'warning'],
+    token: ['Discord rejected the sign-in. Try again.', 'warning'],
+    profile: ['Discord did not return your profile. Try again.', 'warning'],
+    rate: ['Too many attempts. Give it a minute.', 'warning'],
+    unavailable: ['4K unlocks are not configured yet.', 'warning'],
+    error: ['Something went wrong verifying your membership.', 'warning']
+  }[status];
+  if (copy) showToast(copy[0], copy[1]);
+  try {
+    const url = new URL(location.href);
+    url.searchParams.delete('discord');
+    history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
+  } catch (_) {}
+  void loadDiscordGate().then(() => {
+    if (discordGate.verified) {
+      const index = sources.findIndex((source) => source.id === 'emb-uhd');
+      if (index >= 0) {
+        currentSource = index;
+        renderButtons();
+        updateHeader();
+        load();
+        showToast('Now playing in 4K. Heads up: it is HEVC, so Safari plays it and most desktops will not.', 'success');
+      }
+    }
+  });
+}
+
 function renderButtons() {
   if (!linksEl) return;
   linksEl.innerHTML = "";
   normalizeCurrentSource();
   sources.forEach((s, i) => {
+    if (s.gated && !discordGate.verified) return;
     if (!sourceEnabled(s)) return;
     const b = document.createElement("button");
     b.className = "chip" + (i === currentSource ? " active" : "");
@@ -537,6 +679,20 @@ function renderButtons() {
     };
     linksEl.appendChild(b);
   });
+
+  /* Locked 4K: a single chip that either joins the server or runs the sign-in. */
+  const gatedSource = sources.find((source) => source.gated);
+  if (gatedSource && discordGate.configured && !discordGate.verified) {
+    const locked = document.createElement('button');
+    locked.className = 'chip chip-locked';
+    locked.type = 'button';
+    locked.innerHTML = `<span class="chip-lock" aria-hidden="true">🔒</span>${escapeHtml(gatedSource.label)} · Members`;
+    locked.title = discordGate.invite
+      ? 'Join the Discord server to unlock the 4K feed'
+      : 'Sign in with Discord to unlock the 4K feed';
+    locked.onclick = () => (discordGate.invite ? joinDiscord() : unlockFourK());
+    linksEl.appendChild(locked);
+  }
 }
 
 let nsTimer = null;
@@ -557,13 +713,7 @@ function startNS() {
   nsRunning = true;
   const t = $("noStreamTitle");
   const x = $("noStreamText");
-  const msgs = [
-    { t: "Hang tight", x: "We're working on getting this stream up for you. Check back soon!" },
-    { t: "Formation lap", x: "Our crew is setting up the feed. A few more moments and you'll be good to go." },
-    { t: "In the garage", x: "Getting everything ready for the best viewing experience possible." },
-    { t: "Almost there", x: "Just a little more patience and you'll be watching the race in no time." },
-    { t: "Stay tuned", x: "The stream will be up shortly. We appreciate your patience!" }
-  ];
+  const msgs = NO_STREAM_MESSAGES;
   let i = 0;
   (function next() {
     if (!nsRunning) return;
@@ -634,8 +784,8 @@ function showNoStream(opts: { blocked?: boolean; title?: string; text?: string; 
   }
   if (blocked) {
     stopNS();
-    if (noStreamTitleEl) noStreamTitleEl.textContent = (opts && opts.title) || (hijack ? HIJACK_TITLE : "Feed blocked on this device");
-    if (noStreamTextEl) noStreamTextEl.textContent = (opts && opts.text) || (hijack ? HIJACK_COPY : BLOCKED_COPY);
+    if (noStreamTitleEl) noStreamTitleEl.textContent = (opts && opts.title) || (hijack ? HIJACK_TITLE : BLOCKED_TITLE);
+    if (noStreamTextEl) noStreamTextEl.textContent = (opts && opts.text) || (hijack ? HIJACK_COPY : BLOCKED_COPY_TEXT);
   } else {
     startNS();
   }
@@ -808,7 +958,7 @@ function load() {
   const token = ++playerLoadToken;
   loaderEl?.classList.remove("hidden");
   hideNoStream();
-  setLoaderText("Establishing feed…");
+  setLoaderText(LOADER_LINES[Math.floor(Math.random() * LOADER_LINES.length)]);
   playerEl?.querySelector("iframe")?.remove();
   playerEl?.querySelector("video")?.remove();
 
@@ -1619,15 +1769,81 @@ sessionSelect?.addEventListener("change", () => {
 const tOverlay = $("teamSelectOverlay");
 const tGrid = $("teamGrid");
 
-function applyTeamTheme(id) {
-  const t = teams.find((x) => x.id === id) || teams[0];
+/* ═══ Custom livery ═══
+   Stored as freef1_team = 'custom' plus the chosen hex in freef1_team_color, so a custom
+   shade survives reloads the same way a team does. Any #rgb / #rrggbb is accepted; a 3-digit
+   code is expanded so the whole app gets a value CSS can mix. */
+const CUSTOM_TEAM_ID = 'custom';
+const CUSTOM_COLOR_KEY = 'freef1_team_color';
+const CUSTOM_DEFAULT = '#E10600';
+
+function normaliseHex(value) {
+  const raw = String(value || '').trim().replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/i.test(raw)) return '#' + raw.split('').map((c) => c + c).join('').toUpperCase();
+  if (/^[0-9a-f]{6}$/i.test(raw)) return '#' + raw.toUpperCase();
+  return null;
+}
+
+function customColor() {
+  return normaliseHex(store.get(CUSTOM_COLOR_KEY)) || CUSTOM_DEFAULT;
+}
+
+function applyCustomColor(hex, { persist = true } = {}) {
+  const clean = normaliseHex(hex);
+  if (!clean) return false;
+  if (persist) {
+    store.set(CUSTOM_COLOR_KEY, clean);
+    store.set('freef1_team', CUSTOM_TEAM_ID);
+  }
+  applyTeamTheme(CUSTOM_TEAM_ID, clean);
+  paintCustomCard();
+  syncColorInputs(clean);
+  return true;
+}
+
+/* Keep the picker and the hex field showing the colour that is actually applied. Skipped while
+   the field has focus so it does not fight somebody mid-type. */
+function syncColorInputs(hex: string) {
+  const picker = $('liveryColorPicker');
+  const field = $('liveryColorHex');
+  if (picker) picker.value = hex;
+  if (field && document.activeElement !== field) {
+    field.value = hex;
+    field.classList.remove('is-invalid');
+  }
+}
+
+/* Repaint just the "Own colour" swatch card — used while the picker is being dragged, so the
+   card never lags behind the value the cockpit is already showing. */
+function paintCustomCard() {
+  const hex = customColor();
+  const card = tGrid?.querySelector<HTMLElement>(`.tcard[data-team="${CUSTOM_TEAM_ID}"]`);
+  if (!card) return;
+  card.style.setProperty('--tc', hex);
+  const badge = card.querySelector<HTMLElement>('.tbadge');
+  if (badge) {
+    badge.style.background = `linear-gradient(140deg,${hex},${shade(hex, -50)})`;
+    badge.style.color = inkOn(hex);
+  }
+}
+
+function paintTheme(color) {
   const rs = document.documentElement.style;
-  rs.setProperty('--team', t.color);
-  rs.setProperty('--team-2', shade(t.color, 36));
-  rs.setProperty('--team-ink', inkOn(t.color));
-  rs.setProperty('--red-glow', t.color + '70');
+  rs.setProperty('--team', color);
+  rs.setProperty('--team-2', shade(color, 36));
+  rs.setProperty('--team-ink', inkOn(color));
+  rs.setProperty('--red-glow', color + '70');
+  dispatchEvent(new CustomEvent('freef1themechange', { detail: { color } }));
+}
+
+function applyTeamTheme(id, overrideColor?: string) {
+  if (id === CUSTOM_TEAM_ID) {
+    paintTheme(overrideColor || customColor());
+  } else {
+    const t = teams.find((x) => x.id === id) || teams[0];
+    paintTheme(t.color);
+  }
   document.querySelectorAll<HTMLElement>('.tcard').forEach((c) => c.classList.toggle('on', c.dataset.team === id));
-  dispatchEvent(new CustomEvent('freef1themechange', { detail: { color: t.color } }));
 }
 
 function teamBadge(t) {
@@ -1678,12 +1894,98 @@ function renderTeamGrid() {
     });
     tGrid.appendChild(c);
   });
+
+  /* Own-colour card sits last and mirrors the team cards, so choosing it feels identical. */
+  const hex = customColor();
+  const custom = document.createElement('div');
+  custom.className = 'tcard tcard-custom';
+  custom.dataset.team = CUSTOM_TEAM_ID;
+  custom.setAttribute('role', 'button');
+  custom.tabIndex = 0;
+  custom.setAttribute('aria-label', 'Use your own livery colour');
+  custom.style.setProperty('--tc', hex);
+  custom.innerHTML = `<div class="tbadge mark" style="background:linear-gradient(140deg,${hex},${shade(hex, -50)});color:${inkOn(hex)}">${FREEF1_MARK}</div>` +
+    '<div class="tname">Own colour</div><div class="tick">✓</div>';
+  const chooseCustom = () => {
+    applyCustomColor(customColor());
+    syncLiveryInputs();
+  };
+  custom.addEventListener('click', chooseCustom);
+  custom.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      chooseCustom();
+    }
+  });
+  tGrid.appendChild(custom);
 }
+
+/* ═══ Custom livery controls ═══ */
+const liveryPicker = $('liveryColorPicker');
+const liveryHex = $('liveryColorHex');
+const liveryApply = $('liveryColorApply');
+const liverySwatches = $('liverySwatches');
+const LIVERY_SWATCHES = ['#E10600', '#00D2BE', '#1E41FF', '#FF8000', '#B4A07A', '#C6FF00', '#FF0080', '#F5F6F7'];
+
+function syncLiveryInputs() {
+  const hex = customColor();
+  if (liveryPicker) liveryPicker.value = hex;
+  if (liveryHex && document.activeElement !== liveryHex) liveryHex.value = hex;
+  if (liveryHex) liveryHex.classList.remove('is-invalid');
+  paintCustomCard();
+  document.querySelectorAll<HTMLElement>('.tcard').forEach((c) => c.classList.toggle('on', c.dataset.team === store.get('freef1_team')));
+}
+
+if (liverySwatches) {
+  LIVERY_SWATCHES.forEach((value) => {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'lc-swatch';
+    dot.style.setProperty('--sw', value);
+    dot.setAttribute('aria-label', `Use ${value}`);
+    dot.addEventListener('click', () => applyCustomColor(value));
+    liverySwatches.appendChild(dot);
+  });
+}
+
+liveryPicker?.addEventListener('input', () => {
+  /* Live preview while dragging the picker; committed on change. */
+  if (liveryHex) liveryHex.value = liveryPicker.value.toUpperCase();
+  applyTeamTheme(CUSTOM_TEAM_ID, liveryPicker.value);
+  paintCustomCard();
+});
+liveryPicker?.addEventListener('change', () => applyCustomColor(liveryPicker.value));
+
+liveryHex?.addEventListener('input', () => {
+  const clean = normaliseHex(liveryHex.value);
+  liveryHex.classList.toggle('is-invalid', !clean && liveryHex.value.trim().length > 1);
+  if (clean) { applyTeamTheme(CUSTOM_TEAM_ID, clean); paintCustomCard(); }
+});
+const commitHex = () => {
+  const clean = normaliseHex(liveryHex?.value);
+  if (clean) applyCustomColor(clean);
+  else syncLiveryInputs();
+};
+liveryHex?.addEventListener('change', commitHex);
+liveryHex?.addEventListener('blur', commitHex);
+liveryHex?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    commitHex();
+  }
+});
+liveryApply?.addEventListener('click', () => {
+  const clean = normaliseHex(liveryHex?.value) || customColor();
+  applyCustomColor(clean);
+  if (liveryPicker) liveryPicker.value = clean;
+  if (liveryHex) liveryHex.value = clean;
+});
 
 $("teamSelectBtn")?.addEventListener('click', () => {
   openModal(tOverlay);
   renderTeamGrid();
   applyTeamTheme(store.get('freef1_team') || 'default');
+  syncLiveryInputs();
 });
 $("teamSelectClose")?.addEventListener('click', () => closeModal(tOverlay));
 
@@ -1705,6 +2007,13 @@ addEventListener('keydown', (e) => {
 /* ═══════════════ 23. APPLICATION INITIALIZATION ═══════════════ */
 // Apply stored team livery
 applyTeamTheme(store.get('freef1_team') || 'default');
+
+// Resolve the embdlol channel directory before the feed row is built (falls back if it fails).
+void loadEmbdlolChannels().then(() => renderButtons());
+
+// Discord membership gate for the 4K feed, plus the ?discord= result of a sign-in.
+void loadDiscordGate();
+handleDiscordReturn();
 
 // Initial controls & player setup
 populate();
