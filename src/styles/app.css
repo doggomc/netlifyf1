@@ -2799,6 +2799,17 @@ from {
 }
 
 /* Team grid */
+@keyframes chip-flash-in {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb,var(--amber) 70%,transparent); }
+  70%  { box-shadow: 0 0 0 10px color-mix(in srgb,var(--amber) 0%,transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.chip.chip-flash {
+  animation: chip-flash-in 1s ease-out 3;
+  border-color: var(--amber);
+}
+
 /* Locked feed chip — members-only source (4K) */
 .chip-locked {
   border-style: dashed;

@@ -604,16 +604,25 @@ function discordAuthHeaders(): Record<string, string> {
   return headers;
 }
 
+/* Two status calls can be in flight at once (the boot check and the one that runs after the
+   token is stored). Without this guard the slower, tokenless answer lands last and overwrites a
+   verified session with "not a member" — which is exactly how an unlocked 4K chip disappeared. */
+let gateRequestSeq = 0;
+
 async function loadDiscordGate() {
+  const seq = ++gateRequestSeq;
   try {
     const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/status`, { credentials: 'include', cache: 'no-store', headers: discordAuthHeaders() }, 8000);
     const json = await response.json();
+    if (seq !== gateRequestSeq) return discordGate;
     discordGate = { ...discordGate, ...json };
     if (json?.verified) await fetchFourKUrl();
   } catch (_) {
-    discordGate = { ...discordGate, configured: false, verified: false };
+    if (seq !== gateRequestSeq) return discordGate;
+    /* A network blip must not relock someone who is already verified. */
+    if (!discordGate.verified) discordGate = { ...discordGate, configured: false, verified: false };
   }
-  renderButtons();
+  if (seq === gateRequestSeq) renderButtons();
   return discordGate;
 }
 
@@ -645,6 +654,63 @@ async function fetchFourKUrl() {
     showToast('Could not reach the 4K service. Check your connection and try again.', 'warning');
     return '';
   }
+}
+
+/* The 4K channel publishes a single HEVC rendition. Chrome/Edge/Firefox on most desktops have no
+   HEVC decoder, so the frame stays black however well the gate works. Detect it and say so
+   instead of letting people think the unlock failed. */
+let hevcSupport: boolean | null = null;
+function canPlayHevc(): boolean {
+  if (hevcSupport !== null) return hevcSupport;
+  try {
+    const video = document.createElement('video');
+    hevcSupport = video.canPlayType('video/mp4; codecs="hvc1.1.6.L153.B0"') !== '' ||
+                  video.canPlayType('video/mp4; codecs="hev1.1.6.L153.B0"') !== '';
+  } catch (_) {
+    hevcSupport = false;
+  }
+  return hevcSupport;
+}
+
+/* Briefly highlights the 4K chip so it is findable the moment it unlocks. */
+let flashFourKUntil = 0;
+function flashFourKChip() {
+  flashFourKUntil = Date.now() + 3000;
+}
+
+/* ═══ Reset ═══
+   Visiting /?reset=discord clears the Discord link (token + cookie) and locks 4K again, which is
+   what you want when testing the unlock flow from scratch. /?reset=all also drops the chosen
+   livery, saved preferences and cached API data. */
+async function handleResetRequest() {
+  let mode = '';
+  try { mode = new URLSearchParams(location.search).get('reset') || ''; } catch (_) {}
+  if (!mode) return;
+
+  const clean = (() => {
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('reset');
+      return url.pathname + (url.search || '') + url.hash;
+    } catch (_) { return '/'; }
+  })();
+
+  try {
+    if (mode === 'all') {
+      Object.keys(localStorage).filter((key) => key.startsWith('freef1')).forEach((key) => localStorage.removeItem(key));
+      sessionStorage.clear();
+    } else {
+      setDiscordToken('');
+    }
+  } catch (_) {}
+
+  if (mode !== 'all') {
+    /* The cookie is httpOnly, so only the server can clear it. */
+    try { await fetchWithTimeout(`${BACKEND_API}/api/discord/logout`, { credentials: 'include', headers: discordAuthHeaders() }, 5000); } catch (_) {}
+  }
+
+  /* Full reload so nothing cached in memory survives the reset. */
+  location.replace(clean);
 }
 
 function unlockFourK() {
@@ -702,6 +768,7 @@ function handleDiscordReturn() {
       return;
     }
     currentSource = index;
+    flashFourKChip();
     renderButtons();
     updateHeader();
     load();
@@ -714,13 +781,28 @@ function renderButtons() {
   linksEl.innerHTML = "";
   normalizeCurrentSource();
   sources.forEach((s, i) => {
-    if (s.gated && !discordGate.verified) return;
+    /* Members-only feed: keeps its slot in the row at all times so it can never appear to
+       vanish. Shows locked styling until the server confirms membership. */
+    if (s.gated && !discordGate.verified) {
+      if (!discordGate.configured) return;
+      const locked = document.createElement('button');
+      locked.type = 'button';
+      locked.className = 'chip chip-locked';
+      locked.textContent = `${s.label} · Members`;
+      locked.title = 'Sign in with Discord to unlock the 4K feed';
+      locked.onclick = unlockFourK;
+      linksEl.appendChild(locked);
+      return;
+    }
     if (!sourceEnabled(s)) return;
     const b = document.createElement("button");
-    b.className = "chip" + (i === currentSource ? " active" : "");
+    b.className = "chip" + (i === currentSource ? " active" : "") + (s.gated && Date.now() < flashFourKUntil ? " chip-flash" : "");
     b.textContent = s.label;
     b.onclick = async () => {
       currentSource = i;
+      if (s.gated && !canPlayHevc()) {
+        showToast('This browser cannot decode HEVC, which is all the 4K feed publishes. It will stay black here — Safari or an iPhone will play it.', 'warning');
+      }
       if (s.gated && !discordGate.url) {
         b.setAttribute('aria-busy', 'true');
         await fetchFourKUrl();
@@ -737,17 +819,6 @@ function renderButtons() {
     linksEl.appendChild(b);
   });
 
-  /* Locked 4K: a single chip that either joins the server or runs the sign-in. */
-  const gatedSource = sources.find((source) => source.gated);
-  if (gatedSource && discordGate.configured && !discordGate.verified) {
-    const locked = document.createElement('button');
-    locked.className = 'chip chip-locked';
-    locked.type = 'button';
-    locked.textContent = `${gatedSource.label} · Members`;
-    locked.title = 'Sign in with Discord to unlock the 4K feed';
-    locked.onclick = unlockFourK;
-    linksEl.appendChild(locked);
-  }
 }
 
 let nsTimer = null;
@@ -2066,9 +2137,12 @@ applyTeamTheme(store.get('freef1_team') || 'default');
 // Resolve the embdlol channel directory before the feed row is built (falls back if it fails).
 void loadEmbdlolChannels().then(() => renderButtons());
 
-// Discord membership gate for the 4K feed, plus the ?discord= result of a sign-in.
-void loadDiscordGate();
-handleDiscordReturn();
+// Discord gate: read the token out of the URL fragment FIRST, then ask the server once.
+void (async () => {
+  await handleResetRequest();
+  handleDiscordReturn();
+  await loadDiscordGate();
+})();
 
 // Initial controls & player setup
 populate();
