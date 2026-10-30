@@ -581,9 +581,32 @@ function updateHeader() {
    visitor is a member; until then a single "Join for 4K" chip opens the invite. */
 let discordGate = { configured: false, verified: false, invite: '', user: null, url: '' };
 
+/* The session rides in a signed token kept in localStorage, sent as a bearer header. Cookies are
+   only a fallback: Safari and an increasing share of Chrome block third-party cookies, which made
+   the site unable to see a verified session and bounce people back to sign-in forever. */
+const DISCORD_TOKEN_KEY = 'freef1_dg_token';
+
+function discordToken(): string {
+  try { return localStorage.getItem(DISCORD_TOKEN_KEY) || ''; } catch (_) { return ''; }
+}
+
+function setDiscordToken(token: string) {
+  try {
+    if (token) localStorage.setItem(DISCORD_TOKEN_KEY, token);
+    else localStorage.removeItem(DISCORD_TOKEN_KEY);
+  } catch (_) {}
+}
+
+function discordAuthHeaders(): Record<string, string> {
+  const token = discordToken();
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 async function loadDiscordGate() {
   try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/status`, { credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' } }, 6000);
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/status`, { credentials: 'include', cache: 'no-store', headers: discordAuthHeaders() }, 8000);
     const json = await response.json();
     discordGate = { ...discordGate, ...json };
     if (json?.verified) await fetchFourKUrl();
@@ -599,8 +622,9 @@ async function loadDiscordGate() {
    the locked chip and sent them round the sign-in loop again. */
 async function fetchFourKUrl() {
   try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' } }, 8000);
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { credentials: 'include', cache: 'no-store', headers: discordAuthHeaders() }, 9000);
     const json = await response.json().catch(() => ({}));
+    if (response.status === 403) setDiscordToken('');
     if (response.ok) {
       discordGate = { ...discordGate, verified: true, url: String(json.url || '') };
       return discordGate.url;
@@ -637,9 +661,14 @@ function joinDiscord() {
 /* Reports the ?discord= result of the handshake, then re-checks with the server. */
 function handleDiscordReturn() {
   let status = '';
+  let token = '';
   try {
-    status = new URLSearchParams(location.search).get('discord') || '';
+    const fromHash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const fromQuery = new URLSearchParams(location.search);
+    status = fromHash.get('discord') || fromQuery.get('discord') || '';
+    token = fromHash.get('dg') || fromQuery.get('dg') || '';
   } catch (_) {}
+  if (token) setDiscordToken(token);
   if (!status) return;
   const copy = {
     verified: ['4K unlocked. Welcome to the paddock.', 'success'],
@@ -659,7 +688,8 @@ function handleDiscordReturn() {
   try {
     const url = new URL(location.href);
     url.searchParams.delete('discord');
-    history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
+    url.searchParams.delete('dg');
+    history.replaceState(null, '', url.pathname + (url.search || ''));
   } catch (_) {}
   void loadDiscordGate().then(() => {
     if (!discordGate.verified) return;
@@ -714,10 +744,8 @@ function renderButtons() {
     locked.className = 'chip chip-locked';
     locked.type = 'button';
     locked.textContent = `${gatedSource.label} · Members`;
-    locked.title = discordGate.invite
-      ? 'Join the Discord server to unlock the 4K feed'
-      : 'Sign in with Discord to unlock the 4K feed';
-    locked.onclick = () => (discordGate.invite ? joinDiscord() : unlockFourK());
+    locked.title = 'Sign in with Discord to unlock the 4K feed';
+    locked.onclick = unlockFourK;
     linksEl.appendChild(locked);
   }
 }
