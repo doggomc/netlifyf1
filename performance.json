@@ -1,16 +1,16 @@
 {
   "baselineCommit": "1256feb269db136d0f458589eed2d906321b1f94",
   "baselineStartupJsGzipBytes": 56093,
-  "startupJsReductionPercent": 62.6,
+  "startupJsReductionPercent": 62.4,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 20993,
+  "startupJsGzipBytes": 21069,
   "startupJsFiles": [
-    "bundles/index-Dvauh1UJ.js",
+    "bundles/index-COua_OpH.js",
     "bundles/interaction-guard-4Vwlk-Z6.js",
     "bundles/dom-C3mHM79r.js",
     "bundles/site-config-BTTtiErb.js"
   ],
-  "initialCssGzipBytes": 12984,
+  "initialCssGzipBytes": 13288,
   "lazyFeatures": {
     "championship": {
       "gzipBytes": 4618

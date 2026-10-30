@@ -57,6 +57,7 @@
     <a href="#grid">The Grid</a>
     <a href="#standings">Standings</a>
     <a class="help-nav-link" href="/help.html">Help<span class="help-notification-dot" hidden aria-label="Unread support reply"></span></a>
+    <a href="/replays" data-route="replays">Replays</a>
     <a href="/info" data-route="info">Info</a>
     <a href="/discord" data-route="discord">Discord</a>
   </div>
@@ -143,15 +144,8 @@
           <div class="ns-actions" id="nsActions" hidden>
             <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
             <button class="btn sm" id="nsNextBtn" type="button">Try next feed</button>
-            <button class="btn sm" id="nsNewTabBtn" type="button">Open feed in new tab</button>
             <button class="btn sm" id="nsStayBtn" type="button" hidden>Stay on this page</button>
           </div>
-        </div>
-        <div class="stream-start" id="streamStart" hidden>
-          <div class="stream-start-actions">
-            <button class="btn sm" id="streamStartBtn" type="button">Start stream</button>
-          </div>
-          <span class="stream-start-hint">Browsers block sound until you interact with the page. One tap starts the feed on every browser, including iPhone and iPad.</span>
         </div>
       </div>
     </div>
@@ -321,6 +315,51 @@
 </section>
 
 </div><!-- /viewNews -->
+
+<!-- ══ VIEW: REPLAYS ══ -->
+<div class="view" id="viewReplays" data-view="replays" hidden>
+<section class="sec sub-sec" id="replays">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div>
+        <a class="back-home" href="/" data-route="home"><span class="arr">←</span> Back to home</a>
+        <span class="eyebrow">Full Session Replays</span>
+        <h2>Race <span class="accent">Replays</span></h2>
+        <div class="rule" style="width:120px"></div>
+      </div>
+      <div class="tabs" id="replaySeasons" role="tablist" aria-label="Season"></div>
+    </div>
+
+    <div class="rp-bar rv d1">
+      <div class="tabs" id="replaySessions" role="tablist" aria-label="Session type"></div>
+      <span class="rp-count" id="replayCount"></span>
+    </div>
+
+    <div class="card rv d1 rp-player" id="replayPlayer" hidden>
+      <div class="rp-stage">
+        <div class="rp-frame" id="replayFrameBox"></div>
+        <div class="rp-empty" id="replayEmpty" hidden>This session has no embeddable player yet.</div>
+      </div>
+      <div class="rp-meta">
+        <div>
+          <div class="rp-title" id="replayTitle">—</div>
+          <div class="rp-sub" id="replaySub">—</div>
+        </div>
+        <div class="rp-actions">
+          <div class="tabs rp-feeds" id="replayFeeds" role="tablist" aria-label="Feed"></div>
+          <button class="tab" id="replayClose" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rows rp-rows rv d1" id="replayList" aria-live="polite">
+      <div class="state">Loading replays…</div>
+    </div>
+
+    <p class="rp-note">Replay links are collected from fullraces.com. All footage belongs to its respective rights holders; FreeF1 hosts none of it.</p>
+  </div>
+</section>
+</div><!-- /viewReplays -->
 
 <!-- ══ VIEW: INFO ══ -->
 <div class="view" id="viewInfo" data-view="info" hidden>

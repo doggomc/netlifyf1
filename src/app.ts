@@ -68,16 +68,16 @@ function fadeSwapContent(element, render, { animate = true } = {}) {
 }
 
 const BLOCKED_COPY = IS_IOS
-  ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site, or open the feed in its own tab."
-  : "The stream host never responded on this network - the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, or open the feed in its own tab.";
+  ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site and reload."
+  : "The stream host never responded on this network - the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, then retry.";
 
 const HIJACK_TITLE = "The feed tried to send you to another site";
 const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
 
 // Keep News data and rendering intact for admins, but hide its public view until re-enabled.
 const PUBLIC_NEWS_ENABLED = false;
-const VIEWS = { home: 'viewHome', ...(PUBLIC_NEWS_ENABLED ? { news: 'viewNews' } : {}), info: 'viewInfo', discord: 'viewDiscord' };
-const VIEW_TITLES = { ...(PUBLIC_NEWS_ENABLED ? { news: 'News - FreeF1' } : {}), info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1' };
+const VIEWS = { home: 'viewHome', ...(PUBLIC_NEWS_ENABLED ? { news: 'viewNews' } : {}), replays: 'viewReplays', info: 'viewInfo', discord: 'viewDiscord' };
+const VIEW_TITLES = { ...(PUBLIC_NEWS_ENABLED ? { news: 'News - FreeF1' } : {}), replays: 'Race Replays - FreeF1', info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
@@ -410,16 +410,25 @@ function getTaidUrl(num) {
   return `https://taifood-blog.asia/embed/${kebab(currentEvent?.name)}---${kebab(currentSession?.name)}-${num}`;
 }
 
-interface StreamSource { id: string; label: string; url?: string; suffix?: string; streamNum?: number; taid?: number; rp?: ReferrerPolicy; }
+/* taid  -> numbered taifood embed (/embed/<event>---<session>-<id>)
+   ppv   -> path-scheme taifood embed (/embed/f1/<season>/<city>/<session>)
+   url   -> fixed address that does not vary by round */
+interface StreamSource { id: string; label: string; url?: string; suffix?: string; streamNum?: number; taid?: number; rp?: ReferrerPolicy; ppv?: boolean; }
+/* Sky UHD is the main source: it is first in the row and it is what plays on load, on a
+   session change and on "jump to live". If Race Control disables it, the player falls through
+   to the first source that is still enabled. */
+const DEFAULT_SOURCE_ID = "sky-uk";
 const sources: StreamSource[]=[
- {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
  {id:"sky-uk",label:"Sky UHD",url:"https://strmfree.st/embed/racing/skyf1"},
+ {id:"sky-f1-uk",label:"Sky Sports F1 UK",url:"https://cdnlivetv.tv/api/v1/channels/player/?name=Sky%20Sports%20F1%20FHD%20UK&code=&user=cdnlivetv&plan=free",rp:"unsafe-url"},
  {id:"sky-sports",label:"Sky Sports",url:"https://hakunamatata5.org/hakunamatata5.html",rp:"unsafe-url"},
- {id:"appletv",label:"AppleTV",taid:31363,rp:"unsafe-url"},
- {id:"dazn",label:"DAZN",taid:31365,rp:"unsafe-url"},
- {id:"viaplay",label:"Viaplay",taid:31369,rp:"unsafe-url"},
- {id:"sky-italia",label:"Sky Sport Italia",taid:31367,rp:"unsafe-url"},
+ {id:"appletv",label:"AppleTV",taid:31374,rp:"unsafe-url"},
+ {id:"dazn",label:"DAZN",taid:31376,rp:"unsafe-url"},
+ {id:"viaplay",label:"Viaplay",taid:31380,rp:"unsafe-url"},
+ {id:"sky-italia",label:"Sky Sport Italia",taid:31378,rp:"unsafe-url"},
+ {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"},
+ {id:"ppv",label:"F1 PPV",ppv:true,rp:"unsafe-url"},
  /* Pulled off the WikiSport player page. Note: xstream.st only serves the real player when
     the request carries a wikisport.info referrer; from this origin it answers with a
     parked-domain page. Kept here so it is one line away from working if we proxy it. */
@@ -431,10 +440,16 @@ const sources: StreamSource[]=[
 let disabledSources = new Set();
 const sourceEnabled = (s) => !disabledSources.has(s.id);
 
+/* The main source, unless Race Control has switched it off - then the first enabled one. */
+function preferredSourceIndex() {
+  const main = sources.findIndex((s) => s.id === DEFAULT_SOURCE_ID);
+  if (main >= 0 && sourceEnabled(sources[main])) return main;
+  return Math.max(0, sources.findIndex(sourceEnabled));
+}
+
 function normalizeCurrentSource() {
   if (currentSource >= 0 && currentSource < sources.length && sourceEnabled(sources[currentSource])) return;
-  const first = sources.findIndex(sourceEnabled);
-  if (first >= 0) currentSource = first;
+  currentSource = preferredSourceIndex();
 }
 
 const eventSelect = $("eventSelect");
@@ -456,7 +471,7 @@ const newsStatusEl = $("newsStatus");
 const _def = pickDefault();
 let currentEvent = _def.event;
 let currentSession = _def.session;
-let currentSource = 0;
+let currentSource = sources.findIndex((s) => s.id === DEFAULT_SOURCE_ID);
 let activeView = 'home';
 let playerLoadToken = 0;
 
@@ -464,6 +479,7 @@ const buildUrl = (i) => {
   const s = sources[i];
   if (!s) return "";
   if (s.taid) return getTaidUrl(s.taid);
+  if (s.ppv) return `https://taifood-blog.asia/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}`;
   if (s.streamNum) {
     const slug = getStreamEastSlug(currentEvent, currentSession);
     return `https://embed.st/embed/admin/${slug}/${s.streamNum}`;
@@ -586,8 +602,6 @@ nsActionsEl?.addEventListener("click", (e) => {
     load();
   } else if ((e.target as HTMLElement).id === "nsNextBtn") {
     switchToNextSource();
-  } else if ((e.target as HTMLElement).id === "nsNewTabBtn") {
-    window.open(buildUrl(currentSource), "_blank", "noopener");
   } else if ((e.target as HTMLElement).id === "nsStayBtn") {
     hideNoStream();
     setStreamOnScreen(true);
@@ -606,11 +620,6 @@ function switchToNextSource() {
   load();
 }
 
-$("streamStartBtn")?.addEventListener("click", () => {
-  updateStreamStartAffordance(false);
-  load();
-});
-
 function showNoStream(opts: { blocked?: boolean; title?: string; text?: string; hijack?: boolean; keepFrame?: boolean } = {}) {
   const blocked = Boolean(opts && opts.blocked);
   const hijack = Boolean(opts && opts.hijack);
@@ -619,7 +628,6 @@ function showNoStream(opts: { blocked?: boolean; title?: string; text?: string; 
   if (nsActionsEl) nsActionsEl.hidden = !blocked;
   if (nsStayBtn) nsStayBtn.hidden = !hijack;
   setStreamOnScreen(false);
-  updateStreamStartAffordance(false);
   if (!(opts && opts.keepFrame)) {
     playerEl?.querySelector("iframe")?.remove();
     playerEl?.querySelector("video")?.remove();
@@ -702,21 +710,6 @@ window.setTimeout(()=>{ requestScreenWakeLock().catch(()=>{}); }, 800);
   }, { once:true, passive:true, capture:true });
 });
 
-function pageHasActivation() {
-  try {
-    const ua = navigator.userActivation;
-    return !ua || ua.hasBeenActive === true;
-  } catch (_) {
-    return true;
-  }
-}
-
-function updateStreamStartAffordance(feedIsUp) {
-  const el = $("streamStart");
-  if (!el) return;
-  el.hidden = !(feedIsUp && !pageHasActivation());
-}
-
 function setLoaderText(text) {
   const el = $("loaderText");
   if (el) el.textContent = text;
@@ -775,7 +768,6 @@ function attemptSource(token, order, idx, startedAt) {
       renderButtons();
       updateHeader();
     }
-    updateStreamStartAffordance(true);
     f.classList.add('loaded');
     setStreamOnScreen(true);
     requestScreenWakeLock().catch(()=>{});
@@ -817,7 +809,6 @@ function load() {
   loaderEl?.classList.remove("hidden");
   hideNoStream();
   setLoaderText("Establishing feed…");
-  updateStreamStartAffordance(false);
   playerEl?.querySelector("iframe")?.remove();
   playerEl?.querySelector("video")?.remove();
 
@@ -840,7 +831,6 @@ function load() {
       f.oncanplay = () => {
         if (token === playerLoadToken) {
           loaderEl?.classList.add('hidden');
-          updateStreamStartAffordance(true);
         }
       };
       f.onerror = () => {
@@ -858,7 +848,6 @@ function load() {
         if (token !== playerLoadToken || f.style.opacity === '1') return;
         if (!iframeCommitted(f)) return;
         f.style.opacity = '1';
-        updateStreamStartAffordance(true);
         window.setTimeout(() => {
           if (token === playerLoadToken) loaderEl?.classList.add('hidden');
         }, 180);
@@ -1389,6 +1378,7 @@ function showView(route, { push = true, scroll = true } = {}) {
     const url = route === 'home' ? '/' : '/' + route;
     if (location.pathname !== url) history.pushState({ view: route }, '', url);
   }
+  if (route === 'replays') loadReplays();
   document.title = route === 'home' ? currentEvent.name + " - FreeF1" : VIEW_TITLES[route];
   syncDocumentMeta(route);
   setActiveNav(route);
@@ -1593,7 +1583,7 @@ $("currentStreamBtn")?.addEventListener("click", () => {
   if (!live) return;
   currentEvent = live.event;
   currentSession = live.session;
-  currentSource = 0;
+  currentSource = preferredSourceIndex();
   updateSessions();
   updateHeader();
   renderButtons();
@@ -1607,7 +1597,7 @@ eventSelect?.addEventListener("change", () => {
   if (!ev || ev.sessions.every(isSessionEnded)) return;
   currentEvent = ev;
   currentSession = ev.sessions.find((s) => !isSessionEnded(s)) || ev.sessions[0];
-  currentSource = 0;
+  currentSource = preferredSourceIndex();
   updateSessions();
   updateHeader();
   renderButtons();
@@ -1619,7 +1609,7 @@ sessionSelect?.addEventListener("change", () => {
   const s = currentEvent.sessions.find((s) => s.slug === sessionSelect.value);
   if (!s || isSessionEnded(s)) return;
   currentSession = s;
-  currentSource = 0;
+  currentSource = preferredSourceIndex();
   updateHeader();
   renderButtons();
   load();
@@ -1795,6 +1785,15 @@ const loadChampionship = () => championship ??= import('./features/championship'
   feature.loadDriverGrid();
 }).catch(error => { championship = undefined; showToast('Championship data could not load. Try again.', 'error'); throw error; });
 onVisible(['grid', 'standings'], loadChampionship);
+/* Replays are a separate, lazily-loaded chunk: the index is ~40 KB gzipped and only matters to
+   someone who opens the view. */
+let replaysLoaded = false;
+function loadReplays() {
+  if (replaysLoaded) return;
+  replaysLoaded = true;
+  void import('./features/replays').then((m) => m.init(featureContext)).catch(() => { replaysLoaded = false; });
+}
+if (routeFromPath(location.pathname) === 'replays') loadReplays();
 lazyButton('sessionsBtn', () => import('./features/results').then(m => m.init(featureContext)));
 lazyButton('raceTimesBtn', () => import('./features/race-times').then(m => m.init(featureContext)));
 const loadRadio = (() => {

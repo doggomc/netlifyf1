@@ -35,10 +35,7 @@ export interface ElementIdMap {
   'nsActions': HTMLElement;
   'nsRetryBtn': HTMLButtonElement;
   'nsNextBtn': HTMLButtonElement;
-  'nsNewTabBtn': HTMLButtonElement;
   'nsStayBtn': HTMLButtonElement;
-  'streamStart': HTMLElement;
-  'streamStartBtn': HTMLButtonElement;
   'championshipBtn': HTMLButtonElement;
   'sessionsBtn': HTMLButtonElement;
   'teamSelectBtn': HTMLButtonElement;
@@ -141,6 +138,19 @@ export interface ElementIdMap {
   'returnEta': HTMLElement;
   'garageTime': HTMLElement;
   'autoStatus': HTMLElement;
+  'viewReplays': HTMLElement;
+  'replays': HTMLElement;
+  'replayList': HTMLElement;
+  'replaySeasons': HTMLElement;
+  'replaySessions': HTMLElement;
+  'replayPlayer': HTMLElement;
+  'replayFrameBox': HTMLElement;
+  'replayEmpty': HTMLElement;
+  'replayTitle': HTMLElement;
+  'replaySub': HTMLElement;
+  'replayFeeds': HTMLElement;
+  'replayCount': HTMLElement;
+  'replayClose': HTMLButtonElement;
 }
 export function $<K extends keyof ElementIdMap>(id: K): ElementIdMap[K] | null;
 export function $(id: string): HTMLElement | null;
