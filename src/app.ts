@@ -594,19 +594,31 @@ async function loadDiscordGate() {
   return discordGate;
 }
 
+/* Only a genuine membership answer may downgrade the visitor. A timeout, a 500 or "channel not
+   published" is OUR side failing, and downgrading there is what flipped a verified member back to
+   the locked chip and sent them round the sign-in loop again. */
 async function fetchFourKUrl() {
   try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' } }, 6000);
-    if (!response.ok) {
-      const json = await response.json().catch(() => ({}));
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' } }, 8000);
+    const json = await response.json().catch(() => ({}));
+    if (response.ok) {
+      discordGate = { ...discordGate, verified: true, url: String(json.url || '') };
+      return discordGate.url;
+    }
+    if (json?.code === 'left-server' || json?.code === 'not-verified') {
       discordGate = { ...discordGate, verified: false, url: '' };
-      if (json?.code === 'left-server') showToast('You left the Discord server, so 4K is locked again.', 'warning');
+      showToast(json?.code === 'left-server'
+        ? 'You are not in the Discord server any more, so 4K is locked again.'
+        : 'Your Discord session expired. Sign in again to unlock 4K.', 'warning');
       return '';
     }
-    const json = await response.json();
-    discordGate = { ...discordGate, url: String(json.url || '') };
-    return discordGate.url;
+    /* Channel missing / server busy: stay verified, just say the feed is not up. */
+    discordGate = { ...discordGate, url: '' };
+    showToast(json?.error || '4K is not available right now. Try again in a moment.', 'warning');
+    return '';
   } catch (_) {
+    discordGate = { ...discordGate, url: '' };
+    showToast('Could not reach the 4K service. Check your connection and try again.', 'warning');
     return '';
   }
 }
@@ -637,6 +649,8 @@ function handleDiscordReturn() {
     badstate: ['That sign-in link expired. Try again.', 'warning'],
     token: ['Discord rejected the sign-in. Try again.', 'warning'],
     profile: ['Discord did not return your profile. Try again.', 'warning'],
+    joined: ['Added to the Discord server. 4K unlocked.', 'success'],
+    joinfailed: ['Discord would not add you automatically. Use the invite, then verify again.', 'warning'],
     rate: ['Too many attempts. Give it a minute.', 'warning'],
     unavailable: ['4K unlocks are not configured yet.', 'warning'],
     error: ['Something went wrong verifying your membership.', 'warning']
@@ -648,16 +662,20 @@ function handleDiscordReturn() {
     history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
   } catch (_) {}
   void loadDiscordGate().then(() => {
-    if (discordGate.verified) {
-      const index = sources.findIndex((source) => source.id === 'emb-uhd');
-      if (index >= 0) {
-        currentSource = index;
-        renderButtons();
-        updateHeader();
-        load();
-        showToast('Now playing in 4K. Heads up: it is HEVC, so Safari plays it and most desktops will not.', 'success');
-      }
+    if (!discordGate.verified) return;
+    const index = sources.findIndex((source) => source.id === 'emb-uhd');
+    if (index < 0) return;
+    if (!discordGate.url) {
+      /* Verified, but the stream url did not come back — leave the chip usable, say nothing
+         cheerful, and let the next click retry. */
+      renderButtons();
+      return;
     }
+    currentSource = index;
+    renderButtons();
+    updateHeader();
+    load();
+    showToast('Now playing in 4K. Heads up: it is HEVC, so Safari plays it and most desktops will not.', 'success');
   });
 }
 
@@ -671,8 +689,17 @@ function renderButtons() {
     const b = document.createElement("button");
     b.className = "chip" + (i === currentSource ? " active" : "");
     b.textContent = s.label;
-    b.onclick = () => {
+    b.onclick = async () => {
       currentSource = i;
+      if (s.gated && !discordGate.url) {
+        b.setAttribute('aria-busy', 'true');
+        await fetchFourKUrl();
+        b.removeAttribute('aria-busy');
+        if (!discordGate.url) {
+          renderButtons();
+          return;
+        }
+      }
       renderButtons();
       updateHeader();
       load();
@@ -686,7 +713,7 @@ function renderButtons() {
     const locked = document.createElement('button');
     locked.className = 'chip chip-locked';
     locked.type = 'button';
-    locked.innerHTML = `<span class="chip-lock" aria-hidden="true">🔒</span>${escapeHtml(gatedSource.label)} · Members`;
+    locked.textContent = `${gatedSource.label} · Members`;
     locked.title = discordGate.invite
       ? 'Join the Discord server to unlock the 4K feed'
       : 'Sign in with Discord to unlock the 4K feed';

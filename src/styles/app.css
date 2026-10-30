@@ -2812,11 +2812,6 @@ from {
   background: color-mix(in srgb,var(--amber) 12%,transparent);
 }
 
-.chip-locked .chip-lock {
-  font-size: .72em;
-  margin-right: 5px;
-  opacity: .9;
-}
 
 /* ── Custom livery ─────────────────────────────────────────────────────── */
 .livery-custom {
