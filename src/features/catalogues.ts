@@ -17,7 +17,17 @@ export interface Catalogues {
 
 export const EMBDLOL_STRUCT = 'https://api.embdlol.st/struct';
 export const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
-export const PUBLIC_EMBDLOL = ['f1frisky', 'f1friapple', 'f1fridazn', 'f1friskyit', 'f1friskyde'];
+/* embdlol renames its F1 channels for every race — f1frisky, f1mexicosatsky, … — so a channel is
+   matched by the feed it carries, not by its full name. */
+export const PUBLIC_EMBDLOL = ['sky', 'apple', 'dazn', 'skyit', 'skyde', 'world', 'ita', 'deu'];
+const FEED_SUFFIXES = ['skyit', 'skyde', 'apple', 'world', 'dazn', 'sky', 'ita', 'deu', 'uhd'];
+const FEED_PATTERN = new RegExp(`^f1[a-z]*?(${FEED_SUFFIXES.join('|')})$`);
+
+/* 'f1mexicosatuhd' → 'uhd'. Anything that is not an F1 channel has no key. */
+export function feedKey(name: unknown): string {
+  const match = String(name || '').trim().toLowerCase().match(FEED_PATTERN);
+  return match ? match[1] : '';
+}
 const CDNLIVE_CATALOGUE = 'https://api.cdnlivetv.tv/api/v1/channels/?user=cdnlivetv&plan=free';
 /* The main channel is a strmfree stream; its mirrors live at /api/v1/sources/<key> on either domain. */
 const MIRROR_KEYS = ['skyf1'];

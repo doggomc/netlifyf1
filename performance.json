@@ -3,9 +3,9 @@
   "baselineStartupJsGzipBytes": 56093,
   "startupJsReductionPercent": 56.2,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 24573,
+  "startupJsGzipBytes": 24559,
   "startupJsFiles": [
-    "bundles/index-UAQvagDP.js",
+    "bundles/index-iO4qTefI.js",
     "bundles/interaction-guard-4Vwlk-Z6.js",
     "bundles/dom-C3mHM79r.js",
     "bundles/site-config-BTTtiErb.js"

@@ -388,14 +388,9 @@ function getTaidUrl(num) {
 /* ═══ Link pools ═══
    A source is a POOL of links, not one address. Every entry carries the qualities it can serve so
    the player can stay at 720p or better; anything below 720p is never offered.
-
-   Addressing, per link:
-     'path'    — event/session are in the URL, rebuilt on every switch (taifood)
-     'fixed'   — a live channel; the session key is stamped on to defeat a cached document
-     'mirror'  — same channel on a sibling domain (strmfree ↔ streamfree)
-     'lookup'  — id resolved from a catalogue at play time (embdlol, cdnlivetv)
-     'dynamic' — token minted per request (ehgembxe); never stored */
-type Addressing = 'fixed' | 'dynamic';   // fixed = stamped URL or taifood id, dynamic = token on demand
+   addressing: 'fixed' = a stamped URL or a taifood id, 'dynamic' = a token minted per request
+   (ehgembxe), never stored. */
+type Addressing = 'fixed' | 'dynamic';
 
 interface StreamLink {
   url?: string;
@@ -437,9 +432,8 @@ function cdnLivePlayer(name: string): string {
   return `https://cdnlivetv.tv/api/v1/channels/player/?name=${encodeURIComponent(name)}&code=&user=cdnlivetv&plan=free`;
 }
 
-/* strmfree publishes the live mirrors of a channel at /api/v1/sources/<key>. Every address it
-   returns joins that source's pool, so a mirror it starts publishing today is used without a
-   redeploy. Anything under 720p (its 540p tier) is dropped. */
+/* strmfree publishes the live mirrors of a channel at /api/v1/sources/<key>. They join the pool,
+   so a mirror it starts publishing today plays without a redeploy. Under 720p is dropped. */
 function mirrorLinks(key: string, quality: number): StreamLink[] {
   return (catalogues.mirrors[key] || []).filter((mirror) => mirror.quality === quality).map((mirror) => ({ provider: 'strmfree', quality, url: mirror.url }));
 }
@@ -476,18 +470,20 @@ const sources: StreamSource[] = [
 
   /* embdlol channels. Their ids rotate, so the address is resolved from the catalogue at play
      time and the pool is replaced with every F1 channel it lists (see linkPool). */
-  { id: "emb-sky", label: "Sky F1 (EMB)", embdlol: "f1frisky", links: [] },
-  { id: "emb-apple", label: "Apple TV (EMB)", embdlol: "f1friapple", links: [] },
-  { id: "emb-dazn", label: "DAZN ES (EMB)", embdlol: "f1fridazn", links: [] },
-  { id: "emb-italia", label: "Sky Italia (EMB)", embdlol: "f1friskyit", links: [] },
+  { id: "emb-sky", label: "Sky F1 (EMB)", embdlol: "sky", links: [] },
+  { id: "emb-apple", label: "Apple TV (EMB)", embdlol: "apple", links: [] },
+  { id: "emb-dazn", label: "DAZN ES (EMB)", embdlol: "dazn", links: [] },
+  { id: "emb-italia", label: "Sky Italia (EMB)", embdlol: "skyit", links: [] },
   /* f1friskyde is 720p exactly, so it clears the floor. */
-  { id: "emb-de", label: "Sky DE (EMB)", embdlol: "f1friskyde", links: [] },
+  { id: "emb-de", label: "Sky DE (EMB)", embdlol: "skyde", links: [] },
+  { id: "emb-world", label: "F1 World (EMB)", embdlol: "world", links: [] },
   /* Resolved server-side by GET /api/stream/uhd. HEVC only: Safari and iPhone play it. */
   { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
 
   /* ehgembxe mints a JWT per request via 302 → /play/<jwt>; the frontend asks our server for it.
      The token has a short life, so the link is re-resolved before every attempt. */
   { id: "ehgembxe", label: "Sky Sports F1 HD (EHG)", links: [
+      { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-7758' },
       { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-4089' }
   ]},
 
@@ -628,14 +624,11 @@ function linkPool(index: number): string[] {
   }
 
   if (source.embdlol) {
-    const id = catalogues.embdlol[source.embdlol];
-    links = id ? [{ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }] : [];
-    /* The named channel is often absent; the catalogue's other F1 channels are still valid links
-       for the same chip, so they become the rest of its pool. */
-    for (const otherId of Object.values(catalogues.embdlol)) {
-      const url = EMBDLOL_EMBED + otherId;
-      if (!links.some((link) => link.url === url)) links.push({ provider: 'embdlol', quality: 0, url });
-    }
+    /* The named feed first, then the catalogue's other F1 feeds as the rest of its pool — they are
+       all valid links for the same chip when the exact one is missing. */
+    const own = catalogues.embdlol[source.embdlol];
+    links = (own ? [own] : []).concat(Object.values(catalogues.embdlol).filter((id) => id !== own))
+      .map((id) => ({ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }));
   }
 
   /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
@@ -662,12 +655,14 @@ function linkPool(index: number): string[] {
   return good && pool.includes(good) ? [good, ...pool.filter((url) => url !== good)] : pool;
 }
 
-/* Warm a dynamic provider's token so the chip can play on first click. */
+/* Warm a dynamic provider's token so the chip plays on first click. */
 function prefetchDynamicLinks(index: number) {
-  for (const link of sources[index]?.links || []) {
-    if (link.addressing === 'dynamic' && link.url && !cachedDynamicUrl(link.url)) void resolveDynamicLink(link.url);
-  }
+  void Promise.all(missingTokens(index).map((link) => resolveDynamicLink(link.url as string)));
 }
+
+/* The dynamic links of a chip whose token is not in hand yet. */
+const missingTokens = (index: number) =>
+  (sources[index]?.links || []).filter((link) => link.addressing === 'dynamic' && link.url && !cachedDynamicUrl(link.url));
 
 /* Anything derived from the previous session is dropped here: the 4K address, resolved dynamic
    tokens and the per-source "last good link". A new session can repoint a provider completely. */
@@ -715,10 +710,8 @@ function updateHeader() {
   const last = parts.slice(-2).join(" ");
   const first = parts.slice(0, -2).join(" ") || parts[0];
 
-  const heroTitle = $("heroTitle");
-  const heroTitle2 = $("heroTitle2");
-  const heroSession = $("heroSession");
-  const heroRound = $("heroRound");
+  const heroTitle = $("heroTitle"), heroTitle2 = $("heroTitle2");
+  const heroSession = $("heroSession"), heroRound = $("heroRound");
   const stageLabel = $("stageLabel"), sourceLabel = $("sourceLabel");
 
   if (heroTitle) heroTitle.textContent = first;
@@ -754,16 +747,8 @@ const joinNudgeDontShow = document.getElementById('joinNudgeDontShow') as HTMLIn
 let fourKUrl = '';
 let fourKRequest = 0;
 
-function nudgeMuted(): boolean {
-  try { return localStorage.getItem(FOURK_NUDGE_KEY) === '1'; } catch (_) { return false; }
-}
-
-function setNudgeMuted(muted: boolean) {
-  try {
-    if (muted) localStorage.setItem(FOURK_NUDGE_KEY, '1');
-    else localStorage.removeItem(FOURK_NUDGE_KEY);
-  } catch (_) {}
-}
+const nudgeMuted = () => store.get(FOURK_NUDGE_KEY) === '1';
+const setNudgeMuted = (muted: boolean) => { muted ? store.set(FOURK_NUDGE_KEY, '1') : store.remove(FOURK_NUDGE_KEY); };
 
 /* The address is resolved server-side because the upstream channel id rotates. */
 async function fetchFourKUrl(): Promise<string> {
@@ -777,6 +762,7 @@ async function fetchFourKUrl(): Promise<string> {
       showToast(json?.error || 'The 4K feed is unavailable right now.', 'warning');
       return '';
     }
+
     fourKUrl = String(json.url);
     return fourKUrl;
   } catch (_) {
@@ -785,8 +771,9 @@ async function fetchFourKUrl(): Promise<string> {
   }
 }
 
-/* The 4K channel publishes a single HEVC rendition. Chrome/Edge/Firefox on most desktops have no
-   HEVC decoder, so the frame stays black however well the link worked. */
+/* The 4K channel is a single HEVC rendition: no decoder means a black frame. The probe below is a
+   hint, never a gate — the chip always tries, since TV/console browsers decode HEVC in hardware
+   while failing the codec probe. */
 let hevcSupport: boolean | null = null;
 function canPlayHevc(): boolean {
   if (hevcSupport !== null) return hevcSupport;
@@ -800,7 +787,7 @@ function canPlayHevc(): boolean {
   return hevcSupport;
 }
 
-const HEVC_WARNING = '4K is HEVC: plays in Safari and on iPhone, black on most desktops.';
+const HEVC_WARNING = '4K is HEVC: if the picture stays black, watch in Safari.';
 
 function closeJoinNudge() {
   if (joinNudgeOverlay) closeModal(joinNudgeOverlay);
@@ -902,7 +889,7 @@ function renderButtons() {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "chip" + (i === currentSource ? " active" : "");
-    if (s.gated && !canPlayHevc()) b.title = 'HEVC: Safari and iPhone only';
+    if (s.gated && !canPlayHevc()) b.title = HEVC_WARNING;
     b.textContent = s.label;
     b.onclick = async () => {
       /* The 4K chip asks once whether they want session alerts before playing. */
@@ -994,7 +981,8 @@ function switchToNextSource() {
 }
 
 function showNoStream(opts: { blocked?: boolean; title?: string; text?: string; hijack?: boolean; keepFrame?: boolean } = {}) {
-  const blocked = Boolean(opts && opts.blocked);
+  /* Blocked is the default: the auto-cycling "no session" panel is the one case that opts out. */
+  const blocked = opts.blocked !== false;
   const hijack = Boolean(opts && opts.hijack);
   loaderEl?.classList.add("hidden");
   noStreamEl?.classList.add("visible");
@@ -1115,7 +1103,7 @@ function watchFrameNavigation(f, token, isSettled) {
     if (token !== playerLoadToken || !isSettled()) return;
     navs++;
     if (navs === 1) return;
-    showNoStream({ blocked: true, hijack: true, keepFrame: true });
+    showNoStream({ hijack: true, keepFrame: true });
   });
 }
 
@@ -1123,21 +1111,19 @@ function watchFrameNavigation(f, token, isSettled) {
    A source only loses its place in the row once all of its links have failed. */
 function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
   if (token !== playerLoadToken) return;
-  if (idx >= order.length) return showNoStream({ blocked: true, text: BLOCKED_COPY });
+  if (idx >= order.length) return showNoStream({ text: BLOCKED_COPY });
   const sourceIndex = order[idx];
   const pool = linkPool(sourceIndex);
   if (linkIdx >= pool.length) {
-    /* An EMB chip whose catalogue has no F1 channel has no link anywhere; jumping to another
-       provider on its behalf looked like the wrong chip had been clicked. Say so instead. */
-    return sources[sourceIndex].embdlol && !idx
-      ? showNoStream({ blocked: true, title: 'No link for this feed', text: 'No F1 channel in the EMB catalogue right now.' })
-      : attemptSource(token, order, idx + 1, startedAt, 0);
+    /* An EMB chip with no catalogue channel has no link anywhere; jumping to another provider on
+       its behalf looked like the wrong chip had been clicked. Say so instead. */
+    if (sources[sourceIndex].embdlol && !idx) return showNoStream({ title: 'No link for this feed', text: 'No F1 channel upstream right now.' });
+    attemptSource(token, order, idx + 1, startedAt, 0);
+    return;
   }
 
   const targetUrl = pool[linkIdx];
-  setLoaderText(!idx && !linkIdx ? "Establishing feed…"
-    : idx === order.length - 1 && linkIdx === pool.length - 1 ? "Every feed is unreachable…"
-    : "Switching link…");
+  setLoaderText(!idx && !linkIdx ? "Establishing feed…" : idx === order.length - 1 && linkIdx === pool.length - 1 ? "Every feed is unreachable…" : "Switching link…");
 
   const f = makeStreamIframe(targetUrl, sources[sourceIndex].rp);
   let settled = false;
@@ -1220,7 +1206,7 @@ function load() {
         }
       };
       f.onerror = () => {
-        if (token === playerLoadToken) showNoStream({ blocked: true, text: BLOCKED_COPY });
+        if (token === playerLoadToken) showNoStream({ text: BLOCKED_COPY });
       };
     } else {
       f.src = streamOverride.url;
@@ -1251,7 +1237,7 @@ function load() {
           if (token !== playerLoadToken || !wasSettled()) return;
           navs++;
           if (navs === 1) return;
-          showNoStream({ blocked: true, hijack: true, keepFrame: true });
+          showNoStream({ hijack: true, keepFrame: true });
         });
       }
       window.setTimeout(() => {
@@ -1262,7 +1248,7 @@ function load() {
           return;
         }
         f.remove();
-        showNoStream({ blocked: true, text: BLOCKED_COPY });
+        showNoStream({ text: BLOCKED_COPY });
       }, NAV_TIMEOUT_MS);
     }
     playerEl?.appendChild(f);
@@ -1271,7 +1257,7 @@ function load() {
   }
 
   if (!isStreamAvailable(currentSession)) {
-    showNoStream();
+    showNoStream({ blocked: false });
     return;
   }
 
@@ -1291,12 +1277,12 @@ function load() {
   }
   /* A dynamic provider has no address until its token is fetched, so fetch it first — otherwise the
      ladder skips the chip and plays a different provider. */
-  const dyn = sources[currentSource]?.links.find((link) => link.url && link.addressing === 'dynamic' && !cachedDynamicUrl(link.url));
-  if (dyn) {
-    setLoaderText('Getting a fresh token…');
-    return void resolveDynamicLink(dyn.url).then((url) => {
+  const missing = missingTokens(currentSource);
+  if (missing.length) {
+    setLoaderText('Fetching a token…');
+    return void Promise.all(missing.map((link) => resolveDynamicLink(link.url as string))).then((urls) => {
       if (token !== playerLoadToken) return;
-      url ? load() : attemptSource(token, order, 0, performance.now());
+      urls.some(Boolean) ? load() : attemptSource(token, order, 0, performance.now());
     });
   }
   attemptSource(token, order, 0, performance.now());
