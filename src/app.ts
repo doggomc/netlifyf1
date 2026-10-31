@@ -383,8 +383,12 @@ function kebab(value) {
    /embed/<event-name>---<session-name>-<provider id>. Both names are slugged the same way
    ("Mexico City Grand Prix" + "Practice 1" -> mexico-city-grand-prix---practice-1-31363),
    so each provider is just a fixed numeric id. */
-function getTaidUrl(num) {
-  return `https://taifood-blog.asia/embed/${kebab(currentEvent?.name)}---${kebab(currentSession?.name)}-${num}`;
+/* taifood addresses are <event>---<session>-<id><mark>. Their event name is the short form
+   ("Mexico"); our schedule carries the official one ("Mexico City"), so both are offered. */
+const EVENT_ALIASES = { 'mexico-city': 'mexico' };
+function taidCandidates(num, mark = 'SD') {
+  const base = kebab(currentEvent?.name);
+  return [base, EVENT_ALIASES[base]].filter(Boolean).map((event) => `https://taifood-blog.asia/embed/${event}---${kebab(currentSession?.name)}-${num}${mark}`);
 }
 
 /* ═══ Link pools ═══
@@ -398,6 +402,7 @@ interface StreamLink {
   url?: string;
   taid?: number;
   ppv?: boolean;
+  mark?: string;                // taifood quality suffix, e.g. 'SD1080pHD'
   provider: string;
   label?: string;               // only where it differs from the provider name
   addressing?: Addressing;      // defaults to 'fixed' (a stamped URL or a taifood id)
@@ -423,8 +428,7 @@ const MIN_QUALITY = 720;
 const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
 
 /* ═══ Provider catalogues ═══
-   embdlol ids rotate and cdnlivetv publishes channel status, so both are read at runtime from the
-   lazy catalogue chunk (src/features/catalogues.ts). Nothing here is hard-coded. */
+   embdlol ids rotate and cdnlivetv publishes status, so both come from the lazy catalogue chunk. */
 let catalogues: Catalogues = { embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {} };
 /* Until the catalogue has answered once, an EMB chip has NO pool. Treating "not loaded yet" as
    "nothing upstream" is what made every EMB chip look dead on a cold click. */
@@ -446,13 +450,13 @@ function mirrorLinks(key: string, quality: number): StreamLink[] {
   return (catalogues.mirrors[key] || []).filter((mirror) => mirror.quality === quality).map((mirror) => ({ provider: 'strmfree', quality, url: mirror.url }));
 }
 
-/* Sky UHD is the main source: first in the row and what plays on load, on a session change and on
-   "jump to live". If Race Control disables it, the player falls through to the first enabled source. */
+/* What plays on load and on "jump to live"; if Race Control disables it, the first enabled source. */
 const DEFAULT_SOURCE_ID = "sky-uk";
 
-/* label:feed for each embdlol chip, in row order. */
-/* The embdlol feeds we draw a chip for. Labels are derived; the catalogue supplies the channel. */
+/* The embdlol feeds we draw a chip for (labels derived, channel supplied by the catalogue), and
+   the ones whose commentary is not English — those draw under the Other tab, not English. */
 const EMB_FEEDS = 'sky,apple,dazn,skyit,skyde,world,german,spanish,italian,fullhd1,fullhd3'.split(',');
+const EMB_OTHER = 'dazn,skyit,skyde,german,spanish,italian'.split(',');
 
 
 /* ═══ Tabs ═══
@@ -478,7 +482,7 @@ const SPECIALS: StreamSource[] = [
   lang: 'en' as const,
   special: special as 'onboard' | 'data',
   weelo,
-  links: [{ provider: 'weelo', quality: 1080, url: `https://weellz.live/beta?stream=${weelo}` }],
+  links: [],
 }));
 
 /* ═══ The source list ═══
@@ -502,7 +506,7 @@ const sources: StreamSource[] = [
   /* embdlol channels. Their ids rotate, so the address is resolved from the catalogue at play
      time and the pool is replaced with every F1 channel it lists (see linkPool). */
   /* embdlol feeds: a chip names the FEED; the catalogue says which channel carries it today. */
-  ...EMB_FEEDS.map((embdlol) => ({ id: `emb-${embdlol}`, label: `${embdlol.toUpperCase()} (EMB)`, embdlol, links: [] })),
+  ...EMB_FEEDS.map((embdlol) => ({ id: `emb-${embdlol}`, label: `${embdlol.toUpperCase()} (EMB)`, embdlol, lang: (EMB_OTHER.includes(embdlol) ? 'other' : 'en') as StreamSource['lang'], links: [] })),
   { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
 
   /* Works, but serves heavy advertising, so it sits below the EMB feeds. */
@@ -532,11 +536,11 @@ const sources: StreamSource[] = [
       { provider: 'taifood', taid: 31385 },
       { provider: 'taifood', taid: 31374 }
   ]},
-  { id: "dazn", label: "DAZN", rp: "unsafe-url", links: [
+  { id: "dazn", label: "DAZN", lang: "other", rp: "unsafe-url", links: [
       { provider: 'taifood', taid: 31387 },
       { provider: 'taifood', taid: 31376 }
   ]},
-  { id: "viaplay", label: "Viaplay", rp: "unsafe-url", links: [
+  { id: "viaplay", label: "Viaplay", lang: "other", rp: "unsafe-url", links: [
       { provider: 'taifood', taid: 31391 },
       { provider: 'taifood', taid: 31380 }
   ]},
@@ -632,7 +636,7 @@ let playerLoadToken = 0;
    This is the single place a source's address is decided. */
 function resolveLink(link: StreamLink, key = sessionKey()): string {
   if (link.quality && link.quality < MIN_QUALITY) return '';
-  if (link.taid) return getTaidUrl(link.taid);
+  if (link.taid) return taidCandidates(link.taid, link.mark)[0];
   if (link.ppv) return `https://taifood-blog.asia/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}`;
   return link.url ? stampSession(link.url, key) : '';
 }
@@ -656,7 +660,7 @@ function linkPool(index: number): string[] {
 
   /* A weelo special has exactly one address, and only publishes it when weelo says it can play.
      'soon' still plays: it means the feed is about to come up, and the provider page waits for it. */
-  if (source.weelo) return specialDown(source) ? [] : source.links.map((link) => resolveLink(link, key)).filter(Boolean);
+  if (source.weelo) return specialDown(source) ? [] : [stampSession(`https://weellz.live/beta?stream=${source.weelo}`, key)];
 
   if (source.embdlol) {
     /* The named feed first, then the catalogue's other F1 feeds as the rest of its pool — they are
@@ -674,7 +678,10 @@ function linkPool(index: number): string[] {
 
   const dynamic = links.filter((link) => link.addressing === 'dynamic');
 
-  const pool = links.filter((link) => link.addressing !== 'dynamic').map((link) => resolveLink(link, key)).filter(Boolean);
+  /* A taifood link expands to more than one address, so the pool is flattened. */
+  const pool = links.filter((link) => link.addressing !== 'dynamic')
+    .flatMap((link) => (link.taid ? taidCandidates(link.taid, link.mark) : [resolveLink(link, key)]))
+    .filter(Boolean);
   /* A dynamic link is only usable once its token is in hand. These tokens lapse and the provider
      then shows a "Link expired" page, so a stale one is refreshed before its address is offered. */
   for (const link of dynamic) {
@@ -929,12 +936,9 @@ const specialState = (s: StreamSource) => (s.weelo && catalogues.weelo[s.weelo])
 const specialDown = (s: StreamSource) => /^(offline|dark)$/.test(specialState(s));
 
 function renderTabBar() {
-  const bar = $('feedTabs');
-  if (!bar) return;
-  bar.replaceChildren(...['English', 'Other', 'All'].map((label) => {
+  $('feedTabs')?.replaceChildren(...['English', 'Other', 'All'].map((label) => {
     const b = document.createElement('button');
-    /* The state value is 'en', not the label: keying the tab off 'english' meant English filtered
-       as Other and no chip ever matched. */
+    /* The state value is 'en', not the label: keying off the label made English filter as Other. */
     const id = label === 'English' ? 'en' : label.toLowerCase();
     b.type = 'button';
     b.className = 'chip' + (id === sourceTab ? ' active' : '');
@@ -949,7 +953,7 @@ function renderTabBar() {
 
 function renderButtons() {
   if (!linksEl) return;
-  linksEl.innerHTML = "";
+  linksEl.replaceChildren();
   normalizeCurrentSource();
   renderTabBar();
 

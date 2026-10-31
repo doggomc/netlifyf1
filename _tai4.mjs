@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const b = await chromium.launch();
+const ctx = await b.newContext({ userAgent: UA });
+const page = await ctx.newPage();
+const log = [];
+page.on('requestfailed', (r) => log.push(`FAILED ${r.failure()?.errorText} ${r.url().slice(0, 90)}`));
+page.on('response', (r) => { const s = r.status(); if (s >= 400) log.push(`${s} ${r.url().slice(0, 90)}`); else if (/\.(php|html|js)/.test(r.url())) log.push(`${s} ${r.url().slice(0, 90)}`); });
+await page.goto('https://taifood-blog.asia/embed/mexico-grand-prix---qualifying-31387', { waitUntil: 'domcontentloaded' });
+await page.waitForTimeout(9000);
+console.log(log.slice(0, 22).join('\n'));
+console.log('--- body text ---');
+console.log((await page.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 300));
+await b.close();

@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const b = await chromium.launch();
+const ctx = await b.newContext({ userAgent: UA, viewport: { width: 1280, height: 800 } });
+const p = await ctx.newPage();
+const reqs = [];
+p.on('response', (r) => { const u = r.url(); if (/taifood|adexchange|interstitial|\.m3u8|\.mp4/.test(u)) reqs.push(`${r.status()} ${r.request().resourceType()} ${u.slice(0, 95)}`); });
+await p.goto('https://taifood-blog.asia/embed/mexico-city-grand-prix---qualifying-31387', { waitUntil: 'domcontentloaded' });
+await p.waitForTimeout(8000);
+await p.mouse.click(640, 400);
+await p.waitForTimeout(8000);
+await p.mouse.click(900, 300);
+await p.waitForTimeout(6000);
+console.log(reqs.slice(0, 18).join('\n'));
+console.log('--- text ---', (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 200));
+console.log('--- frames ---', p.frames().map(f => f.url().slice(0, 80)).join('\n              '));
+await b.close();

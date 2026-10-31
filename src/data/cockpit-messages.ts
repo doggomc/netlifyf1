@@ -28,23 +28,22 @@ export interface CockpitMessage {
 }
 
 export const NO_STREAM_MESSAGES: CockpitMessage[] = [
-  { t: 'Not on air yet', x: 'You are early. Live video starts shortly before the session begins.' },
-  { t: 'Lights out soon', x: 'Almost time. The stream goes live a few minutes before the session starts.' },
-  { t: 'Waiting on the grid', x: 'The grid is forming. Video starts shortly — session times are listed above.' },
-  { t: 'Between sessions', x: 'Nothing on track right now. The next session streams live from the moment it starts.' },
-  { t: 'Standby', x: 'All quiet for now. Pick the session above and the feed starts as soon as it is live.' },
-  { t: 'Parc fermé', x: 'The feed is parked until the next session. No action needed on your side.' },
-  { t: 'See you at lights out', x: 'Video starts automatically at the scheduled time. Nothing to do.' }
+  { t: 'Not on air yet', x: 'You are early. Live video starts shortly before the session.' },
+  { t: 'Lights out soon', x: 'Almost time. The stream goes live minutes before the session.' },
+  { t: 'Waiting on the grid', x: 'The grid is forming. Video starts shortly; session times are above.' },
+  { t: 'Between sessions', x: 'Nothing on track. The next session streams from the moment it starts.' },
+  { t: 'Standby', x: 'All quiet for now. Pick a session above and the feed starts when it is live.' },
+  { t: 'Parc fermé', x: 'The feed is parked until the next session. No action needed.' },
+  { t: 'See you at lights out', x: 'Video starts at the scheduled time. Nothing to do.' }
 ];
 
 export const LOADER_LINES = [
   'Establishing feed…',
   'Getting the tyres up to temperature…',
-  'Opening DRS…',
   'Lights out and away we go…'
 ];
 
-export const BLOCKED_TITLE = 'Feed blocked on this device';
+export const BLOCKED_TITLE = 'Feed blocked';
 
 export const BLOCKED_COPY_IOS =
   'The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site and reload.';
@@ -55,6 +54,6 @@ export const BLOCKED_COPY =
 export const HIJACK_TITLE = 'The feed tried to send you to another site';
 
 export const HIJACK_COPY =
-  "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
+  "That was the feed's ad layer, not us. Resume reloads the stream; Stay keeps the page the frame landed on. We never redirect you off this site: close any extra tab it opened.";
 
 export const FEATURE_ERROR = 'This feature could not load. Check your connection, then reload the page.';

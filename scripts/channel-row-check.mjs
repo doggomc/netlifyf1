@@ -6,7 +6,11 @@
    4. an EMB chip with no catalogue channel says so instead of jumping to another provider
    5. the EHG chip re-resolves its token instead of replaying an expired one
    6. the English / Other / All tabs filter the row and leave the specials in their own block
-   7. a weelo special reads its state, plays when it is on air and says so when it is not */
+   7. a weelo special reads its state, plays when it is on air and says so when it is not
+   8. the catalogue's race-prefixed short codes (f1mexicosatita) still reach their chip, and the
+      non-English feeds stay out of the English tab
+   9. every taifood chip asks for <event>---<session>-<id><mark>, with the mark and both spellings of
+      the event name, and never the 540p path form */
 import { chromium } from 'playwright';
 
 const BASE = 'http://127.0.0.1:4173';
@@ -102,6 +106,8 @@ const clickChip = async (page, label) => {
 };
 const frameSrc = (page) => page.evaluate(() => document.querySelector('#player iframe')?.src || '');
 const tab = (page, label) => page.locator('#feedTabs button.chip', { hasText: label }).first().click();
+/* Exact match: 'DAZN' would otherwise hit 'DAZN (EMB)' first and test the wrong chip. */
+const clickChipExact = (page, label) => page.locator('#links button.chip', { hasText: new RegExp(`^${label}$`) }).first().click();
 const rowLabels = (page) => page.evaluate(() => [...document.querySelectorAll('#links button.chip')].map((b) => b.textContent.trim()));
 const specialLabels = (page) => page.evaluate(() => [...document.querySelectorAll('#links .special-row button.chip')].map((b) => b.textContent.trim()));
 
@@ -216,6 +222,74 @@ const weeloUp = {
   const message = await page.evaluate(() => document.querySelector('#noStream')?.textContent?.trim() || '');
   check('an offline data channel says so instead of opening a frame', /offline|not on air|no link/i.test(message), message.slice(0, 90));
   check('no page errors in the specials pass', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* ── 8. today's catalogue naming, and where the non-English feeds live ── */
+{
+  /* Exactly what embdlol published on 2026-10-31: race-prefixed, with the short codes for the
+     Italian and German feeds and no apple/fullhd channels at all. */
+  const today = [
+    { channelname: 'f1mexicosatsky', id: '01a192cf-6841-755f-acfa-c694d50bf588' },
+    { channelname: 'f1mexicosatworld', id: '01a192d0-450c-75e2-a1e2-07322ce03527' },
+    { channelname: 'f1mexicosatdazn', id: '01a192d0-5e87-7390-986e-489d8d1b8dc1' },
+    { channelname: 'f1mexicosatita', id: '01a192d0-7a05-7033-a9b9-7baffa77b4bd' },
+    { channelname: 'f1mexicosatdeu', id: '01a192d0-8c0e-711c-a895-062bfa1beea9' },
+  ];
+  const { page, errors } = await openPage({ embdlolChannels: today, weeloState: weeloUp });
+  await page.waitForTimeout(1200);
+
+  const english = await rowLabels(page);
+  check('the non-English feeds are not in the English tab',
+    !['DAZN (EMB)', 'SKYIT (EMB)', 'SKYDE (EMB)', 'GERMAN (EMB)', 'SPANISH (EMB)', 'ITALIAN (EMB)', 'DAZN', 'Viaplay'].some((l) => english.includes(l)),
+    english.join(' | '));
+  check('and the English feeds are', ['SKY (EMB)', 'WORLD (EMB)', 'Sky Sports F1 UK'].every((l) => english.includes(l)), english.join(' | '));
+
+  await clickChip(page, 'SKY (EMB)');
+  await page.waitForTimeout(2500);
+  const sky = await frameSrc(page);
+  check('a race-prefixed catalogue name still reaches its chip', sky.includes('01a192cf-6841'), sky);
+
+  await tab(page, 'Other');
+  await page.waitForTimeout(400);
+  await clickChip(page, 'ITALIAN (EMB)');
+  await page.waitForTimeout(2500);
+  const italian = await frameSrc(page);
+  check('the short code ita maps to the Italian chip', italian.includes('01a192d0-7a05'), italian);
+
+  await clickChip(page, 'DAZN (EMB)');
+  await page.waitForTimeout(2500);
+  const dazn = await frameSrc(page);
+  check('every EMB chip that has a channel opens a player', dazn.includes('embdlol.st/embed/'), dazn);
+  check('no page errors in the catalogue-naming pass', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* ── 9. taifood addresses ── */
+{
+  const { page, feeds, errors } = await openPage({ weeloState: weeloUp });
+  await page.waitForTimeout(1000);
+  await tab(page, 'Other');
+  await page.waitForTimeout(400);
+  for (const label of ['DAZN', 'Viaplay']) {
+    await clickChipExact(page, label);
+    await page.waitForTimeout(2600);
+  }
+  const asked = feeds.filter((u) => /taifood/.test(u));
+  const withMark = asked.filter((u) => /-313\d\d(SD|SD1080pHD)$/.test(u));
+  check('the taifood chip asks for a marked address', withMark.length > 0, asked[0] || 'none requested');
+  check('the address uses --- between event and session', asked.every((u) => /---/.test(u)), asked.slice(0, 2).join(' | '));
+  check('the marked address is the one tried first', /mexico-city-grand-prix---qualifying-31387SD$/.test(asked[0] || ''), asked[0] || 'none');
+  check('no 540p path form is ever requested', !asked.some((u) => /\/embed\/f1\//.test(u)), asked.filter((u) => /\/embed\/f1\//.test(u)).join(' | '));
+  check('no page errors in the taifood pass', errors.length === 0, errors.join(' | '));
+
+  /* Both spellings are in the pool: the schedule says Mexico City, the provider's pages say Mexico.
+     Fail the first one and the chip must move on to the other, not straight to another provider. */
+  await page.route(/taifood.*mexico-city-grand-prix/, (route) => route.abort('failed'));
+  await clickChipExact(page, 'Viaplay');
+  await page.waitForTimeout(4000);
+  const after = feeds.filter((u) => /taifood.*mexico-grand-prix---/.test(u));
+  check('the alternate event spelling is tried when the first fails', after.length > 0, after[0] || 'never tried');
   await page.close();
 }
 

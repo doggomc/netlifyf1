@@ -29,14 +29,17 @@ const FEED_SUFFIXES = ['fullhd1', 'fullhd3', 'italian', 'spanish', 'german', 'sk
   'apple', 'world', 'dazn', 'sky', 'ita', 'deu', 'uhd'];
 export const PUBLIC_EMBDLOL = FEED_SUFFIXES.slice(0, -1);
 const FEED_PATTERN = new RegExp(`^f1[a-z]*?(${FEED_SUFFIXES.join('|')})$`);
+/* embdlol's short codes and the long key a chip uses: Mexico published f1mexicosatita and
+   f1mexicosatdeu, which matched no chip and left the whole EMB block without a channel. */
+const FEED_ALIASES: Record<string, string> = { ita: 'italian', deu: 'german' };
 
-/* 'f1mexicosatuhd' → 'uhd'. Anything that is not an F1 channel has no key. */
+/* 'f1mexicosatuhd' → 'uhd', 'f1mexicosatita' → 'italian'. Anything else has no key. */
 export function feedKey(name: unknown): string {
   /* Some entries are bare ('german', 'fullhd3'), others carry the race prefix ('f1frigerman'). */
   const flat = String(name || '').trim().toLowerCase().replace(/[\s_]/g, '');
   if (FEED_SUFFIXES.includes(flat)) return flat;
   const match = flat.match(FEED_PATTERN);
-  return match ? match[1] : '';
+  return match ? FEED_ALIASES[match[1]] || match[1] : '';
 }
 const CDNLIVE_CATALOGUE = 'https://api.cdnlivetv.tv/api/v1/channels/?user=cdnlivetv&plan=free';
 /* The main channel is a strmfree stream; its mirrors live at /api/v1/sources/<key> on either domain. */
@@ -65,10 +68,11 @@ async function fetchEmbdlol(deps: CatalogueDeps): Promise<Record<string, string>
   const json = await response.json();
   const next: Record<string, string> = {};
   for (const channel of channelsOf(json)) {
-    const name = String(channel?.channelname || '').toLowerCase();
-    /* Allowlist, not a blocklist: the 4K channel is resolved server-side and must never be named
-       or id'd in a public bundle. */
-    if (PUBLIC_EMBDLOL.includes(name) && channel?.id) next[name] = String(channel.id);
+    /* Keyed by feed, not by the published name: the name changes every race weekend and only the
+       feed is stable. Allowlist, not a blocklist — the 4K channel is resolved server-side and must
+       never be named or id'd in a public bundle. */
+    const key = feedKey(channel?.channelname);
+    if (key && key !== 'uhd' && channel?.id) next[key] = String(channel.id);
   }
   return next;
 }
