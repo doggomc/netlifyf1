@@ -34,10 +34,33 @@ describe('stream source link pools', () => {
       /* quality may be omitted when it is unknown/adaptive; when stated it must clear 720p. */
       const quality = link.match(/quality:\s*(\d+)/);
       if (quality) expect(Number(quality[1]) === 0 || Number(quality[1]) >= 720).toBe(true);
-      expect(link).toMatch(/addressing:\s*'/);
+      /* addressing is optional: a missing one means 'fixed'. Only 'dynamic' has to be stated. */
+      if (/addressing:/.test(link)) expect(link).toMatch(/addressing:\s*'/);
       /* label is optional: the provider name is used when it would only repeat itself. */
       if (/label:/.test(link)) expect(link).toMatch(/label:\s*'/);
     }
+  });
+
+  it('puts Sky HD first and Sky UHD second', () => {
+    const order = [...block.matchAll(/\{ id: "(sky-[a-z0-9-]+)"/g)].map((m) => m[1]);
+    expect(order.slice(0, 2)).toEqual(['sky-uk', 'sky-uhd']);
+    expect(block).toContain('label: "Sky HD"');
+    expect(block).toContain('label: "Sky UHD"');
+  });
+
+  it('backs Sky HD with 1080p strmfree and Sky UHD with 2160p strmfree', () => {
+    const skyHd = block.slice(block.indexOf('{ id: "sky-uk"'), block.indexOf('{ id: "sky-uhd"'));
+    expect(skyHd).toContain('skyf11080p');
+    expect(skyHd).not.toContain('skyf12160p');
+    const skyUhd = block.slice(block.indexOf('{ id: "sky-uhd"'), block.indexOf('{ id: "sky-f1-uk"'));
+    expect(skyUhd).toContain('skyf12160p');
+  });
+
+  it('keeps every cdnlivetv F1 channel in the pool', () => {
+    expect(block).toContain("'Sky Sports F1 FHD UK'");
+    expect(block).toContain("'DAZN F1 FHD'");
+    expect(block).toContain("'Viaplay Sports 1 FHD UK'");
+    expect(block).toContain("'Viaplay Sports 2 FHD UK'");
   });
 
   it('keeps the 540p taifood tier out of the list', () => {

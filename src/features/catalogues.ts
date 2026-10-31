@@ -11,15 +11,20 @@ export interface Catalogues {
   embdlol: Record<string, string>;
   /* cdnlivetv channel name → the status the provider publishes for it. */
   cdnlive: Record<string, string>;
+  /* strmfree stream key → the mirrors the provider publishes for it, 720p and above. */
+  mirrors: Record<string, { url: string; quality: number }[]>;
 }
 
 export const EMBDLOL_STRUCT = 'https://api.embdlol.st/struct';
 export const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
 export const PUBLIC_EMBDLOL = ['f1frisky', 'f1friapple', 'f1fridazn', 'f1friskyit', 'f1friskyde'];
 const CDNLIVE_CATALOGUE = 'https://api.cdnlivetv.tv/api/v1/channels/?user=cdnlivetv&plan=free';
+/* The main channel is a strmfree stream; its mirrors live at /api/v1/sources/<key> on either domain. */
+const MIRROR_KEYS = ['skyf1'];
+const MIRROR_HOSTS = ['https://strmfree.st', 'https://streamfree.top'];
 const TTL_MS = 5 * 60_000;
 
-const empty = (): Catalogues => ({ embdlol: {}, cdnlive: {} });
+const empty = (): Catalogues => ({ embdlol: {}, cdnlive: {}, mirrors: {} });
 
 let cached: Catalogues = empty();
 let loadedAt = 0;
@@ -57,17 +62,52 @@ async function fetchCdnLive(deps: CatalogueDeps): Promise<Record<string, string>
   return next;
 }
 
+function qualityOf(value: unknown): number {
+  const match = String(value || '').match(/(\d{3,4})p/i);
+  return match ? Number(match[1]) : 0;
+}
+
+/* The provider states which addresses are live for a stream key. Mirrors it does not list are still
+   useful later in the pool, so this only ever adds. */
+async function fetchMirrors(deps: CatalogueDeps): Promise<Record<string, { url: string; quality: number }[]>> {
+  const out: Record<string, { url: string; quality: number }[]> = {};
+  await Promise.all(MIRROR_KEYS.map(async (key) => {
+    const found: { url: string; quality: number }[] = [];
+    for (const host of MIRROR_HOSTS) {
+      try {
+        const response = await deps.fetchWithTimeout(`${host}/api/v1/sources/${encodeURIComponent(key)}`, {
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        }, 4000);
+        if (!response.ok) continue;
+        const json = await response.json();
+        for (const entry of Array.isArray(json?.live_sources) ? json.live_sources : []) {
+          const url = String(entry?.url || entry || '');
+          const quality = qualityOf(entry?.quality);
+          if (!url.startsWith('https://') || quality < 720) continue;
+          if (!found.some((mirror) => mirror.url === url)) found.push({ url, quality });
+        }
+      } catch (_) {
+        /* Domain down or not answering JSON: the static links in the pool still cover it. */
+      }
+    }
+    if (found.length) out[key] = found;
+  }));
+  return out;
+}
+
 /* Never rejects: a directory being down means "no ids from them", and the other links in the pool
    carry the session. */
 export async function loadCatalogues(deps: CatalogueDeps, force = false): Promise<Catalogues> {
   if (!force && loadedAt && Date.now() - loadedAt < TTL_MS) return cached;
   if (inFlight) return inFlight;
   inFlight = (async () => {
-    const [embdlol, cdnlive] = await Promise.all([
+    const [embdlol, cdnlive, mirrors] = await Promise.all([
       fetchEmbdlol(deps).catch(() => cached.embdlol),
       fetchCdnLive(deps).catch(() => cached.cdnlive),
+      fetchMirrors(deps).catch(() => cached.mirrors),
     ]);
-    cached = { embdlol, cdnlive };
+    cached = { embdlol, cdnlive, mirrors };
     loadedAt = Date.now();
     return cached;
   })();

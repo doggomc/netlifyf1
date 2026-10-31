@@ -83,17 +83,18 @@ async function settledFrame(page, accept) {
 
 /* ── 1. one dead link, same source must carry the session ── */
 {
-  const dead = (url) => url.includes('strmfree.st/embed/racing/skyf12160p');
+  const DEAD = 'strmfree.st/embed/racing/skyf11080p';   // the first link of the main channel
+  const dead = (url) => url.includes(DEAD);
   const { page, feeds, errors } = await openPage(dead);
 
-  const frameSrc = await settledFrame(page, ['strmfree.st/embed/racing/skyf12160p']);
+  const frameSrc = await settledFrame(page, [DEAD]);
   const tried = feeds.filter((u) => u.includes('strmfree.st') || u.includes('streamfree.top'));
 
   check('a source is playing despite its first link failing', frameSrc.startsWith('https://'), frameSrc || 'nothing playing');
   check('it tried more than one link', tried.length >= 2, tried.join(' | '));
-  check('the dead link was tried first', tried[0]?.includes('strmfree.st/embed/racing/skyf12160p'), tried[0] || 'none');
+  check('the dead link was tried first', tried[0]?.includes(DEAD), tried[0] || 'none');
   check('it failed over to another link of the same source', Boolean(tried[1]) && tried[1].includes('/racing/skyf'), tried[1] || 'none');
-  check('the playing frame is not the dead link', !frameSrc.includes('strmfree.st/embed/racing/skyf12160p'), frameSrc);
+  check('the playing frame is not the dead link', !frameSrc.includes(DEAD), frameSrc);
 
   /* ── 3. quality floor ── */
   check('no sub-720p link was ever requested', !feeds.some((u) => u.includes('_540p')), feeds.join(' | '));
@@ -106,7 +107,7 @@ async function settledFrame(page, accept) {
 
 /* ── 2. a whole source dead, the next source must take over ── */
 {
-  const dead = (url) => url.includes('strmfree.st/racing') || url.includes('streamfree.top/racing') || /\/racing\/skyf1/.test(url);
+  const dead = (url) => /\/racing\/skyf1/.test(url);   // every strmfree link of the main channel
   const { page, feeds, errors } = await openPage(dead);
 
   const frameSrc = await settledFrame(page, ['/racing/skyf', 'sky-uk', 'skyf12160p']);

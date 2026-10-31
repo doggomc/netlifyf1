@@ -113,19 +113,6 @@ const newsDateFormat = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric'
 });
 
-const raceDateFormat = new Intl.DateTimeFormat('en-GB', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric'
-});
-
-const raceClockFormat = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-  timeZoneName: 'short'
-});
-
 const radioRcTimeFmt = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
   minute: '2-digit',
@@ -138,11 +125,6 @@ function formatNewsDate(timestamp) {
   return Number.isNaN(date.getTime()) ? '-' : newsDateFormat.format(date);
 }
 
-function formatRaceDateTime(timestamp) {
-  const date = new Date(Number(timestamp));
-  if (Number.isNaN(date.getTime())) return '-';
-  return `${raceDateFormat.format(date)} · ${raceClockFormat.format(date)}`;
-}
 
 function fmtDob(dob) {
   if (!dob) return '-';
@@ -339,9 +321,6 @@ function isSessionEnded(s: Session) {
   return hoursSince(s) > sessionDurationHours(s) + extra;
 }
 
-function isDateEnded(d) {
-  return Boolean(d && (Date.now() - new Date(d + 'T23:59:59Z').getTime()) > 0);
-}
 
 function getCurrentLiveSession() {
   if (streamWindowState.active && currentEvent && currentSession) {
@@ -397,9 +376,6 @@ function kebab(value) {
   return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function getStreamEastSlug(event, session) {
-  return `ppv-${kebab(event?.name)}-${kebab(session?.name)}`;
-}
 
 /* The taifood embeds are addressed per round and per session:
    /embed/<event-name>---<session-name>-<provider id>. Both names are slugged the same way
@@ -428,7 +404,7 @@ interface StreamLink {
   ppv?: boolean;
   provider: string;
   label?: string;               // only where it differs from the provider name
-  addressing: Addressing;
+  addressing?: Addressing;      // defaults to 'fixed' (a stamped URL or a taifood id)
   quality?: number;             // omitted/ad 0 = unknown or adaptive, else vertical pixels
   rp?: ReferrerPolicy;
 }
@@ -450,20 +426,22 @@ const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
 /* ═══ Provider catalogues ═══
    embdlol ids rotate and cdnlivetv publishes channel status, so both are read at runtime from the
    lazy catalogue chunk (src/features/catalogues.ts). Nothing here is hard-coded. */
-let catalogues: Catalogues = { embdlol: {}, cdnlive: {} };
+let catalogues: Catalogues = { embdlol: {}, cdnlive: {}, mirrors: {} };
 
 async function loadCatalogues(): Promise<void> {
   const { loadCatalogues: load } = await import('./features/catalogues');
   catalogues = await load({ fetchWithTimeout });
 }
 
-function embdlolUrl(name: string): string {
-  const id = catalogues.embdlol[name];
-  return id ? `${EMBDLOL_EMBED}${id}` : '';
-}
-
 function cdnLivePlayer(name: string): string {
   return `https://cdnlivetv.tv/api/v1/channels/player/?name=${encodeURIComponent(name)}&code=&user=cdnlivetv&plan=free`;
+}
+
+/* strmfree publishes the live mirrors of a channel at /api/v1/sources/<key>. Every address it
+   returns joins that source's pool, so a mirror it starts publishing today is used without a
+   redeploy. Anything under 720p (its 540p tier) is dropped. */
+function mirrorLinks(key: string, quality: number): StreamLink[] {
+  return (catalogues.mirrors[key] || []).filter((mirror) => mirror.quality === quality).map((mirror) => ({ provider: 'strmfree', quality, url: mirror.url }));
 }
 
 /* Sky UHD is the main source: first in the row and what plays on load, on a session change and on
@@ -475,17 +453,29 @@ const DEFAULT_SOURCE_ID = "sky-uk";
    shell, cdnlivetv reports channel status, taifood ids come from the live manifests. Anything
    below 720p (taifood's _540p tier, embdlol's 720p German channel) is deliberately absent. */
 const sources: StreamSource[] = [
-  /* Same operator on two domains (strmfree.link/api/domains), three channel names each. */
-  { id: "sky-uk", label: "Sky UHD", links: [
-      { provider: 'strmfree', addressing: 'fixed', quality: 2160, url: "https://strmfree.st/embed/racing/skyf12160p" },
-      { provider: 'strmfree', addressing: 'fixed', quality: 2160, url: "https://streamfree.top/embed/racing/skyf12160p" },
-      { provider: 'strmfree', addressing: 'fixed', url: "https://strmfree.st/embed/racing/skyf1" },
-      { provider: 'strmfree', addressing: 'fixed', url: "https://streamfree.top/embed/racing/skyf1?server=origin&quality=1080p&category=racing" }
+  /* Main channel: strmfree at 1080p. Both domains of the mirror pair are listed, and the
+     provider's own resolver is polled at play time for any extra live mirror it publishes. */
+  { id: "sky-uk", label: "Sky HD", links: [
+      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf11080p" },
+      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf11080p" },
+      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf1" },
+      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf1?server=origin&quality=1080p&category=racing" }
   ]},
-  { id: "skyf1-1080", label: "Sky F1 1080p", links: [
-      { provider: 'streamfree', addressing: 'fixed', quality: 1080, url: "https://streamfree.top/embed/racing/skyf11080p" },
-      { provider: 'streamfree', addressing: 'fixed', quality: 1080, url: "https://strmfree.st/embed/racing/skyf11080p" }
+  /* The 2160p variant of the same channel, on both domains. */
+  { id: "sky-uhd", label: "Sky UHD", links: [
+      { provider: 'strmfree', quality: 2160, url: "https://strmfree.st/embed/racing/skyf12160p" },
+      { provider: 'strmfree', quality: 2160, url: "https://streamfree.top/embed/racing/skyf12160p" }
   ]},
+  /* The only provider with a published status field; ordered by it at play time. */
+  { id: "sky-f1-uk", label: "Sky Sports F1 UK", rp: "unsafe-url", links: [
+      { provider: 'cdnlivetv', label: 'Sky Sports F1 FHD UK', quality: 1080, url: cdnLivePlayer('Sky Sports F1 FHD UK') },
+      { provider: 'cdnlivetv', label: 'DAZN F1 FHD', quality: 1080, url: cdnLivePlayer('DAZN F1 FHD') },
+      { provider: 'cdnlivetv', label: 'Viaplay Sports 1 FHD UK', quality: 1080, url: cdnLivePlayer('Viaplay Sports 1 FHD UK') },
+      { provider: 'cdnlivetv', label: 'Viaplay Sports 2 FHD UK', quality: 1080, url: cdnLivePlayer('Viaplay Sports 2 FHD UK') }
+  ]},
+
+  /* embdlol channels. Their ids rotate, so the address is resolved from the catalogue at play
+     time and the pool is replaced with every F1 channel it lists (see linkPool). */
   { id: "emb-sky", label: "Sky F1 (EMB)", embdlol: "f1frisky", links: [] },
   { id: "emb-apple", label: "Apple TV (EMB)", embdlol: "f1friapple", links: [] },
   { id: "emb-dazn", label: "DAZN ES (EMB)", embdlol: "f1fridazn", links: [] },
@@ -495,67 +485,60 @@ const sources: StreamSource[] = [
   /* Resolved server-side by GET /api/stream/uhd. HEVC only: Safari and iPhone play it. */
   { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
 
-  /* The only provider with a published status field; ordered by it at play time. */
-  { id: "sky-f1-uk", label: "Sky Sports F1 UK", rp: "unsafe-url", links: [
-      { provider: 'cdnlivetv', label: 'Sky Sports F1 FHD UK', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('Sky Sports F1 FHD UK') },
-      { provider: 'cdnlivetv', label: 'DAZN F1 FHD', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('DAZN F1 FHD') },
-      { provider: 'cdnlivetv', label: 'Viaplay Sports 1 FHD UK', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('Viaplay Sports 1 FHD UK') },
-      { provider: 'cdnlivetv', label: 'Viaplay Sports 2 FHD UK', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('Viaplay Sports 2 FHD UK') }
-  ]},
-
-  /* ehgembxe mints a JWT per request via 302 → /play/<jwt>; the frontend asks our server for it. */
+  /* ehgembxe mints a JWT per request via 302 → /play/<jwt>; the frontend asks our server for it.
+     The token has a short life, so the link is re-resolved before every attempt. */
   { id: "ehgembxe", label: "Sky Sports F1 HD (EHG)", links: [
       { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-4089' }
   ]},
 
   { id: "sky-sports", label: "Sky Sports", rp: "unsafe-url", links: [
-      { provider: 'hakunamatata', addressing: 'fixed', url: "https://hakunamatata5.org/hakunamatata5.html" }
+      { provider: 'hakunamatata', url: "https://hakunamatata5.org/hakunamatata5.html" }
   ]},
 
   /* taifood: the event and session are in the path. 31377 is the only id flagged 720p-safe. */
   { id: "appletv", label: "AppleTV", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', taid: 31385 },
-      { provider: 'taifood', addressing: 'fixed', taid: 31374 }
+      { provider: 'taifood', taid: 31385 },
+      { provider: 'taifood', taid: 31374 }
   ]},
   { id: "dazn", label: "DAZN", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', taid: 31387 },
-      { provider: 'taifood', addressing: 'fixed', taid: 31376 }
+      { provider: 'taifood', taid: 31387 },
+      { provider: 'taifood', taid: 31376 }
   ]},
   { id: "viaplay", label: "Viaplay", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', taid: 31391 },
-      { provider: 'taifood', addressing: 'fixed', taid: 31380 }
+      { provider: 'taifood', taid: 31391 },
+      { provider: 'taifood', taid: 31380 }
   ]},
   { id: "sky-italia", label: "Sky Sport Italia", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', taid: 31389 },
-      { provider: 'taifood', addressing: 'fixed', taid: 31378 }
+      { provider: 'taifood', taid: 31389 },
+      { provider: 'taifood', taid: 31378 }
   ]},
 
   /* New taifood feeds that were not on the site at all. */
   { id: "sky-de", label: "Sky Sport F1 DE", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', taid: 31388 },
-      { provider: 'taifood', addressing: 'fixed', taid: 31377 }
+      { provider: 'taifood', taid: 31388 },
+      { provider: 'taifood', taid: 31377 }
   ]},
   { id: "v-sport", label: "V Sport Motor SE", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', taid: 31390 }
+      { provider: 'taifood', taid: 31390 }
   ]},
   { id: "czech", label: "Czech F1", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', taid: 31381 }
+      { provider: 'taifood', taid: 31381 }
   ]},
 
   /* Three entry points, one upstream channel (/hls/stream.m3u8?ch=spn). Failover only. */
   { id: "wikisport", label: "WikiSport", links: [
-      { provider: 'wikisport', addressing: 'fixed', url: "https://wikisport.info/strm/f1.php" },
-      { provider: 'wikisport', addressing: 'fixed', url: "https://wikisport.info/fsl/f1s2.php" },
-      { provider: 'wikisport', addressing: 'fixed', url: "https://wikisport.info/fsl/f1s3.php" }
+      { provider: 'wikisport', url: "https://wikisport.info/strm/f1.php" },
+      { provider: 'wikisport', url: "https://wikisport.info/fsl/f1s2.php" },
+      { provider: 'wikisport', url: "https://wikisport.info/fsl/f1s3.php" }
   ]},
 
   { id: "westream", label: "WeStream F1", links: [
-      { provider: 'westream', addressing: 'fixed', url: "https://westreamf1.com/westreamf1.php" }
+      { provider: 'westream', url: "https://westreamf1.com/westreamf1.php" }
   ]},
 
   /* Path-scheme taifood: /embed/f1/<season>/<event>/<session> */
   { id: "ppv", label: "F1 PPV", rp: "unsafe-url", links: [
-      { provider: 'taifood', addressing: 'fixed', ppv: true }
+      { provider: 'taifood', ppv: true }
   ]}
 ];
 
@@ -631,15 +614,28 @@ function linkPool(index: number): string[] {
   const source = sources[index];
   if (!source) return [];
   if (source.gated) {
-    const url = resolveLink({ provider: 'embdlol', addressing: 'fixed', quality: 0, url: fourKUrl });
+    const url = resolveLink({ provider: 'embdlol', quality: 0, url: fourKUrl });
     return url ? [url] : [];
   }
   const key = sessionKey();
   let links = source.links.slice();
 
+  /* Published mirrors first (they are the addresses the provider itself calls live), then the
+     static list, then the provider's plain channel name as a last resort. */
+  if (source.id === 'sky-uk' || source.id === 'sky-uhd') {
+    const wanted = source.id === 'sky-uhd' ? 2160 : 1080;
+    links = [...mirrorLinks('skyf1', wanted), ...links.filter((link) => link.quality === wanted || !link.url?.includes('embed/racing/'))];
+  }
+
   if (source.embdlol) {
     const id = catalogues.embdlol[source.embdlol];
-    links = id ? [{ provider: 'embdlol', label: source.embdlol, addressing: 'fixed', quality: 0, url: `${EMBDLOL_EMBED}${id}` }] : [];
+    links = id ? [{ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }] : [];
+    /* The named channel is often absent; the catalogue's other F1 channels are still valid links
+       for the same chip, so they become the rest of its pool. */
+    for (const otherId of Object.values(catalogues.embdlol)) {
+      const url = EMBDLOL_EMBED + otherId;
+      if (!links.some((link) => link.url === url)) links.push({ provider: 'embdlol', quality: 0, url });
+    }
   }
 
   /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
@@ -651,14 +647,15 @@ function linkPool(index: number): string[] {
   };
   links = links.slice().sort((a, b) => rank(a) - rank(b));
 
-  const resolved = links.filter((link) => link.addressing !== 'dynamic');
   const dynamic = links.filter((link) => link.addressing === 'dynamic');
 
-  const pool = resolved.map((link) => resolveLink(link, key)).filter(Boolean);
-  /* A dynamic link is only usable once its token is in hand, so a prefetched one is appended. */
+  const pool = links.filter((link) => link.addressing !== 'dynamic').map((link) => resolveLink(link, key)).filter(Boolean);
+  /* A dynamic link is only usable once its token is in hand. These tokens lapse and the provider
+     then shows a "Link expired" page, so a stale one is refreshed before its address is offered. */
   for (const link of dynamic) {
     const ready = cachedDynamicUrl(link.url || '');
     if (ready) pool.push(stampSession(ready, key));
+    else if (link.url) void resolveDynamicLink(link.url);
   }
 
   const good = lastGoodLink[source.id];
@@ -668,11 +665,7 @@ function linkPool(index: number): string[] {
 /* Warm a dynamic provider's token so the chip can play on first click. */
 function prefetchDynamicLinks(index: number) {
   for (const link of sources[index]?.links || []) {
-    if (link.addressing !== 'dynamic' || !link.url) continue;
-    if (cachedDynamicUrl(link.url)) continue;
-    void resolveDynamicLink(link.url).then((url) => {
-      if (url && currentSource === index) renderButtons();
-    });
+    if (link.addressing === 'dynamic' && link.url && !cachedDynamicUrl(link.url)) void resolveDynamicLink(link.url);
   }
 }
 
@@ -726,8 +719,7 @@ function updateHeader() {
   const heroTitle2 = $("heroTitle2");
   const heroSession = $("heroSession");
   const heroRound = $("heroRound");
-  const stageLabel = $("stageLabel");
-  const sourceLabel = $("sourceLabel");
+  const stageLabel = $("stageLabel"), sourceLabel = $("sourceLabel");
 
   if (heroTitle) heroTitle.textContent = first;
   if (heroTitle2) heroTitle2.textContent = last;
@@ -858,8 +850,7 @@ async function playFourK() {
 /* ehgembxe mints a JWT per request (302 → /play/<jwt>), so the address cannot be stored.
    The server does the hop; the lazy module below holds the result briefly. */
 async function resolveDynamicLink(path: string): Promise<string> {
-  const module = await import('./features/provider-health');
-  return module.resolveDynamicLink(healthDeps(), path);
+  return (await import('./features/provider-health')).resolveDynamicLink(healthDeps(), path);
 }
 
 function cachedDynamicUrl(path: string): string {
@@ -1128,27 +1119,25 @@ function watchFrameNavigation(f, token, isSettled) {
   });
 }
 
-function showStreamBlocked() {
-  showNoStream({ blocked: true, text: BLOCKED_COPY });
-}
-
 /* Two-stage ladder: try every link in the current source's pool, then move to the next source.
    A source only loses its place in the row once all of its links have failed. */
 function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
   if (token !== playerLoadToken) return;
-  if (idx >= order.length) return showStreamBlocked();
+  if (idx >= order.length) return showNoStream({ blocked: true, text: BLOCKED_COPY });
   const sourceIndex = order[idx];
   const pool = linkPool(sourceIndex);
   if (linkIdx >= pool.length) {
-    attemptSource(token, order, idx + 1, startedAt, 0);
-    return;
+    /* An EMB chip whose catalogue has no F1 channel has no link anywhere; jumping to another
+       provider on its behalf looked like the wrong chip had been clicked. Say so instead. */
+    return sources[sourceIndex].embdlol && !idx
+      ? showNoStream({ blocked: true, title: 'No link for this feed', text: 'No F1 channel in the EMB catalogue right now.' })
+      : attemptSource(token, order, idx + 1, startedAt, 0);
   }
 
   const targetUrl = pool[linkIdx];
-  const finalLink = idx === order.length - 1 && linkIdx === pool.length - 1;
-  setLoaderText(idx === 0 && linkIdx === 0
-    ? "Establishing feed…"
-    : finalLink ? "Every feed is unreachable…" : "Feed unreachable - switching link…");
+  setLoaderText(!idx && !linkIdx ? "Establishing feed…"
+    : idx === order.length - 1 && linkIdx === pool.length - 1 ? "Every feed is unreachable…"
+    : "Switching link…");
 
   const f = makeStreamIframe(targetUrl, sources[sourceIndex].rp);
   let settled = false;
@@ -1231,7 +1220,7 @@ function load() {
         }
       };
       f.onerror = () => {
-        if (token === playerLoadToken) showStreamBlocked();
+        if (token === playerLoadToken) showNoStream({ blocked: true, text: BLOCKED_COPY });
       };
     } else {
       f.src = streamOverride.url;
@@ -1273,7 +1262,7 @@ function load() {
           return;
         }
         f.remove();
-        showStreamBlocked();
+        showNoStream({ blocked: true, text: BLOCKED_COPY });
       }, NAV_TIMEOUT_MS);
     }
     playerEl?.appendChild(f);
@@ -1299,6 +1288,16 @@ function load() {
       text: "Race control has disabled all stream sources. Nothing to play until one is re-enabled."
     });
     return;
+  }
+  /* A dynamic provider has no address until its token is fetched, so fetch it first — otherwise the
+     ladder skips the chip and plays a different provider. */
+  const dyn = sources[currentSource]?.links.find((link) => link.url && link.addressing === 'dynamic' && !cachedDynamicUrl(link.url));
+  if (dyn) {
+    setLoaderText('Getting a fresh token…');
+    return void resolveDynamicLink(dyn.url).then((url) => {
+      if (token !== playerLoadToken) return;
+      url ? load() : attemptSource(token, order, 0, performance.now());
+    });
   }
   attemptSource(token, order, 0, performance.now());
 }

@@ -1,11 +1,11 @@
 {
   "baselineCommit": "1256feb269db136d0f458589eed2d906321b1f94",
   "baselineStartupJsGzipBytes": 56093,
-  "startupJsReductionPercent": 56.5,
+  "startupJsReductionPercent": 56.2,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 24388,
+  "startupJsGzipBytes": 24573,
   "startupJsFiles": [
-    "bundles/index-XXHK2MEf.js",
+    "bundles/index-UAQvagDP.js",
     "bundles/interaction-guard-4Vwlk-Z6.js",
     "bundles/dom-C3mHM79r.js",
     "bundles/site-config-BTTtiErb.js"
