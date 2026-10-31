@@ -6,11 +6,8 @@
    — the rotation reads the array each time it starts, so a new entry is live as soon as it is
    added. Keep `t` to about 16 characters so it stays on one line in the box.
 
-   These only appear when there is genuinely nothing live — before a session, between sessions,
-   or after the chequered flag. They must NOT suggest the stream is broken, being repaired or
-   being set up, because it usually is not: the members are simply early. Breakage has its own
-   copy (BLOCKED_*, HIJACK_*, FEATURE_ERROR). Keep every line forward-looking: coverage starts
-   shortly, leave the tab open, nothing to fix.
+   Shown only when nothing is live — before, between or after sessions. Never read as breakage
+   (BLOCKED_*, HIJACK_* carry that); every line looks forward.
 
    Where these appear:
      NO_STREAM_MESSAGES   the box over the player when no feed is available
@@ -28,13 +25,13 @@ export interface CockpitMessage {
 }
 
 export const NO_STREAM_MESSAGES: CockpitMessage[] = [
-  { t: 'Not on air yet', x: 'You are early. Live video starts shortly before the session.' },
-  { t: 'Lights out soon', x: 'Almost time. The stream goes live minutes before the session.' },
-  { t: 'Waiting on the grid', x: 'The grid is forming. Video starts shortly; session times are above.' },
-  { t: 'Between sessions', x: 'Nothing on track. The next session streams from the moment it starts.' },
-  { t: 'Standby', x: 'All quiet for now. Pick a session above and the feed starts when it is live.' },
-  { t: 'Parc fermé', x: 'The feed is parked until the next session. No action needed.' },
-  { t: 'See you at lights out', x: 'Video starts at the scheduled time. Nothing to do.' }
+  { t: 'Not on air yet', x: 'You are early. Video starts shortly before.' },
+  { t: 'Lights out soon', x: 'Almost time. The stream goes live minutes ahead.' },
+  { t: 'Waiting on the grid', x: 'The grid is forming. Video starts shortly; times are above.' },
+  { t: 'Between sessions', x: 'Nothing on track. The next session streams from its start.' },
+  { t: 'Standby', x: 'All quiet. Pick a session above; the feed starts when live.' },
+  { t: 'Parc fermé', x: 'Parked until the next session.' },
+  { t: 'See you at lights out', x: 'Video starts at the scheduled time.' }
 ];
 
 export const LOADER_LINES = [

@@ -453,10 +453,12 @@ function mirrorLinks(key: string, quality: number): StreamLink[] {
 /* What plays on load and on "jump to live"; if Race Control disables it, the first enabled source. */
 const DEFAULT_SOURCE_ID = "sky-uk";
 
-/* The embdlol feeds we draw a chip for (labels derived, channel supplied by the catalogue), and
-   the ones whose commentary is not English — those draw under the Other tab, not English. */
+/* The embdlol feeds we draw a chip for; labels and languages are keyed below. */
 const EMB_FEEDS = 'sky,apple,dazn,skyit,skyde,world,german,spanish,italian,fullhd1,fullhd3'.split(',');
-const EMB_OTHER = 'dazn,skyit,skyde,german,spanish,italian'.split(',');
+/* A feed may only fall back to another feed of its own language, never to English Sky. */
+const EMB_LANG: Record<string, string> = { dazn: 'es', spanish: 'es', skyit: 'it', italian: 'it', skyde: 'de', german: 'de' };
+
+const EMB_LABELS: Record<string, string> = { skyit: 'Sky Italia', skyde: 'Sky DE' };
 
 
 /* ═══ Tabs ═══
@@ -506,7 +508,7 @@ const sources: StreamSource[] = [
   /* embdlol channels. Their ids rotate, so the address is resolved from the catalogue at play
      time and the pool is replaced with every F1 channel it lists (see linkPool). */
   /* embdlol feeds: a chip names the FEED; the catalogue says which channel carries it today. */
-  ...EMB_FEEDS.map((embdlol) => ({ id: `emb-${embdlol}`, label: `${embdlol.toUpperCase()} (EMB)`, embdlol, lang: (EMB_OTHER.includes(embdlol) ? 'other' : 'en') as StreamSource['lang'], links: [] })),
+  ...EMB_FEEDS.map((embdlol) => ({ id: `emb-${embdlol}`, label: `${EMB_LABELS[embdlol] || embdlol.toUpperCase()} (EMB)`, embdlol, lang: (EMB_LANG[embdlol] ? 'other' : 'en') as StreamSource['lang'], links: [] })),
   { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
 
   /* Works, but serves heavy advertising, so it sits below the EMB feeds. */
@@ -663,13 +665,14 @@ function linkPool(index: number): string[] {
   if (source.weelo) return specialDown(source) ? [] : [stampSession(`https://weellz.live/beta?stream=${source.weelo}`, key)];
 
   if (source.embdlol) {
-    /* The named feed first, then the catalogue's other F1 feeds as the rest of its pool — they are
-       all valid links for the same chip when the exact one is missing. */
+    /* The named feed first, then the other feeds in the SAME language. Never a feed in another
+       language: the Spanish chip used to fall through to Sky and play English commentary. */
     /* Not loaded yet: leave the pool empty and say "waiting", never "unavailable". */
     if (!cataloguesReady) return [];
-    const own = catalogues.embdlol[source.embdlol];
-    links = (own ? [own] : []).concat(Object.values(catalogues.embdlol).filter((id) => id !== own))
-      .map((id) => ({ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }));
+    const lang = EMB_LANG[source.embdlol];
+    links = Object.entries(catalogues.embdlol)
+      .filter(([feed]) => EMB_LANG[feed] === lang)
+      .map(([, id]) => ({ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }));
   }
 
   /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
