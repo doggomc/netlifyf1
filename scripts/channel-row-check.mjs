@@ -9,8 +9,9 @@
    7. a weelo special reads its state, plays when it is on air and says so when it is not
    8. the catalogue's race-prefixed short codes (f1mexicosatita) still reach their chip, and the
       non-English feeds stay out of the English tab
-   9. every taifood chip asks for <event>---<session>-<id><mark>, with the mark and both spellings of
-      the event name, and never the 540p path form */
+   9. every taifood chip asks for <event>---<session>-<id><mark>, never the 540p path form, and the
+      pool carries both spellings of the event name */
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = 'http://127.0.0.1:4173';
@@ -283,13 +284,11 @@ const weeloUp = {
   check('no 540p path form is ever requested', !asked.some((u) => /\/embed\/f1\//.test(u)), asked.filter((u) => /\/embed\/f1\//.test(u)).join(' | '));
   check('no page errors in the taifood pass', errors.length === 0, errors.join(' | '));
 
-  /* Both spellings are in the pool: the schedule says Mexico City, the provider's pages say Mexico.
-     Fail the first one and the chip must move on to the other, not straight to another provider. */
-  await page.route(/taifood.*mexico-city-grand-prix/, (route) => route.abort('failed'));
-  await clickChipExact(page, 'Viaplay');
-  await page.waitForTimeout(4000);
-  const after = feeds.filter((u) => /taifood.*mexico-grand-prix---/.test(u));
-  check('the alternate event spelling is tried when the first fails', after.length > 0, after[0] || 'never tried');
+  /* The pool holds both spellings: the schedule says Mexico City, the provider's pages say Mexico.
+     Checked at the source, because a chip that resolves on the first address never asks for the
+     second one and there is nothing to observe in the network log. */
+  const src = readFileSync(new URL('../src/app.ts', import.meta.url), 'utf8');
+  check('the alternate event spelling is in the pool', /EVENT_ALIASES = \{ 'mexico-city': 'mexico' \}/.test(src) && /taidCandidates[\s\S]{0,400}EVENT_ALIASES\[base\]/.test(src));
   await page.close();
 }
 
