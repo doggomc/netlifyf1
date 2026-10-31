@@ -482,11 +482,7 @@ const sources: StreamSource[]=[
  {id:"sky-italia",label:"Sky Sport Italia",taid:31378,rp:"unsafe-url"},
  {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
  {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"},
- {id:"ppv",label:"F1 PPV",ppv:true,rp:"unsafe-url"},
- /* Pulled off the WikiSport player page. Note: xstream.st only serves the real player when
-    the request carries a wikisport.info referrer; from this origin it answers with a
-    parked-domain page. Kept here so it is one line away from working if we proxy it. */
- {id:"xstream",label:"XStream F1",url:"https://xstream.st/fslivepro.php?stream=F81"}
+ {id:"ppv",label:"F1 PPV",ppv:true,rp:"unsafe-url"}
 ];
 
 
@@ -577,13 +573,13 @@ function updateHeader() {
 }
 
 /* ═══ Discord gate ═══
-   discordGate mirrors /api/discord/status. The 4K chip only appears once the server says the
-   visitor is a member; until then a single "Join for 4K" chip opens the invite. */
-let discordGate = { configured: false, verified: false, invite: '', user: null, url: '' };
+   discordGate mirrors /api/discord/status. The 4K chip is an ordinary chip at all times;
+   what changes is whether it plays or opens the Superlicense panel. */
+let discordGate = { configured: false, verified: false, invite: '', channel: '#4k-access', user: null, url: '' };
 
-/* The session rides in a signed token kept in localStorage, sent as a bearer header. Cookies are
-   only a fallback: Safari and an increasing share of Chrome block third-party cookies, which made
-   the site unable to see a verified session and bounce people back to sign-in forever. */
+/* The session is a signed token in localStorage. No cookies anywhere, so adblockers, Brave and
+   Safari's third-party-cookie blocking cannot break the link. It lasts until the account is found
+   to have left the Discord server. */
 const DISCORD_TOKEN_KEY = 'freef1_dg_token';
 
 function discordToken(): string {
@@ -604,61 +600,59 @@ function discordAuthHeaders(): Record<string, string> {
   return headers;
 }
 
-/* Two status calls can be in flight at once (the boot check and the one that runs after the
-   token is stored). Without this guard the slower, tokenless answer lands last and overwrites a
-   verified session with "not a member" — which is exactly how an unlocked 4K chip disappeared. */
+/* Two status calls can be in flight at once (the boot check and the one that runs after linking).
+   Without this guard the slower, tokenless answer lands last and overwrites a verified session. */
 let gateRequestSeq = 0;
 
 async function loadDiscordGate() {
   const seq = ++gateRequestSeq;
   try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/status`, { credentials: 'include', cache: 'no-store', headers: discordAuthHeaders() }, 8000);
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/status`, { cache: 'no-store', headers: discordAuthHeaders() }, 8000);
     const json = await response.json();
     if (seq !== gateRequestSeq) return discordGate;
     discordGate = { ...discordGate, ...json };
+    if (json?.code === 'left-server') {
+      /* Definite answer from Discord: they are gone, so the stored token is worthless. */
+      setDiscordToken('');
+      discordGate = { ...discordGate, verified: false, url: '' };
+    }
     if (json?.verified) await fetchFourKUrl();
   } catch (_) {
+    /* A network blip must never relock somebody who is already verified. */
     if (seq !== gateRequestSeq) return discordGate;
-    /* A network blip must not relock someone who is already verified. */
-    if (!discordGate.verified) discordGate = { ...discordGate, configured: false, verified: false };
+    if (!discordGate.verified) discordGate = { ...discordGate, configured: false };
   }
   if (seq === gateRequestSeq) renderButtons();
   return discordGate;
 }
 
-/* Only a genuine membership answer may downgrade the visitor. A timeout, a 500 or "channel not
-   published" is OUR side failing, and downgrading there is what flipped a verified member back to
-   the locked chip and sent them round the sign-in loop again. */
+/* Only a genuine membership answer may downgrade the visitor. A timeout, a 500 or a missing
+   channel is OUR side failing, and downgrading there would lock out a paying member. */
 async function fetchFourKUrl() {
   try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { credentials: 'include', cache: 'no-store', headers: discordAuthHeaders() }, 9000);
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { cache: 'no-store', headers: discordAuthHeaders() }, 9000);
     const json = await response.json().catch(() => ({}));
-    if (response.status === 403) setDiscordToken('');
+    if (response.status === 401 || response.status === 403) {
+      if (json?.code === 'not-verified' || json?.code === 'left-server') setDiscordToken('');
+      discordGate = { ...discordGate, verified: false, url: '' };
+      return '';
+    }
     if (response.ok) {
       discordGate = { ...discordGate, verified: true, url: String(json.url || '') };
       return discordGate.url;
     }
-    if (json?.code === 'left-server' || json?.code === 'not-verified') {
-      discordGate = { ...discordGate, verified: false, url: '' };
-      showToast(json?.code === 'left-server'
-        ? 'You are not in the Discord server any more, so 4K is locked again.'
-        : 'Your Discord session expired. Sign in again to unlock 4K.', 'warning');
-      return '';
-    }
-    /* Channel missing / server busy: stay verified, just say the feed is not up. */
     discordGate = { ...discordGate, url: '' };
-    showToast(json?.error || '4K is not available right now. Try again in a moment.', 'warning');
+    showToast(json?.error || 'The 4K feed is unavailable right now.', 'warning');
     return '';
   } catch (_) {
     discordGate = { ...discordGate, url: '' };
-    showToast('Could not reach the 4K service. Check your connection and try again.', 'warning');
+    showToast('Could not reach the 4K service. Try again.', 'warning');
     return '';
   }
 }
 
 /* The 4K channel publishes a single HEVC rendition. Chrome/Edge/Firefox on most desktops have no
-   HEVC decoder, so the frame stays black however well the gate works. Detect it and say so
-   instead of letting people think the unlock failed. */
+   HEVC decoder, so the frame stays black however well the link worked. */
 let hevcSupport: boolean | null = null;
 function canPlayHevc(): boolean {
   if (hevcSupport !== null) return hevcSupport;
@@ -672,16 +666,16 @@ function canPlayHevc(): boolean {
   return hevcSupport;
 }
 
-/* Briefly highlights the 4K chip so it is findable the moment it unlocks. */
+/* Briefly highlights the 4K chip so it is findable the moment the link lands. */
+const HEVC_WARNING = '4K is HEVC: plays in Safari and on iPhone, black on most desktops.';
 let flashFourKUntil = 0;
 function flashFourKChip() {
   flashFourKUntil = Date.now() + 3000;
 }
 
 /* ═══ Reset ═══
-   Visiting /?reset=discord clears the Discord link (token + cookie) and locks 4K again, which is
-   what you want when testing the unlock flow from scratch. /?reset=all also drops the chosen
-   livery, saved preferences and cached API data. */
+   /?reset=discord forgets the Discord link on this browser; /?reset=all also drops the livery,
+   saved preferences and cached API data. */
 async function handleResetRequest() {
   let mode = '';
   try { mode = new URLSearchParams(location.search).get('reset') || ''; } catch (_) {}
@@ -704,76 +698,159 @@ async function handleResetRequest() {
     }
   } catch (_) {}
 
-  if (mode !== 'all') {
-    /* The cookie is httpOnly, so only the server can clear it. */
-    try { await fetchWithTimeout(`${BACKEND_API}/api/discord/logout`, { credentials: 'include', headers: discordAuthHeaders() }, 5000); } catch (_) {}
-  }
-
-  /* Full reload so nothing cached in memory survives the reset. */
   location.replace(clean);
 }
 
-function unlockFourK() {
-  /* Full-page redirect: the OAuth handshake needs top-level navigation, and it comes back
-     with ?discord=verified so we can repaint the row. */
-  location.href = `${BACKEND_API}/api/discord/login`;
+/* ═══ Superlicense ═══
+   Clicking the 4K chip without a link opens this panel. The server mints a five-digit code, the
+   member runs /link <code> in #4k-access, the bot vouches for them, and the poll below collects a
+   token that stays on this browser for good. */
+const superOverlay = document.getElementById('superlicenseOverlay');
+const superCodeEl = document.getElementById('superlicenseCode');
+const superStatusEl = document.getElementById('superlicenseStatus');
+const superChannelEl = document.getElementById('superlicenseChannel');
+const superCommandEl = document.getElementById('superlicenseCommand');
+
+let linkPollTimer: number | null = null;
+let linkCode = '';
+let linkPollToken = '';
+
+function setSuperStatus(text: string, kind = '') {
+  if (!superStatusEl) return;
+  superStatusEl.textContent = text;
+  superStatusEl.className = 'sl-status' + (kind ? ' ' + kind : '');
+}
+
+function stopLinkPolling() {
+  if (linkPollTimer !== null) {
+    window.clearInterval(linkPollTimer);
+    linkPollTimer = null;
+  }
+}
+
+function copyLinkCommand() {
+  if (!linkCode) return;
+  const command = `/link ${linkCode}`;
+  const hint = superCommandEl?.querySelector('.sl-copy-hint') || null;
+  const done = () => {
+    if (!hint) return;
+    hint.textContent = 'Copied';
+    window.setTimeout(() => { hint.textContent = 'Copy'; }, 1600);
+  };
+  try {
+    navigator.clipboard?.writeText(command).then(done).catch(done);
+  } catch (_) { done(); }
+}
+
+async function requestLinkCode() {
+  setSuperStatus('Generating your code\u2026');
+  if (superCodeEl) superCodeEl.textContent = '/link \u2014\u2014\u2014\u2014\u2014';
+  try {
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/link/start`, {
+      method: 'POST', cache: 'no-store', headers: { Accept: 'application/json' }
+    }, 9000);
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || !json?.code) {
+      setSuperStatus(json?.message || 'Could not generate a code. Try again.', 'warn');
+      return;
+    }
+    linkCode = String(json.code);
+    linkPollToken = String(json.pollToken || '');
+    if (superCodeEl) superCodeEl.textContent = `/link ${linkCode}`;
+    if (superChannelEl && json.channel) superChannelEl.textContent = String(json.channel);
+    if (json.invite && !discordGate.invite) discordGate = { ...discordGate, invite: String(json.invite) };
+    setSuperStatus(`Waiting for /link ${linkCode} in ${json.channel || '#4k-access'}\u2026 valid 15 min.`);
+    startLinkPolling();
+  } catch (_) {
+    setSuperStatus('Could not reach the server. Try again.', 'warn');
+  }
+}
+
+async function pollLinkOnce() {
+  if (!linkCode || !linkPollToken || !discordGate) return;
+  try {
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/link/poll`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ code: linkCode, pollToken: linkPollToken })
+    }, 8000);
+    const json = await response.json().catch(() => ({}));
+    if (json?.state === 'claimed' && json.token) {
+      stopLinkPolling();
+      setDiscordToken(String(json.token));
+      const name = json.user?.name ? ` ${json.user.name}` : '';
+      setSuperStatus(`Granted${name}. Loading 4K\u2026`, 'ok');
+      await loadDiscordGate();
+      closeSuperlicense();
+      await playGatedFeed();
+      return;
+    }
+    if (json?.state === 'expired') {
+      stopLinkPolling();
+      linkCode = '';
+      linkPollToken = '';
+      setSuperStatus('That code expired. Click the 4K chip again for a new one.', 'warn');
+    }
+  } catch (_) {
+    /* Transient: keep polling quietly, the next tick retries. */
+  }
+}
+
+function startLinkPolling() {
+  stopLinkPolling();
+  void pollLinkOnce();
+  linkPollTimer = window.setInterval(() => void pollLinkOnce(), 2000);
+}
+
+function openSuperlicense() {
+  if (!superOverlay) {
+    showToast('Linking needs the full site in a browser tab.', 'warning');
+    return;
+  }
+  openModal(superOverlay);
+  if (linkCode) {
+    /* Reopened while a code is still live: keep waiting rather than burning a new one. */
+    setSuperStatus(`Waiting for /link ${linkCode} in ${discordGate.channel}\u2026`);
+    startLinkPolling();
+    return;
+  }
+  void requestLinkCode();
+}
+
+function closeSuperlicense() {
+  stopLinkPolling();
+  if (superOverlay) closeModal(superOverlay);
 }
 
 function joinDiscord() {
-  if (discordGate.invite) window.open(discordGate.invite, '_blank', 'noopener');
-  else location.href = '/discord';
+  if (discordGate.invite) {
+    window.open(discordGate.invite, '_blank', 'noopener');
+    setSuperStatus('Now run the command in #4k-access.', '');
+  }
 }
 
-/* Reports the ?discord= result of the handshake, then re-checks with the server. */
-function handleDiscordReturn() {
-  let status = '';
-  let token = '';
-  try {
-    const fromHash = new URLSearchParams(location.hash.replace(/^#/, ''));
-    const fromQuery = new URLSearchParams(location.search);
-    status = fromHash.get('discord') || fromQuery.get('discord') || '';
-    token = fromHash.get('dg') || fromQuery.get('dg') || '';
-  } catch (_) {}
-  if (token) setDiscordToken(token);
-  if (!status) return;
-  const copy = {
-    verified: ['4K unlocked. Welcome to the paddock.', 'success'],
-    notmember: ['You are not in the Discord server yet, so 4K stays locked.', 'warning'],
-    norole: ['You are in the server but missing the member role for 4K.', 'warning'],
-    cancelled: ['Discord sign-in cancelled.', 'warning'],
-    badstate: ['That sign-in link expired. Try again.', 'warning'],
-    token: ['Discord rejected the sign-in. Try again.', 'warning'],
-    profile: ['Discord did not return your profile. Try again.', 'warning'],
-    joined: ['Added to the Discord server. 4K unlocked.', 'success'],
-    joinfailed: ['Discord would not add you automatically. Use the invite, then verify again.', 'warning'],
-    rate: ['Too many attempts. Give it a minute.', 'warning'],
-    unavailable: ['4K unlocks are not configured yet.', 'warning'],
-    error: ['Something went wrong verifying your membership.', 'warning']
-  }[status];
-  if (copy) showToast(copy[0], copy[1]);
-  try {
-    const url = new URL(location.href);
-    url.searchParams.delete('discord');
-    url.searchParams.delete('dg');
-    history.replaceState(null, '', url.pathname + (url.search || ''));
-  } catch (_) {}
-  void loadDiscordGate().then(() => {
-    if (!discordGate.verified) return;
-    const index = sources.findIndex((source) => source.id === 'emb-uhd');
-    if (index < 0) return;
-    if (!discordGate.url) {
-      /* Verified, but the stream url did not come back — leave the chip usable, say nothing
-         cheerful, and let the next click retry. */
-      renderButtons();
-      return;
-    }
-    currentSource = index;
-    flashFourKChip();
-    renderButtons();
-    updateHeader();
-    load();
-    showToast('Now playing in 4K. Heads up: it is HEVC, so Safari plays it and most desktops will not.', 'success');
-  });
+/* Pull the feed up once the link lands. */
+async function playGatedFeed() {
+  const index = sources.findIndex((source) => source.gated);
+  if (index < 0) return;
+  if (!discordGate.url) await fetchFourKUrl();
+  if (!discordGate.url) return;
+  currentSource = index;
+  flashFourKChip();
+  renderButtons();
+  updateHeader();
+  load();
+  if (!canPlayHevc()) {
+    showToast(HEVC_WARNING, 'warning');
+  }
+}
+
+if (superOverlay) {
+  document.getElementById('superlicenseClose')?.addEventListener('click', closeSuperlicense);
+  document.getElementById('superlicenseDismiss')?.addEventListener('click', closeSuperlicense);
+  document.getElementById('superlicenseJoin')?.addEventListener('click', joinDiscord);
+  superCommandEl?.addEventListener('click', copyLinkCommand);
 }
 
 function renderButtons() {
@@ -781,17 +858,29 @@ function renderButtons() {
   linksEl.innerHTML = "";
   normalizeCurrentSource();
   sources.forEach((s, i) => {
-    /* Members-only feed: keeps its slot in the row at all times so it can never appear to
-       vanish. Shows locked styling until the server confirms membership. */
-    if (s.gated && !discordGate.verified) {
-      if (!discordGate.configured) return;
-      const locked = document.createElement('button');
-      locked.type = 'button';
-      locked.className = 'chip chip-locked';
-      locked.textContent = `${s.label} · Members`;
-      locked.title = 'Sign in with Discord to unlock the 4K feed';
-      locked.onclick = unlockFourK;
-      linksEl.appendChild(locked);
+    /* The 4K feed is a normal chip in its normal slot, permanently. Clicking it either plays the
+       feed (already linked) or opens the Superlicense panel. */
+    if (s.gated) {
+      const gated = document.createElement("button");
+      gated.type = "button";
+      gated.className = "chip" + (i === currentSource && discordGate.verified ? " active" : "") + (Date.now() < flashFourKUntil ? " chip-flash" : "");
+      gated.textContent = s.label;
+      if (!canPlayHevc()) gated.title = 'HEVC: Safari and iPhone only';
+      gated.onclick = async () => {
+        if (!discordGate.verified) return openSuperlicense();
+        currentSource = i;
+        if (!discordGate.url) {
+          await fetchFourKUrl();
+          if (!discordGate.url) { renderButtons(); return; }
+        }
+        if (!canPlayHevc()) {
+          showToast(HEVC_WARNING, 'warning');
+        }
+        renderButtons();
+        updateHeader();
+        load();
+      };
+      linksEl.appendChild(gated);
       return;
     }
     if (!sourceEnabled(s)) return;
@@ -800,18 +889,6 @@ function renderButtons() {
     b.textContent = s.label;
     b.onclick = async () => {
       currentSource = i;
-      if (s.gated && !canPlayHevc()) {
-        showToast('This browser cannot decode HEVC, which is all the 4K feed publishes. It will stay black here — Safari or an iPhone will play it.', 'warning');
-      }
-      if (s.gated && !discordGate.url) {
-        b.setAttribute('aria-busy', 'true');
-        await fetchFourKUrl();
-        b.removeAttribute('aria-busy');
-        if (!discordGate.url) {
-          renderButtons();
-          return;
-        }
-      }
       renderButtons();
       updateHeader();
       load();
@@ -2140,7 +2217,6 @@ void loadEmbdlolChannels().then(() => renderButtons());
 // Discord gate: read the token out of the URL fragment FIRST, then ask the server once.
 void (async () => {
   await handleResetRequest();
-  handleDiscordReturn();
   await loadDiscordGate();
 })();
 

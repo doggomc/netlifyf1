@@ -6,6 +6,12 @@
    — the rotation reads the array each time it starts, so a new entry is live as soon as it is
    added. Keep `t` to about 16 characters so it stays on one line in the box.
 
+   These only appear when there is genuinely nothing live — before a session, between sessions,
+   or after the chequered flag. They must NOT suggest the stream is broken, being repaired or
+   being set up, because it usually is not: the members are simply early. Breakage has its own
+   copy (BLOCKED_*, HIJACK_*, FEATURE_ERROR). Keep every line forward-looking: coverage starts
+   shortly, leave the tab open, nothing to fix.
+
    Where these appear:
      NO_STREAM_MESSAGES   the box over the player when no feed is available
      BLOCKED_COPY         the box when the feed host is blocked on this device/network
@@ -22,18 +28,18 @@ export interface CockpitMessage {
 }
 
 export const NO_STREAM_MESSAGES: CockpitMessage[] = [
-  { t: 'Lights out', x: 'We are away — the feed is being released now.' },
-  { t: 'Off track', x: 'We ran wide for a moment. Rejoining the feed now.' },
-  { t: 'Box box', x: 'Quick stop — we are changing tyres and coming straight back out.' },
-  { t: 'Formation lap', x: 'Our crew is setting the feed up. A few more moments and you will be good to go.' },
-  { t: 'In the garage', x: 'Getting everything ready for the best viewing experience possible.' },
-  { t: 'Safety car', x: 'The feed is under a safety car. We will be back up to speed shortly.' },
-  { t: 'Red flag', x: 'Session stopped briefly while we restart the stream. Hold your position.' },
-  { t: 'Under investigation', x: 'We are checking the feed. Nothing wrong on your side — please stay with us.' },
-  { t: 'Blue flags', x: 'A slower feed is in the way. We are working around it and getting you back on track.' },
-  { t: 'Almost there', x: 'Just a little more patience and you will be watching the race in no time.' },
-  { t: 'Stay tuned', x: 'The stream will be up shortly. We appreciate your patience!' },
-  { t: 'Hang tight', x: "We're working on getting this stream up for you. Check back soon!" }
+  { t: 'Not on air yet', x: 'You are early. Live video starts shortly before the session begins.' },
+  { t: 'Lights out soon', x: 'Almost time. The stream goes live a few minutes before the session starts.' },
+  { t: 'Waiting on the grid', x: 'The grid is forming. Video starts shortly — session times are listed above.' },
+  { t: 'Formation lap', x: 'Coverage is minutes away. Leave this tab open and it starts on its own.' },
+  { t: 'Countdown', x: 'The clock is running down. Live video begins the moment the session does.' },
+  { t: 'Between sessions', x: 'Nothing on track right now. The next session streams live from the moment it starts.' },
+  { t: 'Standby', x: 'All quiet for now. Pick the session above and the feed starts as soon as it is live.' },
+  { t: 'Parc fermé', x: 'The feed is parked until the next session. No action needed on your side.' },
+  { t: 'On the out lap', x: 'Coverage is warming up. Video will be live in a few minutes.' },
+  { t: 'Race weekend', x: 'Practice, qualifying and the race all stream here. Check back at session start.' },
+  { t: 'Stay tuned', x: 'The stream goes live before the session. Nothing to fix or reload.' },
+  { t: 'See you at lights out', x: 'Video starts automatically at the scheduled time. Nothing to do.' }
 ];
 
 export const LOADER_LINES = [

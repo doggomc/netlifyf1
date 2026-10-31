@@ -4721,3 +4721,61 @@ body.view-swapping {
   background: #ff3931; box-shadow: 0 0 12px rgba(255, 57, 49, .85);
 }
 .help-notification-dot[hidden] { display: none !important; }
+
+/* ── Superlicense (Discord link) ─────────────────────────────────── */
+.sl-copy {
+  color: var(--muted);
+  font-size: .86rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.sl-step { margin-bottom: 18px; }
+.sl-step-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.sl-command {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px;
+  border: 1px dashed rgba(225, 6, 0, .45);
+  border-radius: 10px;
+  background: rgba(225, 6, 0, .06);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+}
+.sl-command:hover,
+.sl-command:focus-visible {
+  border-color: rgba(225, 6, 0, .8);
+  background: rgba(225, 6, 0, .1);
+  outline: none;
+}
+.sl-command code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  letter-spacing: .08em;
+  color: var(--text, #f1f4f8);
+}
+.sl-copy-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .6rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sl-status {
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .68rem;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+.sl-status.ok { color: #00d57e; }
+.sl-status.warn { color: #ffb020; }
+.sl-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }

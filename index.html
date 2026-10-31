@@ -139,8 +139,8 @@
       <div class="player" id="player">
         <div class="overlay" id="loader"><div class="spinner"></div><span class="lt" id="loaderText">Establishing feed…</span></div>
         <div class="nostream" id="noStream">
-          <h3 id="noStreamTitle">Hang tight</h3>
-          <p id="noStreamText">We're working on getting this stream up for you. Check back soon!</p>
+          <h3 id="noStreamTitle">Not on air yet</h3>
+          <p id="noStreamText">You are early. Live video starts shortly before the session begins.</p>
           <div class="ns-actions" id="nsActions" hidden>
             <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
             <button class="btn sm" id="nsNextBtn" type="button">Try next feed</button>
@@ -167,7 +167,7 @@
             <h3>Team Radio <span class="accent">&amp;</span> Race Control</h3>
           </div>
           <div class="radio-rc-status mono" id="radioRcStatus">Loading sessions…</div>
-          <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control">✕</button>
+          <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="selects radio-rc-selects">
           <div class="sel"><label for="radioRcEvent">Grand Prix</label><select id="radioRcEvent"><option>Loading…</option></select></div>
@@ -530,6 +530,28 @@
         <button class="btn sm primary" id="liveryColorApply" type="button">Apply colour</button>
       </div>
       <div class="lc-swatches" id="liverySwatches" role="group" aria-label="Suggested custom colours"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="superlicenseOverlay" role="dialog" aria-modal="true" aria-labelledby="superlicenseTitle">
+  <div class="sheet" style="max-width:560px">
+    <div class="sheet-head"><h2 id="superlicenseTitle">Superlicense</h2><button class="x" id="superlicenseClose" type="button" aria-label="Close superlicense">&times;</button></div>
+    <p class="sl-copy">For you to obtain your superlicense and get to watch F1 in UHD, you have to link your discord.</p>
+    <div class="sl-step">
+      <div class="sl-step-label">Step 01 &middot; Join the server</div>
+      <button class="btn sm" id="superlicenseJoin" type="button">Join the Discord</button>
+    </div>
+    <div class="sl-step">
+      <div class="sl-step-label">Step 02 &middot; Run this in <span id="superlicenseChannel">#4k-access</span></div>
+      <div class="sl-command" id="superlicenseCommand" tabindex="0" role="button" aria-label="Copy the link command">
+        <code id="superlicenseCode">/link —————</code>
+        <span class="sl-copy-hint" id="superlicenseCopyHint">Copy</span>
+      </div>
+      <div class="sl-status" id="superlicenseStatus" aria-live="polite">Generating your code&hellip;</div>
+    </div>
+    <div class="sl-actions">
+      <button class="btn sm" id="superlicenseDismiss" type="button">Close</button>
     </div>
   </div>
 </div>
