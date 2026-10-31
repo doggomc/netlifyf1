@@ -8,12 +8,16 @@ const block = app.slice(app.indexOf('const sources: StreamSource[] = ['), app.in
 
 const linkCount = (block.match(/provider:/g) || []).length;
 const qualityValues = [...block.matchAll(/quality:\s*(\d+)/g)].map((m) => Number(m[1]));
-const ids = [...block.matchAll(/\{ id: "([a-z0-9-]+)"/g)].map((m) => m[1]);
+/* EMB chips are generated from a feed list, so they are counted from that list rather than literals. */
+const embFeeds = (app.match(/const EMB_FEEDS = '([^']+)'/) || [, ''])[1].split(',').filter(Boolean);
+const ids = [...[...block.matchAll(/\{ id: "([a-z0-9-]+)"/g)].map((m) => m[1]), ...embFeeds.map((f) => `emb-${f}`)];
 
 describe('stream source link pools', () => {
   it('declares a pool for every source', () => {
     expect(ids.length).toBeGreaterThanOrEqual(17);
-    for (const id of ids) expect(app).toContain(`{ id: "${id}"`);
+    /* Every id is either a literal in the list or a generated EMB chip. */
+    for (const id of ids.filter((id) => !id.startsWith('emb-'))) expect(app).toContain(`{ id: "${id}"`);
+    expect(embFeeds).toContain('fullhd1');
   });
 
   it('carries several links per source, not one', () => {

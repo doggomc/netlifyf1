@@ -57,7 +57,8 @@
     <a href="#grid">The Grid</a>
     <a href="#standings">Standings</a>
     <a class="help-nav-link" href="/help.html">Help<span class="help-notification-dot" hidden aria-label="Unread support reply"></span></a>
-    <a href="/replays" data-route="replays">Replays</a>
+    <!-- Replays hidden: parked until the ok.ru embeds are reliable again (round 9). -->
+    <a href="/replays" data-route="replays" hidden>Replays</a>
     <a href="/info" data-route="info">Info</a>
     <a href="/discord" data-route="discord">Discord</a>
   </div>
@@ -126,6 +127,7 @@
       </div>
       <div class="card deck-box">
         <h3>Feed Sources</h3>
+        <div class="chips tabs" id="feedTabs" role="tablist" aria-label="Feed language"></div>
         <div class="chips" id="links"></div>
       </div>
     </div>

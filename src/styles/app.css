@@ -2522,6 +2522,14 @@ to {
   text-align: center;
 }
 
+.rp-direct {
+  color: var(--accent, #e10600);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: .78rem;
+  text-decoration: underline;
+}
+
 .rp-meta {
   display: flex;
   flex-wrap: wrap;
@@ -4754,4 +4762,107 @@ body.view-swapping {
   accent-color: var(--accent, #e10600);
   cursor: pointer;
   margin: 0;
+}
+
+/* ── Feed tabs: English / Other / All ── */
+.chips.tabs {
+  gap: 6px;
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* The tab bar is a filter, not a feed: it must not compete with the chips below it. */
+.chips.tabs .chip {
+  padding: 7px 14px;
+  font-size: .68rem;
+  letter-spacing: .12em;
+  background: transparent;
+  border-color: transparent;
+  color: var(--dim);
+}
+
+.chips.tabs .chip::after {
+  display: none;
+}
+
+.chips.tabs .chip:hover {
+  transform: none;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.chips.tabs .chip.active {
+  color: #fff;
+  border-color: var(--line-2);
+  background: rgba(0,0,0,.5);
+}
+
+/* ── Specials: onboards and the data channel, set apart from the broadcasters ── */
+.special-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-2);
+}
+
+.special-head {
+  width: 100%;
+  font-family: 'Archivo';
+  font-weight: 700;
+  font-size: .6rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.chip-special {
+  border-style: dashed;
+  border-color: var(--line-2);
+}
+
+/* A small driver-cam tag, so a special is never read as another broadcaster. */
+.chip-special::before {
+  content: 'ONBD';
+  margin-right: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: .56rem;
+  letter-spacing: .1em;
+  color: var(--team);
+  border: 1px solid currentColor;
+  vertical-align: 1px;
+}
+
+.chip-special.chip-data::before {
+  content: 'DATA';
+}
+
+.chip-special.is-down {
+  opacity: .48;
+  border-style: dotted;
+}
+
+.chip-special.is-down:hover {
+  transform: none;
+  color: var(--muted);
+  border-color: var(--line-2);
+}
+
+.chip-special.is-down:hover::after {
+  transform: scaleX(0);
+}
+
+@media (max-width: 760px) {
+  .chips.tabs {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+
+  .special-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 }

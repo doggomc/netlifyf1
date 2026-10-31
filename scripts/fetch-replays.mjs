@@ -176,6 +176,30 @@ function playersFromPage(html) {
   return players;
 }
 
+/* An ok.ru embed answers 200 for videos it has deleted: the shell loads and the player is handed
+   "Видео не найдено" over its API, which shows up to the visitor as a frame that never plays and
+   no error anywhere. The embed's own markup carries the id we need to ask about, and the public
+   page for that id tells the truth. One request per dead player, not one per player. */
+const DEAD_MARKERS = /Видео не найдено|Video not found|REMOVED|DELETED/i;
+
+async function okEmbedAlive(url) {
+  const id = (url.match(/videoembed\/(\d+)/) || [])[1];
+  if (!id) return true;
+  let html = '';
+  try {
+    html = await get(url);
+  } catch {
+    return false;
+  }
+  if (DEAD_MARKERS.test(html)) return false;
+  /* Different ids: the page's own id (metadata) and the movie id its player is pointed at. When
+     they disagree ok.ru is serving a moved or deleted movie under a stale embed. */
+  const metaIds = [...html.matchAll(/"videoId"\s*:\s*"?(\d{6,})/g)].map((m) => m[1]);
+  const movieIds = [...html.matchAll(/"movieId"\s*:\s*"?(\d{6,})/g)].map((m) => m[1]);
+  if (metaIds.length && movieIds.length && !movieIds.includes(metaIds[0])) return false;
+  return true;
+}
+
 async function main() {
   const existing = existsSync(OUT) ? JSON.parse(readFileSync(OUT, 'utf8')) : { items: [] };
   const byslug = new Map((existing.items || []).map((item) => [item.slug, item]));
@@ -184,6 +208,37 @@ async function main() {
   const xml = await get(SITEMAP);
   const slugs = slugsFromSitemap(xml);
   console.log(`sitemap: ${slugs.length} replay sessions`);
+
+  if (args.has('--health')) {
+    /* Report (and optionally prune) players that ok.ru has taken down. */
+    const prune = args.has('--prune');
+    let checked = 0;
+    let dead = 0;
+    for (const item of (existing.items || [])) {
+      const keep = [];
+      for (const player of item.players || []) {
+        if (/ok\.ru/.test(player.url)) {
+          checked += 1;
+          const alive = await okEmbedAlive(player.url);
+          if (!alive) {
+            dead += 1;
+            console.log(`  dead  ${item.season} ${item.event} ${item.session}  ${player.provider}  ${player.url}`);
+            if (!prune) { keep.push(player); continue; }
+            continue;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 700));
+        }
+        keep.push(player);
+      }
+      if (prune) item.players = keep;
+    }
+    if (prune) {
+      existing.generatedAt = new Date().toISOString();
+      writeFileSync(OUT, JSON.stringify(existing, null, 1) + '\n');
+    }
+    console.log(`health: ${checked} ok.ru player(s) checked, ${dead} dead${prune ? ' and pruned' : ' (report only)'}`);
+    return;
+  }
 
   if (args.has('--relabel')) {
     let changed = 0;

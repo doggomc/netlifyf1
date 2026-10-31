@@ -4,7 +4,9 @@
    2. Sky HD never plays the 2160p address; Sky UHD never plays a 1080p one
    3. cdnlivetv is in the row with its four F1 channels
    4. an EMB chip with no catalogue channel says so instead of jumping to another provider
-   5. the EHG chip re-resolves its token instead of replaying an expired one */
+   5. the EHG chip re-resolves its token instead of replaying an expired one
+   6. the English / Other / All tabs filter the row and leave the specials in their own block
+   7. a weelo special reads its state, plays when it is on air and says so when it is not */
 import { chromium } from 'playwright';
 
 const BASE = 'http://127.0.0.1:4173';
@@ -22,7 +24,7 @@ const browser = await chromium.launch();
 
 /* Every off-site address is intercepted. Feeds answer like a player shell; embdlol's directory is
    empty unless the test supplies channels, which is how "no F1 upstream" is simulated. */
-async function openPage({ embdlolChannels = [] } = {}) {
+async function openPage({ embdlolChannels = [], weeloState = {} } = {}) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const feeds = [];
   const errors = [];
@@ -70,6 +72,13 @@ async function openPage({ embdlolChannels = [] } = {}) {
     headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ channels: [{ name: 'Sky Sports F1 FHD UK', status: 'online' }, { name: 'DAZN F1 FHD', status: 'online' }] }),
   }));
+  /* weelo's status map: the specials read their state from here, never from a bundled copy. */
+  await page.route('**weelo.live/players/state.json*', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'Access-Control-Allow-Origin': '*' },
+    body: JSON.stringify(weeloState),
+  }));
   await page.route('**/api/v1/sources/*', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -85,13 +94,25 @@ async function openPage({ embdlolChannels = [] } = {}) {
 }
 
 const chipLabels = (page) => page.evaluate(() => [...document.querySelectorAll('#links button.chip')].map((b) => b.textContent.trim()));
+/* A real click: the row scrolls, and a synthetic .click() on an off-screen chip is not equivalent. */
 const clickChip = async (page, label) => {
-  await page.evaluate((wanted) => {
-    const chip = [...document.querySelectorAll('#links button.chip')].find((b) => b.textContent.trim() === wanted);
-    chip?.click();
-  }, label);
+  await page.locator('#links button.chip', { hasText: label }).first().click();
 };
 const frameSrc = (page) => page.evaluate(() => document.querySelector('#player iframe')?.src || '');
+const tab = (page, label) => page.locator('#feedTabs button.chip', { hasText: label }).first().click();
+const rowLabels = (page) => page.evaluate(() => [...document.querySelectorAll('#links button.chip')].map((b) => b.textContent.trim()));
+const specialLabels = (page) => page.evaluate(() => [...document.querySelectorAll('#links .special-row button.chip')].map((b) => b.textContent.trim()));
+
+const WEELO_IDS = {
+  kimi: 'peogcgpgbgchegaciclejgngjgacbeogehpgogfgmgmgjgjcacieee',
+  drivers: 'gebdacefgfaciceechjgghfgchacefchbgdglgfgchjcacieee',
+  data: 'gebdacefgfaciceebgehbgacdeigbgogogfgmgjcacieee',
+};
+const weeloUp = {
+  [WEELO_IDS.kimi]: 'online',
+  [WEELO_IDS.drivers]: 'soon',
+  [WEELO_IDS.data]: 'offline',
+};
 
 /* ── 1 + 2. Sky HD / Sky UHD ── */
 {
@@ -120,9 +141,12 @@ const frameSrc = (page) => page.evaluate(() => document.querySelector('#player i
 {
   const { page, feeds, errors } = await openPage();
   const before = feeds.length;
-  await clickChip(page, 'Sky F1 (EMB)');
+  await clickChip(page, 'SKY (EMB)');
   await page.waitForTimeout(3000);
-  const message = await page.evaluate(() => document.querySelector('#noStream')?.textContent?.trim() || '');
+  const message = await page.evaluate(() => {
+    const panel = document.querySelector('#noStream');
+    return panel ? panel.textContent.trim() : '';
+  });
   const after = feeds.length;
   const stillEmbl = !(await frameSrc(page)).includes(STRMFREE_1080);
 
@@ -141,6 +165,50 @@ const frameSrc = (page) => page.evaluate(() => document.querySelector('#player i
   const frame = await frameSrc(page);
   check('the EHG chip resolves its token through the backend', resolved.some((u) => u.includes('/play/fresh-token')) || frame.includes('/play/'), frame || resolved.join(' | '));
   check('no page errors in the EHG pass', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* ── 6. the tabs ── */
+{
+  const { page, errors } = await openPage({ weeloState: weeloUp });
+  await page.waitForTimeout(800);
+  const english = await rowLabels(page);
+  check('the row opens on the English tab', english.includes('Sky HD') && !english.includes('Sky Sport Italia'), english.join(' | '));
+  check('English keeps the specials in their own block', (await specialLabels(page)).length === 5, (await specialLabels(page)).join(' | '));
+
+  await tab(page, 'Other');
+  await page.waitForTimeout(400);
+  const other = await rowLabels(page);
+  check('Other shows the foreign broadcasters', ['Sky Sport Italia', 'Sky Sport F1 DE', 'V Sport Motor SE'].every((l) => other.includes(l)), other.join(' | '));
+  check('Other hides English and the specials', !other.includes('Sky HD') && !other.includes('Kimi Antonelli'), other.join(' | '));
+
+  await tab(page, 'All');
+  await page.waitForTimeout(400);
+  const all = await rowLabels(page);
+  check('All shows both tabs and every special', all.includes('Sky HD') && all.includes('Sky Sport Italia') && all.includes('Data Channel'), all.join(' | '));
+  check('no page errors in the tab pass', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* ── 7. the specials ── */
+{
+  const { page, feeds, errors } = await openPage({ weeloState: weeloUp });
+  await page.waitForTimeout(800);
+  const down = await page.evaluate(() => [...document.querySelectorAll('#links .special-row .is-down')].map((b) => b.textContent.trim()));
+  check('a feed weelo reports offline is drawn as unavailable', down.includes('Data Channel'), down.join(' | ') || 'none marked');
+
+  await clickChip(page, 'Kimi Antonelli');
+  await page.waitForTimeout(2500);
+  const frame = await frameSrc(page);
+  check('an onboard that is on air opens the weelo player', frame.includes('weellz.live/beta?stream=') && frame.includes(WEELO_IDS.kimi), frame);
+  check('the onboard does not fall back to a broadcaster', !frame.includes('strmfree') && !frame.includes('embdlol'), frame);
+  check('the onboard request is 720p or better', feeds.every((u) => !u.includes('_540p')), feeds.join(' | '));
+
+  await clickChip(page, 'Data Channel');
+  await page.waitForTimeout(1500);
+  const message = await page.evaluate(() => document.querySelector('#noStream')?.textContent?.trim() || '');
+  check('an offline data channel says so instead of opening a frame', /offline|not on air|no link/i.test(message), message.slice(0, 90));
+  check('no page errors in the specials pass', errors.length === 0, errors.join(' | '));
   await page.close();
 }
 

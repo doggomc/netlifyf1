@@ -13,19 +13,27 @@ export interface Catalogues {
   cdnlive: Record<string, string>;
   /* strmfree stream key → the mirrors the provider publishes for it, 720p and above. */
   mirrors: Record<string, { url: string; quality: number }[]>;
+  /* weelo stream id → the status the provider publishes for it ('online' | 'soon' | 'offline' | …). */
+  weelo: Record<string, string>;
 }
 
 export const EMBDLOL_STRUCT = 'https://api.embdlol.st/struct';
 export const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
 /* embdlol renames its F1 channels for every race — f1frisky, f1mexicosatsky, … — so a channel is
    matched by the feed it carries, not by its full name. */
-export const PUBLIC_EMBDLOL = ['sky', 'apple', 'dazn', 'skyit', 'skyde', 'world', 'ita', 'deu'];
-const FEED_SUFFIXES = ['skyit', 'skyde', 'apple', 'world', 'dazn', 'sky', 'ita', 'deu', 'uhd'];
+/* Longest first: 'fullhd1' must win over 'de', 'italian' over 'ita'. 'uhd' is matched but never
+   published — the 4K channel is resolved by the server and must not be named in the bundle. */
+const FEED_SUFFIXES = ['fullhd1', 'fullhd3', 'italian', 'spanish', 'german', 'skyit', 'skyde',
+  'apple', 'world', 'dazn', 'sky', 'ita', 'deu', 'uhd'];
+export const PUBLIC_EMBDLOL = FEED_SUFFIXES.slice(0, -1);
 const FEED_PATTERN = new RegExp(`^f1[a-z]*?(${FEED_SUFFIXES.join('|')})$`);
 
 /* 'f1mexicosatuhd' → 'uhd'. Anything that is not an F1 channel has no key. */
 export function feedKey(name: unknown): string {
-  const match = String(name || '').trim().toLowerCase().match(FEED_PATTERN);
+  /* Some entries are bare ('german', 'fullhd3'), others carry the race prefix ('f1frigerman'). */
+  const flat = String(name || '').trim().toLowerCase().replace(/[\s_]/g, '');
+  if (FEED_SUFFIXES.includes(flat)) return flat;
+  const match = flat.match(FEED_PATTERN);
   return match ? match[1] : '';
 }
 const CDNLIVE_CATALOGUE = 'https://api.cdnlivetv.tv/api/v1/channels/?user=cdnlivetv&plan=free';
@@ -33,8 +41,11 @@ const CDNLIVE_CATALOGUE = 'https://api.cdnlivetv.tv/api/v1/channels/?user=cdnliv
 const MIRROR_KEYS = ['skyf1'];
 const MIRROR_HOSTS = ['https://strmfree.st', 'https://streamfree.top'];
 const TTL_MS = 5 * 60_000;
+/* weelo publishes a fifteen-second status map for the onboards it relays. It is CORS-open, so the
+   browser reads it directly — no backend, no key. */
+const WEELO_STATE = 'https://weelo.live/players/state.json';
 
-const empty = (): Catalogues => ({ embdlol: {}, cdnlive: {}, mirrors: {} });
+const empty = (): Catalogues => ({ embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {} });
 
 let cached: Catalogues = empty();
 let loadedAt = 0;
@@ -106,18 +117,32 @@ async function fetchMirrors(deps: CatalogueDeps): Promise<Record<string, { url: 
   return out;
 }
 
+/* Every state.json value is a plain string; '_fallback'/'_p2p' are objects and are skipped. */
+async function fetchWeelo(deps: CatalogueDeps): Promise<Record<string, string>> {
+  const response = await deps.fetchWithTimeout(WEELO_STATE, { cache: 'no-store', headers: { Accept: 'application/json' } }, 4000);
+  if (!response.ok) throw new Error(`weelo state ${response.status}`);
+  const json = await response.json();
+  const next: Record<string, string> = {};
+  for (const [id, status] of Object.entries(json || {})) {
+    if (id.startsWith('_') || typeof status !== 'string') continue;
+    next[id] = status.trim().toLowerCase();
+  }
+  return next;
+}
+
 /* Never rejects: a directory being down means "no ids from them", and the other links in the pool
    carry the session. */
 export async function loadCatalogues(deps: CatalogueDeps, force = false): Promise<Catalogues> {
   if (!force && loadedAt && Date.now() - loadedAt < TTL_MS) return cached;
   if (inFlight) return inFlight;
   inFlight = (async () => {
-    const [embdlol, cdnlive, mirrors] = await Promise.all([
+    const [embdlol, cdnlive, mirrors, weelo] = await Promise.all([
       fetchEmbdlol(deps).catch(() => cached.embdlol),
       fetchCdnLive(deps).catch(() => cached.cdnlive),
       fetchMirrors(deps).catch(() => cached.mirrors),
+      fetchWeelo(deps).catch(() => cached.weelo),
     ]);
-    cached = { embdlol, cdnlive, mirrors };
+    cached = { embdlol, cdnlive, mirrors, weelo };
     loadedAt = Date.now();
     return cached;
   })();
