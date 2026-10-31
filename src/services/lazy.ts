@@ -27,11 +27,28 @@ export function onVisible(ids: string[], task: () => Promise<unknown>): void {
   if (!observer) onIdle(run);
 }
 
-/** Consume the first activation, load listeners, then replay it once. Keyboard clicks work too. */
+/** Consume the first activation, load listeners, then replay it once. Keyboard clicks work too.
+ *
+ * The chunk is warmed on hover, focus, touch and idle, so the first click opens the panel
+ * immediately instead of waiting for a network round trip. Warming only fetches and initialises
+ * the module - it never fires the button's own action. */
 export function lazyButton(id: string, load: () => Promise<unknown>): void {
   const button = document.getElementById(id);
   if (!button) return;
   let pending = false;
+  let warm: Promise<unknown> | null = null;
+  const warmUp = () => {
+    if (!warm) warm = Promise.resolve(load()).catch((error) => {
+      /* A failed warm-up is not fatal: the click below retries and reports properly. */
+      warm = null;
+      console.warn(`Feature ${id} warm-up failed`, error);
+    });
+    return warm as Promise<unknown>;
+  };
+  ['pointerenter', 'focus', 'touchstart'].forEach((type) => {
+    button.addEventListener(type, () => void warmUp(), { passive: true, once: false });
+  });
+  onIdle(warmUp);
   const activate = async (event: MouseEvent) => {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -39,7 +56,7 @@ export function lazyButton(id: string, load: () => Promise<unknown>): void {
     pending = true;
     button.setAttribute('aria-busy', 'true');
     try {
-      await load();
+      await warmUp();
       button.removeEventListener('click', activate, true);
       button.removeAttribute('aria-busy');
       button.click();

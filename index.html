@@ -139,8 +139,8 @@
       <div class="player" id="player">
         <div class="overlay" id="loader"><div class="spinner"></div><span class="lt" id="loaderText">Establishing feed…</span></div>
         <div class="nostream" id="noStream">
-          <h3 id="noStreamTitle">Hang tight</h3>
-          <p id="noStreamText">We're working on getting this stream up for you. Check back soon!</p>
+          <h3 id="noStreamTitle">Not on air yet</h3>
+          <p id="noStreamText">You are early. Live video starts shortly before the session begins.</p>
           <div class="ns-actions" id="nsActions" hidden>
             <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
             <button class="btn sm" id="nsNextBtn" type="button">Try next feed</button>
@@ -167,7 +167,7 @@
             <h3>Team Radio <span class="accent">&amp;</span> Race Control</h3>
           </div>
           <div class="radio-rc-status mono" id="radioRcStatus">Loading sessions…</div>
-          <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control">✕</button>
+          <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="selects radio-rc-selects">
           <div class="sel"><label for="radioRcEvent">Grand Prix</label><select id="radioRcEvent"><option>Loading…</option></select></div>
@@ -519,6 +519,33 @@
     <div class="sheet-head"><h2 id="teamSelectTitle">Choose Your Livery</h2><button class="x" id="teamSelectClose" type="button" aria-label="Close team selector">&times;</button></div>
     <p style="color:var(--muted);font-size:.82rem;margin-bottom:18px">Pick a team and the whole cockpit takes its colours. Team marks © Formula 1 and their respective teams, served from the official F1 media CDN.</p>
     <div class="teams" id="teamGrid"></div>
+    <div class="livery-custom">
+      <div class="lc-copy">
+        <h3>Run your own colour</h3>
+        <p>Pick a shade or paste any hex code — the whole cockpit repaints to it.</p>
+      </div>
+      <div class="lc-controls">
+        <input type="color" id="liveryColorPicker" value="#E10600" aria-label="Pick a custom livery colour">
+        <input type="text" id="liveryColorHex" maxlength="7" spellcheck="false" autocomplete="off" inputmode="text" placeholder="#E10600" aria-label="Custom livery hex code">
+        <button class="btn sm primary" id="liveryColorApply" type="button">Apply colour</button>
+      </div>
+      <div class="lc-swatches" id="liverySwatches" role="group" aria-label="Suggested custom colours"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="joinNudge" role="dialog" aria-modal="true" aria-labelledby="joinNudgeTitle">
+  <div class="sheet" style="max-width:520px">
+    <div class="sheet-head"><h2 id="joinNudgeTitle">Watch in 4K</h2><button class="x" id="joinNudgeClose" type="button" aria-label="Close">&times;</button></div>
+    <p class="jn-copy">I would really appreciate it if you joined the Discord — that is where I post session alerts, so you never miss lights out.</p>
+    <div class="jn-actions">
+      <a class="btn sm primary" id="joinNudgeJoin" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">Join the Discord</a>
+      <button class="btn sm" id="joinNudgeContinue" type="button">Continue to 4K</button>
+    </div>
+    <label class="jn-optout">
+      <input type="checkbox" id="joinNudgeDontShow">
+      <span>Don&rsquo;t show this again</span>
+    </label>
   </div>
 </div>
 

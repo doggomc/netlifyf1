@@ -125,7 +125,7 @@ async function buildDiagnosticsReport(){
   // add stream URLs internally (hidden from report)
   try{
     if(typeof sources!=='undefined') sources.forEach(s=>{
-      let u='-'; try{ u = (typeof buildUrl==='function' ? buildUrl(sources.indexOf(s)) : (s.url||'')); }catch(_){ u=s.url||''; }
+      let u='-'; try{ u = (typeof buildUrl==='function' ? buildUrl(sources.indexOf(s)) : ''); }catch(_){ u=''; }
       if(u && u.startsWith('http')) pingTargets.push({label: 'Stream '+s.label+' ['+s.id+']', url: u, hideUrl:true});
     });
   }catch(_){}

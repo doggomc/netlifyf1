@@ -3,67 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#07080a">
+  <meta name="theme-color" content="#0A0A0B">
   <meta name="color-scheme" content="dark">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="description" content="FreeF1 is making a quick pit stop. We'll be back before the race.">
+  <meta name="description" content="FreeF1 is in the pits. We'll be back before the race.">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <title>Pit Stop in Progress - FreeF1</title>
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <title>Pit Stop in Progress · FreeF1</title>
   <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Archivo-latin.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/JetBrainsMono-latin.woff2" crossorigin>
   <link rel="stylesheet" href="/fonts.css">
+  <link rel="stylesheet" href="/src/styles/404.css">
   <link rel="stylesheet" href="/src/styles/maintenance.css">
+  <script>
+    /* Match the viewer's chosen team livery (same key + palette as the main site). Runs before paint. */
+    (() => {
+      try {
+        const palette = {
+          default: '#E10600',
+          mclaren: '#FF8000',
+          ferrari: '#DC0000',
+          redbull: '#1E41FF',
+          mercedes: '#00D2BE',
+          williams: '#005AFF',
+          astonmartin: '#006F62',
+          alpine: '#FF0080',
+          haas: '#E6E6E6',
+          audi: '#E62213',
+          cadillac: '#B4A07A',
+          racingbulls: '#6692FF'
+        };
+        const id = localStorage.getItem('freef1_team');
+        const c = palette[id];
+        if (c) {
+          const rs = document.documentElement.style;
+          rs.setProperty('--team', c);
+          rs.setProperty('--red-glow', c + '70');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
-  <div class="track-grid" aria-hidden="true"></div>
-  <div class="speed-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="red-haze" aria-hidden="true"></div>
+  <div class="track" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
 
-  <header class="pit-header">
-    <a class="pit-brand" href="/" aria-label="FreeF1 home">
-      <span class="pit-brand-mark">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M2 17.5 7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2Z"/>
-          <path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4Z" opacity=".72"/>
+  <nav class="nav">
+    <a class="brand" href="/" aria-label="FreeF1 home">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/>
+          <path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/>
         </svg>
       </span>
-      <span class="pit-brand-copy"><b>FreeF1</b></span>
+      <span class="brand-text"><b>FreeF1</b></span>
     </a>
-    <div class="race-control"><i></i><span>Race control</span><b>In the pits</b></div>
-  </header>
+    <div class="nav-right">
+      <div class="pill flag" title="Race Control status"><span class="dot"></span>In the pits</div>
+      <div class="pill mono" id="garageTime" title="Garage time">00:00:00</div>
+    </div>
+  </nav>
 
-  <main class="pit-main">
-    <section class="pit-copy" aria-labelledby="maintenanceTitle">
-      <div class="pit-kicker"><span>●</span> Scheduled pit stop</div>
-      <h1 id="maintenanceTitle">We're changing<br><em>the tires.</em></h1>
-      <p class="pit-lead" id="maintenanceMessage">We'll be back before the race.</p>
-      <p class="pit-detail">The crew is tuning the cockpit, tightening every bolt and getting FreeF1 ready for its next stint. Stay here: Race Control will update this page live and return you automatically when the pit stop is complete.</p>
-
-      <div class="return-board">
-        <div class="checker-icon" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <div><span>Estimated return</span><strong id="returnEta">Before lights out</strong></div>
-        <div class="return-pulse" aria-hidden="true"></div>
+  <main class="stage">
+    <div class="flag-strip" aria-hidden="true"></div>
+    <div class="inner">
+      <span class="eyebrow">Race Control · Scheduled pit stop</span>
+      <h1 class="display" id="maintenanceTitle">
+        <span class="l"><span>We're changing</span></span>
+        <span class="l"><span><em>the tires.</em></span></span>
+      </h1>
+      <div class="code mono">
+        <span class="k opt">STATUS</span><span class="v opt">Pit stop</span>
+        <span class="k">RETURN</span><span class="v" id="returnEta">Before lights out</span>
       </div>
-
-      <div class="pit-cta">
-        <a class="pit-btn" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
+      <p class="sub" id="maintenanceMessage">We'll be back before the race.</p>
+      <div class="cta">
+        <a class="btn primary" href="/">Return to the Cockpit</a>
+        <a class="btn" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">
+          <svg class="btn-ic" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
           </svg>
-          <span>Join the Discord</span>
+          Discord
         </a>
+        <a class="btn" href="/help.html">Help</a>
       </div>
-    </section>
+      <div class="radio mono" aria-live="polite">
+        <span class="who">PIT WALL</span>
+        <span class="msg" id="autoStatus"><i></i> Connecting to Race Control…</span>
+      </div>
+    </div>
   </main>
 
-  <footer class="pit-footer">
-    <div><span class="footer-label">Garage time</span><b id="garageTime">00:00:00</b></div>
-    <div class="auto-status" id="autoStatus" role="status" aria-live="polite"><i></i> Connecting to Race Control…</div>
-    <div class="independent-note">Independent fan project · Created by <b class="credit">doggo</b> · No affiliation with Formula 1 or the FIA</div>
+  <footer>
+    <div class="foot-bar mono">
+      <span>© 2026 FreeF1 - Independent Fan Project · Created by <span class="credit">doggo</span></span>
+      <span><a href="/info">Terms · Privacy · FAQ</a></span>
+    </div>
   </footer>
-  <div class="finish-line" aria-hidden="true"></div>
 
   <noscript><div class="noscript-note">JavaScript is disabled. Enable it to receive live maintenance updates and return automatically.</div></noscript>
-  
 
 <script type="module" src="/src/maintenance.ts"></script>
 </body>

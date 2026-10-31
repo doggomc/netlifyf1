@@ -33,7 +33,7 @@ Optional features still download when used. Desktop decoration may download afte
 - **Node:** 22
 - **Base:** repository root
 
-`netlify.toml` supplies these settings. Keep the current production hostname/origin. Headers, redirects, `.well-known/discord`, fonts and images are copied from `public/`. Only hashed `/bundles/*` assets receive immutable caching; HTML revalidates.
+`netlify.toml` supplies these settings. Keep the current production hostname/origin. Headers, redirects, `.well-known/discord`, fonts and images are copied from `site-assets/` (rules, fonts.css, robots.txt, sitemap.xml) and `assets/` (images, fonts, icons) by `vite.config.ts`. Only hashed `/bundles/*` assets receive immutable caching; HTML revalidates.
 
 ## Remaining release checks
 

@@ -1,3 +1,9 @@
+/* The hidden attribute must always win. Class rules that set display (grid, inline-flex, flex)
+   otherwise override the UA's [hidden] rule, so an element meant to be invisible still renders.
+   That is what painted the replay "no player" notice over every working stream, and would have
+   shown the hijack-only "Stay on this page" button on every blocked feed. */
+[hidden] { display: none !important; }
+
 /* ═══════════════ DESIGN TOKENS ═══════════════ */
 
 :root {
@@ -2793,6 +2799,125 @@ from {
 }
 
 /* Team grid */
+@keyframes chip-flash-in {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb,var(--amber) 70%,transparent); }
+  70%  { box-shadow: 0 0 0 10px color-mix(in srgb,var(--amber) 0%,transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.chip.chip-flash {
+  animation: chip-flash-in 1s ease-out 3;
+  border-color: var(--amber);
+}
+
+/* Locked feed chip — members-only source (4K) */
+.chip-locked {
+  border-style: dashed;
+  border-color: color-mix(in srgb,var(--amber) 45%,var(--line));
+  color: color-mix(in srgb,var(--amber) 75%,var(--text));
+}
+
+.chip-locked:hover {
+  border-color: var(--amber);
+  color: var(--text);
+  background: color-mix(in srgb,var(--amber) 12%,transparent);
+}
+
+
+/* ── Custom livery ─────────────────────────────────────────────────────── */
+.livery-custom {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.lc-copy h3 {
+  font-family: 'Archivo';
+  font-style: italic;
+  font-weight: 800;
+  font-size: .92rem;
+  letter-spacing: .01em;
+}
+
+.lc-copy p {
+  margin: 4px 0 14px;
+  color: var(--muted);
+  font-size: .76rem;
+  line-height: 1.6;
+}
+
+.lc-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+#liveryColorPicker {
+  width: 52px;
+  height: 42px;
+  padding: 3px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: rgba(0,0,0,.4);
+  cursor: pointer;
+}
+
+#liveryColorPicker::-webkit-color-swatch-wrapper { padding: 0; }
+#liveryColorPicker::-webkit-color-swatch { border: 0; border-radius: 7px; }
+#liveryColorPicker::-moz-color-swatch { border: 0; border-radius: 7px; }
+
+#liveryColorHex {
+  width: 132px;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: rgba(0,0,0,.4);
+  color: var(--text);
+  font-family: 'JetBrains Mono',monospace;
+  font-size: .8rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+#liveryColorHex:focus {
+  outline: none;
+  border-color: var(--team);
+  box-shadow: 0 0 0 3px color-mix(in srgb,var(--team) 22%,transparent);
+}
+
+#liveryColorHex.is-invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px color-mix(in srgb,var(--red) 20%,transparent);
+}
+
+.lc-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.lc-swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--sw);
+  border: 1px solid rgba(255,255,255,.2);
+  cursor: pointer;
+  transition: transform .2s var(--ease),border-color .2s var(--ease);
+}
+
+.lc-swatch:hover,
+.lc-swatch:focus-visible {
+  transform: translateY(-2px) scale(1.1);
+  border-color: #fff;
+}
+
+.tcard-custom .tbadge { color: #fff; }
+
 .teams {
   display: grid;
   grid-template-columns: repeat(auto-fill,minmax(146px,1fr));
@@ -4596,3 +4721,37 @@ body.view-swapping {
   background: #ff3931; box-shadow: 0 0 12px rgba(255, 57, 49, .85);
 }
 .help-notification-dot[hidden] { display: none !important; }
+
+/* ── 4K join nudge ───────────────────────────────────────────────── */
+.jn-copy {
+  color: var(--muted);
+  font-size: .88rem;
+  line-height: 1.65;
+  margin-bottom: 20px;
+}
+.jn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.jn-actions .btn { text-decoration: none; }
+.jn-optout {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .66rem;
+  letter-spacing: .06em;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.jn-optout input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent, #e10600);
+  cursor: pointer;
+  margin: 0;
+}

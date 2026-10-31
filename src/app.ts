@@ -1,6 +1,8 @@
 import { setupCustomSelects } from './ui/select';
 import { TEAM_LOGO, TEAM_HEX, TEAM_ALIAS, photoFor, teams } from './data/teams';
+import { NO_STREAM_MESSAGES, LOADER_LINES, BLOCKED_TITLE, BLOCKED_COPY_IOS, BLOCKED_COPY, HIJACK_TITLE, HIJACK_COPY } from './data/cockpit-messages';
 import { BACKEND_API, SITE_CONFIG_CACHE_KEY, SITE_SEASON, OPENF1_API, JOLPI } from './config';
+import type { ProviderHealthState, HealthDeps } from './features/provider-health';
 import { parseSiteConfig, type SiteConfig } from './types/site-config';
 import { onIdle, onVisible, lazyButton } from './services/lazy';
 import { store } from './services/storage';
@@ -8,6 +10,7 @@ import { fetchWithTimeout, fetchJson, readApiFallback } from './services/api';
 import { $ } from './services/dom';
 import { schedule, type RaceEvent, type Session } from './data/schedule';
 import { mapPool } from './services/pool';
+import type { Catalogues } from './features/catalogues';
 /* ═══════════════════════════════════════════════════════════════════════════
    FreeF1 - Formula 1 Live Companion
    Client Application Logic
@@ -22,6 +25,7 @@ let streamWindowState = { active: false, reason: '', startedAt: null, updatedAt:
 let siteConfigEventSource = null;
 
 const NAV_TIMEOUT_MS = 9000;
+const NAV_SOFT_MS = 4000;
 
 const FOLLOW_KEY = 'freef1_following';
 const RADIO_RC_STORE_KEY = 'freef1_radio_rc';
@@ -67,12 +71,7 @@ function fadeSwapContent(element, render, { animate = true } = {}) {
   }, CONTENT_FADE_MS);
 }
 
-const BLOCKED_COPY = IS_IOS
-  ? "The stream host never loaded on this network. On iPhone this is usually caused by a content blocker, Private Relay, Lockdown Mode or DNS filtering. Disable them for this site and reload."
-  : "The stream host never responded on this network - the feed was blocked before it could start. Check ad-blockers, VPN or DNS filtering, then retry.";
-
-const HIJACK_TITLE = "The feed tried to send you to another site";
-const HIJACK_COPY = "That was the feed's ad layer tab-swapping the player on your click - not us. Resume reloads the stream; Stay keeps whatever page the frame landed on. We will never redirect you off this site: close any extra tab it opened.";
+const BLOCKED_COPY_TEXT = IS_IOS ? BLOCKED_COPY_IOS : BLOCKED_COPY;
 
 // Keep News data and rendering intact for admins, but hide its public view until re-enabled.
 const PUBLIC_NEWS_ENABLED = false;
@@ -410,35 +409,177 @@ function getTaidUrl(num) {
   return `https://taifood-blog.asia/embed/${kebab(currentEvent?.name)}---${kebab(currentSession?.name)}-${num}`;
 }
 
-/* taid  -> numbered taifood embed (/embed/<event>---<session>-<id>)
-   ppv   -> path-scheme taifood embed (/embed/f1/<season>/<city>/<session>)
-   url   -> fixed address that does not vary by round */
-interface StreamSource { id: string; label: string; url?: string; suffix?: string; streamNum?: number; taid?: number; rp?: ReferrerPolicy; ppv?: boolean; }
-/* Sky UHD is the main source: it is first in the row and it is what plays on load, on a
-   session change and on "jump to live". If Race Control disables it, the player falls through
-   to the first source that is still enabled. */
+/* ═══ Link pools ═══
+   A source is a POOL of links, not one address. Every entry carries the qualities it can serve so
+   the player can stay at 720p or better; anything below 720p is never offered.
+
+   Addressing, per link:
+     'path'    — event/session are in the URL, rebuilt on every switch (taifood)
+     'fixed'   — a live channel; the session key is stamped on to defeat a cached document
+     'mirror'  — same channel on a sibling domain (strmfree ↔ streamfree)
+     'lookup'  — id resolved from a catalogue at play time (embdlol, cdnlivetv)
+     'dynamic' — token minted per request (ehgembxe); never stored */
+type Addressing = 'fixed' | 'dynamic';   // fixed = stamped URL or taifood id, dynamic = token on demand
+
+interface StreamLink {
+  url?: string;
+  taid?: number;
+  src?: string;                 // streamNum-style suffix, unused by current links
+  ppv?: boolean;
+  provider: string;
+  label?: string;               // only where it differs from the provider name
+  addressing: Addressing;
+  quality?: number;             // omitted/ad 0 = unknown or adaptive, else vertical pixels
+  rp?: ReferrerPolicy;
+}
+
+interface StreamSource {
+  id: string;
+  label: string;
+  links: StreamLink[];
+  rp?: ReferrerPolicy;
+  embdlol?: string;             // catalogue channel name, when the pool is looked up
+  gated?: boolean;              // the 4K chip: resolved server-side, plays through the nudge
+}
+
+/* Minimum vertical resolution we will ever put on screen. */
+const MIN_QUALITY = 720;
+
+const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
+
+/* ═══ Provider catalogues ═══
+   embdlol ids rotate and cdnlivetv publishes channel status, so both are read at runtime from the
+   lazy catalogue chunk (src/features/catalogues.ts). Nothing here is hard-coded. */
+let catalogues: Catalogues = { embdlol: {}, cdnlive: {} };
+
+async function loadCatalogues(): Promise<void> {
+  const { loadCatalogues: load } = await import('./features/catalogues');
+  catalogues = await load({ fetchWithTimeout });
+}
+
+function embdlolUrl(name: string): string {
+  const id = catalogues.embdlol[name];
+  return id ? `${EMBDLOL_EMBED}${id}` : '';
+}
+
+function cdnLivePlayer(name: string): string {
+  return `https://cdnlivetv.tv/api/v1/channels/player/?name=${encodeURIComponent(name)}&code=&user=cdnlivetv&plan=free`;
+}
+
+/* Sky UHD is the main source: first in the row and what plays on load, on a session change and on
+   "jump to live". If Race Control disables it, the player falls through to the first enabled source. */
 const DEFAULT_SOURCE_ID = "sky-uk";
-const sources: StreamSource[]=[
- {id:"sky-uk",label:"Sky UHD",url:"https://strmfree.st/embed/racing/skyf1"},
- {id:"sky-f1-uk",label:"Sky Sports F1 UK",url:"https://cdnlivetv.tv/api/v1/channels/player/?name=Sky%20Sports%20F1%20FHD%20UK&code=&user=cdnlivetv&plan=free",rp:"unsafe-url"},
- {id:"sky-sports",label:"Sky Sports",url:"https://hakunamatata5.org/hakunamatata5.html",rp:"unsafe-url"},
- {id:"appletv",label:"AppleTV",taid:31374,rp:"unsafe-url"},
- {id:"dazn",label:"DAZN",taid:31376,rp:"unsafe-url"},
- {id:"viaplay",label:"Viaplay",taid:31380,rp:"unsafe-url"},
- {id:"sky-italia",label:"Sky Sport Italia",taid:31378,rp:"unsafe-url"},
- {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
- {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"},
- {id:"ppv",label:"F1 PPV",ppv:true,rp:"unsafe-url"},
- /* Pulled off the WikiSport player page. Note: xstream.st only serves the real player when
-    the request carries a wikisport.info referrer; from this origin it answers with a
-    parked-domain page. Kept here so it is one line away from working if we proxy it. */
- {id:"xstream",label:"XStream F1",url:"https://xstream.st/fslivepro.php?stream=F81"}
+
+/* ═══ The source list ═══
+   Every link here was verified by probe: strmfree/streamfree pages answer 200 with a live player
+   shell, cdnlivetv reports channel status, taifood ids come from the live manifests. Anything
+   below 720p (taifood's _540p tier, embdlol's 720p German channel) is deliberately absent. */
+const sources: StreamSource[] = [
+  /* Same operator on two domains (strmfree.link/api/domains), three channel names each. */
+  { id: "sky-uk", label: "Sky UHD", links: [
+      { provider: 'strmfree', addressing: 'fixed', quality: 2160, url: "https://strmfree.st/embed/racing/skyf12160p" },
+      { provider: 'strmfree', addressing: 'fixed', quality: 2160, url: "https://streamfree.top/embed/racing/skyf12160p" },
+      { provider: 'strmfree', addressing: 'fixed', url: "https://strmfree.st/embed/racing/skyf1" },
+      { provider: 'strmfree', addressing: 'fixed', url: "https://streamfree.top/embed/racing/skyf1?server=origin&quality=1080p&category=racing" }
+  ]},
+  { id: "skyf1-1080", label: "Sky F1 1080p", links: [
+      { provider: 'streamfree', addressing: 'fixed', quality: 1080, url: "https://streamfree.top/embed/racing/skyf11080p" },
+      { provider: 'streamfree', addressing: 'fixed', quality: 1080, url: "https://strmfree.st/embed/racing/skyf11080p" }
+  ]},
+  { id: "emb-sky", label: "Sky F1 (EMB)", embdlol: "f1frisky", links: [] },
+  { id: "emb-apple", label: "Apple TV (EMB)", embdlol: "f1friapple", links: [] },
+  { id: "emb-dazn", label: "DAZN ES (EMB)", embdlol: "f1fridazn", links: [] },
+  { id: "emb-italia", label: "Sky Italia (EMB)", embdlol: "f1friskyit", links: [] },
+  /* f1friskyde is 720p exactly, so it clears the floor. */
+  { id: "emb-de", label: "Sky DE (EMB)", embdlol: "f1friskyde", links: [] },
+  /* Resolved server-side by GET /api/stream/uhd. HEVC only: Safari and iPhone play it. */
+  { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
+
+  /* The only provider with a published status field; ordered by it at play time. */
+  { id: "sky-f1-uk", label: "Sky Sports F1 UK", rp: "unsafe-url", links: [
+      { provider: 'cdnlivetv', label: 'Sky Sports F1 FHD UK', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('Sky Sports F1 FHD UK') },
+      { provider: 'cdnlivetv', label: 'DAZN F1 FHD', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('DAZN F1 FHD') },
+      { provider: 'cdnlivetv', label: 'Viaplay Sports 1 FHD UK', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('Viaplay Sports 1 FHD UK') },
+      { provider: 'cdnlivetv', label: 'Viaplay Sports 2 FHD UK', addressing: 'fixed', quality: 1080, url: cdnLivePlayer('Viaplay Sports 2 FHD UK') }
+  ]},
+
+  /* ehgembxe mints a JWT per request via 302 → /play/<jwt>; the frontend asks our server for it. */
+  { id: "ehgembxe", label: "Sky Sports F1 HD (EHG)", links: [
+      { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-4089' }
+  ]},
+
+  { id: "sky-sports", label: "Sky Sports", rp: "unsafe-url", links: [
+      { provider: 'hakunamatata', addressing: 'fixed', url: "https://hakunamatata5.org/hakunamatata5.html" }
+  ]},
+
+  /* taifood: the event and session are in the path. 31377 is the only id flagged 720p-safe. */
+  { id: "appletv", label: "AppleTV", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', taid: 31385 },
+      { provider: 'taifood', addressing: 'fixed', taid: 31374 }
+  ]},
+  { id: "dazn", label: "DAZN", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', taid: 31387 },
+      { provider: 'taifood', addressing: 'fixed', taid: 31376 }
+  ]},
+  { id: "viaplay", label: "Viaplay", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', taid: 31391 },
+      { provider: 'taifood', addressing: 'fixed', taid: 31380 }
+  ]},
+  { id: "sky-italia", label: "Sky Sport Italia", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', taid: 31389 },
+      { provider: 'taifood', addressing: 'fixed', taid: 31378 }
+  ]},
+
+  /* New taifood feeds that were not on the site at all. */
+  { id: "sky-de", label: "Sky Sport F1 DE", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', taid: 31388 },
+      { provider: 'taifood', addressing: 'fixed', taid: 31377 }
+  ]},
+  { id: "v-sport", label: "V Sport Motor SE", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', taid: 31390 }
+  ]},
+  { id: "czech", label: "Czech F1", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', taid: 31381 }
+  ]},
+
+  /* Three entry points, one upstream channel (/hls/stream.m3u8?ch=spn). Failover only. */
+  { id: "wikisport", label: "WikiSport", links: [
+      { provider: 'wikisport', addressing: 'fixed', url: "https://wikisport.info/strm/f1.php" },
+      { provider: 'wikisport', addressing: 'fixed', url: "https://wikisport.info/fsl/f1s2.php" },
+      { provider: 'wikisport', addressing: 'fixed', url: "https://wikisport.info/fsl/f1s3.php" }
+  ]},
+
+  { id: "westream", label: "WeStream F1", links: [
+      { provider: 'westream', addressing: 'fixed', url: "https://westreamf1.com/westreamf1.php" }
+  ]},
+
+  /* Path-scheme taifood: /embed/f1/<season>/<event>/<session> */
+  { id: "ppv", label: "F1 PPV", rp: "unsafe-url", links: [
+      { provider: 'taifood', addressing: 'fixed', ppv: true }
+  ]}
 ];
-
-
 
 let disabledSources = new Set();
 const sourceEnabled = (s) => !disabledSources.has(s.id);
+
+/* ═══ Session key ═══
+   Every source URL is derived from the live event + session, and the key is stamped onto feeds
+   that cannot carry a session in their path. That way a browser can never reuse the previous
+   session's player document, and a stale address is visible rather than silent. */
+function sessionKey(event = currentEvent, session = currentSession): string {
+  return `${SITE_SEASON}-${event?.slug || 'none'}-${session?.slug || 'none'}`;
+}
+
+/* Fixed-channel feeds ignore the key upstream, but a distinct address per session stops the
+   iframe and any service worker from serving a cached document from the last session. */
+function stampSession(url: string, key = sessionKey()): string {
+  if (!url) return '';
+  const hashIndex = url.indexOf('#');
+  const hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
+  const base = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}s=${encodeURIComponent(key)}${hash}`;
+}
 
 /* The main source, unless Race Control has switched it off - then the first enabled one. */
 function preferredSourceIndex() {
@@ -475,17 +616,106 @@ let currentSource = sources.findIndex((s) => s.id === DEFAULT_SOURCE_ID);
 let activeView = 'home';
 let playerLoadToken = 0;
 
-const buildUrl = (i) => {
-  const s = sources[i];
-  if (!s) return "";
-  if (s.taid) return getTaidUrl(s.taid);
-  if (s.ppv) return `https://taifood-blog.asia/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}`;
-  if (s.streamNum) {
-    const slug = getStreamEastSlug(currentEvent, currentSession);
-    return `https://embed.st/embed/admin/${slug}/${s.streamNum}`;
+/* Resolve a link to an absolute address for the current session, or '' when it cannot be served.
+   This is the single place a source's address is decided. */
+function resolveLink(link: StreamLink, key = sessionKey()): string {
+  if (link.quality && link.quality < MIN_QUALITY) return '';
+  if (link.taid) return getTaidUrl(link.taid);
+  if (link.ppv) return `https://taifood-blog.asia/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}`;
+  return link.url ? stampSession(link.url, key) : '';
+}
+
+/* One pool per source, ordered best-first, then filtered to what can actually play now.
+   cdnlivetv links are ordered by the status it publishes; embdlol is resolved from its catalogue. */
+function linkPool(index: number): string[] {
+  const source = sources[index];
+  if (!source) return [];
+  if (source.gated) {
+    const url = resolveLink({ provider: 'embdlol', addressing: 'fixed', quality: 0, url: fourKUrl });
+    return url ? [url] : [];
   }
-  return s.url || (s.suffix !== undefined ? `https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${s.suffix || ""}` : "");
-};
+  const key = sessionKey();
+  let links = source.links.slice();
+
+  if (source.embdlol) {
+    const id = catalogues.embdlol[source.embdlol];
+    links = id ? [{ provider: 'embdlol', label: source.embdlol, addressing: 'fixed', quality: 0, url: `${EMBDLOL_EMBED}${id}` }] : [];
+  }
+
+  /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
+     reported offline sinks to the end. Ordering only — no link is ever dropped for being dead. */
+  const rank = (link: StreamLink) => {
+    const catalogue = catalogues.cdnlive[link.label];
+    const probe = linkHealthStatus(link);
+    return catalogue === 'online' || (!catalogue && probe === 'live') ? 0 : catalogue || probe ? 2 : 1;
+  };
+  links = links.slice().sort((a, b) => rank(a) - rank(b));
+
+  const resolved = links.filter((link) => link.addressing !== 'dynamic');
+  const dynamic = links.filter((link) => link.addressing === 'dynamic');
+
+  const pool = resolved.map((link) => resolveLink(link, key)).filter(Boolean);
+  /* A dynamic link is only usable once its token is in hand, so a prefetched one is appended. */
+  for (const link of dynamic) {
+    const ready = cachedDynamicUrl(link.url || '');
+    if (ready) pool.push(stampSession(ready, key));
+  }
+
+  const good = lastGoodLink[source.id];
+  return good && pool.includes(good) ? [good, ...pool.filter((url) => url !== good)] : pool;
+}
+
+/* Warm a dynamic provider's token so the chip can play on first click. */
+function prefetchDynamicLinks(index: number) {
+  for (const link of sources[index]?.links || []) {
+    if (link.addressing !== 'dynamic' || !link.url) continue;
+    if (cachedDynamicUrl(link.url)) continue;
+    void resolveDynamicLink(link.url).then((url) => {
+      if (url && currentSource === index) renderButtons();
+    });
+  }
+}
+
+/* Anything derived from the previous session is dropped here: the 4K address, resolved dynamic
+   tokens and the per-source "last good link". A new session can repoint a provider completely. */
+function resetSessionState() {
+  fourKUrl = '';
+  fourKRequest++;
+  for (const key of Object.keys(lastGoodLink)) delete lastGoodLink[key];
+}
+
+/* The link that last worked for a source, so a reload does not begin by retrying a dead address.
+   Cleared on session change: a new session can repoint the provider entirely. */
+const lastGoodLink: Record<string, string> = {};
+
+function rememberGoodLink(sourceId: string, url: string) {
+  lastGoodLink[sourceId] = url;
+}
+
+
+/* ═══ Provider health ═══
+   The server probes each provider (catalogue status where it exists, a real document fetch where
+   it does not). This only reorders and annotates; it never removes a source, because a probe
+   failing is not the same as a feed being dead. Loaded lazily so it stays out of startup JS. */
+const healthState: ProviderHealthState = { providers: {}, dynamic: {} };
+
+function healthDeps(): HealthDeps {
+  return { backend: BACKEND_API, state: healthState, onChange: () => renderButtons(), fetchWithTimeout };
+}
+
+async function loadProviderHealth() {
+  const module = await import('./features/provider-health');
+  await module.loadProviderHealth(healthDeps());
+}
+
+function linkHealthStatus(link: StreamLink): string {
+  if (link.provider === 'cdnlivetv') return healthState.providers[`cdnlivetv:${link.label}`]?.status || '';
+  const direct = healthState.providers[link.label || link.provider];
+  return direct?.status || healthState.providers[link.provider]?.status || '';
+}
+
+/* Kept for the callers that only need one address (the header label, the override path). */
+const buildUrl = (i) => linkPool(i)[0] || '';
 
 function updateHeader() {
   const parts = currentEvent.name.split(" ");
@@ -514,10 +744,162 @@ function updateHeader() {
   }
 
   normalizeCurrentSource();
-  const src = sources[currentSource] || { id: "none", label: "-", suffix: "" };
-  if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
+  const src = sources[currentSource] || { id: "none", label: "-" };
+  if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
+}
+
+/* ═══ 4K join nudge ═══
+   The 4K chip is public: there is no membership gate, no /link code and no token. Clicking it
+   offers a short "joining helps with session alerts" prompt, then plays the feed. The popup can
+   be silenced with its own checkbox; the feed always continues either way. */
+const FOURK_NUDGE_KEY = 'freef1_4k_nudge_off';
+const DISCORD_INVITE = 'https://discord.gg/KYXHCAzhN4';
+const joinNudgeOverlay = document.getElementById('joinNudge');
+const joinNudgeDontShow = document.getElementById('joinNudgeDontShow') as HTMLInputElement | null;
+
+let fourKUrl = '';
+let fourKRequest = 0;
+
+function nudgeMuted(): boolean {
+  try { return localStorage.getItem(FOURK_NUDGE_KEY) === '1'; } catch (_) { return false; }
+}
+
+function setNudgeMuted(muted: boolean) {
+  try {
+    if (muted) localStorage.setItem(FOURK_NUDGE_KEY, '1');
+    else localStorage.removeItem(FOURK_NUDGE_KEY);
+  } catch (_) {}
+}
+
+/* The address is resolved server-side because the upstream channel id rotates. */
+async function fetchFourKUrl(): Promise<string> {
+  if (fourKUrl) return fourKUrl;
+  const seq = ++fourKRequest;
+  try {
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/stream/uhd`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 9000);
+    const json = await response.json().catch(() => ({}));
+    if (seq !== fourKRequest) return fourKUrl;
+    if (!response.ok || !json?.url) {
+      showToast(json?.error || 'The 4K feed is unavailable right now.', 'warning');
+      return '';
+    }
+    fourKUrl = String(json.url);
+    return fourKUrl;
+  } catch (_) {
+    showToast('Could not reach the 4K service. Try again.', 'warning');
+    return '';
+  }
+}
+
+/* The 4K channel publishes a single HEVC rendition. Chrome/Edge/Firefox on most desktops have no
+   HEVC decoder, so the frame stays black however well the link worked. */
+let hevcSupport: boolean | null = null;
+function canPlayHevc(): boolean {
+  if (hevcSupport !== null) return hevcSupport;
+  try {
+    const video = document.createElement('video');
+    hevcSupport = video.canPlayType('video/mp4; codecs="hvc1.1.6.L153.B0"') !== '' ||
+                  video.canPlayType('video/mp4; codecs="hev1.1.6.L153.B0"') !== '';
+  } catch (_) {
+    hevcSupport = false;
+  }
+  return hevcSupport;
+}
+
+const HEVC_WARNING = '4K is HEVC: plays in Safari and on iPhone, black on most desktops.';
+
+function closeJoinNudge() {
+  if (joinNudgeOverlay) closeModal(joinNudgeOverlay);
+}
+
+function openJoinNudge(onContinue: () => void) {
+  if (!joinNudgeOverlay) { onContinue(); return; }
+  if (joinNudgeDontShow) joinNudgeDontShow.checked = false;
+  openModal(joinNudgeOverlay);
+
+  const continueBtn = document.getElementById('joinNudgeContinue');
+  const joinBtn = document.getElementById('joinNudgeJoin');
+  const closeBtn = document.getElementById('joinNudgeClose');
+  const proceed = () => {
+    if (joinNudgeDontShow?.checked) setNudgeMuted(true);
+    closeJoinNudge();
+    onContinue();
+  };
+
+  /* Replace the handlers with fresh closures so a second click never stacks up. */
+  if (continueBtn) continueBtn.onclick = proceed;
+  if (closeBtn) closeBtn.onclick = () => closeJoinNudge();
+  if (joinBtn) joinBtn.onclick = () => {
+    window.open(DISCORD_INVITE, '_blank', 'noopener');
+    proceed();
+  };
+  if (joinNudgeOverlay) {
+    joinNudgeOverlay.onclick = (event) => {
+      if (event.target === joinNudgeOverlay) closeJoinNudge();
+    };
+  }
+}
+
+/* Clicking the 4K chip: nudge (once a click, unless silenced) → play. */
+async function playFourK() {
+  const index = sources.findIndex((source) => source.gated);
+  if (index < 0) return;
+  const url = await fetchFourKUrl();
+  if (!url) return;
+  currentSource = index;
+  renderButtons();
+  updateHeader();
+  load();
+  if (!canPlayHevc()) showToast(HEVC_WARNING, 'warning');
+}
+
+/* ehgembxe mints a JWT per request (302 → /play/<jwt>), so the address cannot be stored.
+   The server does the hop; the lazy module below holds the result briefly. */
+async function resolveDynamicLink(path: string): Promise<string> {
+  const module = await import('./features/provider-health');
+  return module.resolveDynamicLink(healthDeps(), path);
+}
+
+function cachedDynamicUrl(path: string): string {
+  const cached = healthState.dynamic[path];
+  return cached && Date.now() - cached.at < 60_000 ? cached.url : '';
+}
+
+function chooseFourK() {
+  if (nudgeMuted()) { void playFourK(); return; }
+  openJoinNudge(() => { void playFourK(); });
+}
+
+/* ═══ Reset ═══
+   /?reset=discord forgets any legacy Discord link state; /?reset=all also drops the livery,
+   saved preferences and cached API data. */
+async function handleResetRequest() {
+  let mode = '';
+  try { mode = new URLSearchParams(location.search).get('reset') || ''; } catch (_) {}
+  if (!mode) return;
+
+  const clean = (() => {
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('reset');
+      return url.pathname + (url.search || '') + url.hash;
+    } catch (_) { return '/'; }
+  })();
+
+  try {
+    if (mode === 'all') {
+      Object.keys(localStorage).filter((key) => key.startsWith('freef1')).forEach((key) => localStorage.removeItem(key));
+      sessionStorage.clear();
+    } else {
+      /* Leftover tokens from the retired Superlicense gate, plus the nudge opt-out. */
+      localStorage.removeItem('freef1_dg_token');
+      setNudgeMuted(false);
+    }
+  } catch (_) {}
+
+  location.replace(clean);
 }
 
 function renderButtons() {
@@ -527,9 +909,14 @@ function renderButtons() {
   sources.forEach((s, i) => {
     if (!sourceEnabled(s)) return;
     const b = document.createElement("button");
+    b.type = "button";
     b.className = "chip" + (i === currentSource ? " active" : "");
+    if (s.gated && !canPlayHevc()) b.title = 'HEVC: Safari and iPhone only';
     b.textContent = s.label;
-    b.onclick = () => {
+    b.onclick = async () => {
+      /* The 4K chip asks once whether they want session alerts before playing. */
+      if (s.gated) return chooseFourK();
+      prefetchDynamicLinks(i);
       currentSource = i;
       renderButtons();
       updateHeader();
@@ -537,6 +924,7 @@ function renderButtons() {
     };
     linksEl.appendChild(b);
   });
+
 }
 
 let nsTimer = null;
@@ -557,13 +945,7 @@ function startNS() {
   nsRunning = true;
   const t = $("noStreamTitle");
   const x = $("noStreamText");
-  const msgs = [
-    { t: "Hang tight", x: "We're working on getting this stream up for you. Check back soon!" },
-    { t: "Formation lap", x: "Our crew is setting up the feed. A few more moments and you'll be good to go." },
-    { t: "In the garage", x: "Getting everything ready for the best viewing experience possible." },
-    { t: "Almost there", x: "Just a little more patience and you'll be watching the race in no time." },
-    { t: "Stay tuned", x: "The stream will be up shortly. We appreciate your patience!" }
-  ];
+  const msgs = NO_STREAM_MESSAGES;
   let i = 0;
   (function next() {
     if (!nsRunning) return;
@@ -634,8 +1016,8 @@ function showNoStream(opts: { blocked?: boolean; title?: string; text?: string; 
   }
   if (blocked) {
     stopNS();
-    if (noStreamTitleEl) noStreamTitleEl.textContent = (opts && opts.title) || (hijack ? HIJACK_TITLE : "Feed blocked on this device");
-    if (noStreamTextEl) noStreamTextEl.textContent = (opts && opts.text) || (hijack ? HIJACK_COPY : BLOCKED_COPY);
+    if (noStreamTitleEl) noStreamTitleEl.textContent = (opts && opts.title) || (hijack ? HIJACK_TITLE : BLOCKED_TITLE);
+    if (noStreamTextEl) noStreamTextEl.textContent = (opts && opts.text) || (hijack ? HIJACK_COPY : BLOCKED_COPY_TEXT);
   } else {
     startNS();
   }
@@ -750,24 +1132,35 @@ function showStreamBlocked() {
   showNoStream({ blocked: true, text: BLOCKED_COPY });
 }
 
-function attemptSource(token, order, idx, startedAt) {
+/* Two-stage ladder: try every link in the current source's pool, then move to the next source.
+   A source only loses its place in the row once all of its links have failed. */
+function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
   if (token !== playerLoadToken) return;
-  if (idx >= order.length) {
-    showStreamBlocked();
+  if (idx >= order.length) return showStreamBlocked();
+  const sourceIndex = order[idx];
+  const pool = linkPool(sourceIndex);
+  if (linkIdx >= pool.length) {
+    attemptSource(token, order, idx + 1, startedAt, 0);
     return;
   }
-  const targetUrl = buildUrl(order[idx]);
-  setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable - switching source…");
-  const f = makeStreamIframe(targetUrl, sources[order[idx]].rp);
+
+  const targetUrl = pool[linkIdx];
+  const finalLink = idx === order.length - 1 && linkIdx === pool.length - 1;
+  setLoaderText(idx === 0 && linkIdx === 0
+    ? "Establishing feed…"
+    : finalLink ? "Every feed is unreachable…" : "Feed unreachable - switching link…");
+
+  const f = makeStreamIframe(targetUrl, sources[sourceIndex].rp);
   let settled = false;
 
   const reveal = () => {
     settled = true;
-    if (currentSource !== order[idx]) {
-      currentSource = order[idx];
+    if (currentSource !== sourceIndex) {
+      currentSource = sourceIndex;
       renderButtons();
       updateHeader();
     }
+    rememberGoodLink(sources[sourceIndex].id, targetUrl);
     f.classList.add('loaded');
     setStreamOnScreen(true);
     requestScreenWakeLock().catch(()=>{});
@@ -776,28 +1169,32 @@ function attemptSource(token, order, idx, startedAt) {
     }, 180);
   };
 
-  f.onload = () => {
+  const advance = (removed = true) => {
     if (token !== playerLoadToken || settled) return;
-    if (!iframeCommitted(f)) return;
-    reveal();
+    settled = true;
+    if (removed) f.remove();
+    attemptSource(token, order, idx, startedAt, linkIdx + 1);
   };
 
-  f.onerror = () => {
-    if (token !== playerLoadToken || settled) return;
-    f.remove();
-    attemptSource(token, order, idx + 1, startedAt);
+  let loaded = false;
+
+  f.onload = () => {
+    loaded = true;
+    if (iframeCommitted(f)) reveal();
   };
+  f.onerror = () => advance();
 
   watchFrameNavigation(f, token, () => settled);
 
+  /* A live provider answers in a second or two, so an address that has returned nothing at all
+     after 4s is dead and the next link is tried. The 9s ceiling catches a frame that loaded but
+     never committed a document. */
   window.setTimeout(() => {
-    if (token !== playerLoadToken || !f.isConnected || settled) return;
-    if (iframeCommitted(f)) {
-      reveal();
-      return;
-    }
-    f.remove();
-    attemptSource(token, order, idx + 1, startedAt);
+    if (!loaded) advance();
+  }, NAV_SOFT_MS);
+  window.setTimeout(() => {
+    if (loaded && f.isConnected && iframeCommitted(f)) reveal();
+    else advance();
   }, NAV_TIMEOUT_MS);
 
   playerEl?.appendChild(f);
@@ -808,7 +1205,7 @@ function load() {
   const token = ++playerLoadToken;
   loaderEl?.classList.remove("hidden");
   hideNoStream();
-  setLoaderText("Establishing feed…");
+  setLoaderText(LOADER_LINES[Math.floor(Math.random() * LOADER_LINES.length)]);
   playerEl?.querySelector("iframe")?.remove();
   playerEl?.querySelector("video")?.remove();
 
@@ -1583,6 +1980,7 @@ $("currentStreamBtn")?.addEventListener("click", () => {
   if (!live) return;
   currentEvent = live.event;
   currentSession = live.session;
+  resetSessionState();
   currentSource = preferredSourceIndex();
   updateSessions();
   updateHeader();
@@ -1597,6 +1995,7 @@ eventSelect?.addEventListener("change", () => {
   if (!ev || ev.sessions.every(isSessionEnded)) return;
   currentEvent = ev;
   currentSession = ev.sessions.find((s) => !isSessionEnded(s)) || ev.sessions[0];
+  resetSessionState();
   currentSource = preferredSourceIndex();
   updateSessions();
   updateHeader();
@@ -1609,6 +2008,7 @@ sessionSelect?.addEventListener("change", () => {
   const s = currentEvent.sessions.find((s) => s.slug === sessionSelect.value);
   if (!s || isSessionEnded(s)) return;
   currentSession = s;
+  resetSessionState();
   currentSource = preferredSourceIndex();
   updateHeader();
   renderButtons();
@@ -1619,15 +2019,81 @@ sessionSelect?.addEventListener("change", () => {
 const tOverlay = $("teamSelectOverlay");
 const tGrid = $("teamGrid");
 
-function applyTeamTheme(id) {
-  const t = teams.find((x) => x.id === id) || teams[0];
+/* ═══ Custom livery ═══
+   Stored as freef1_team = 'custom' plus the chosen hex in freef1_team_color, so a custom
+   shade survives reloads the same way a team does. Any #rgb / #rrggbb is accepted; a 3-digit
+   code is expanded so the whole app gets a value CSS can mix. */
+const CUSTOM_TEAM_ID = 'custom';
+const CUSTOM_COLOR_KEY = 'freef1_team_color';
+const CUSTOM_DEFAULT = '#E10600';
+
+function normaliseHex(value) {
+  const raw = String(value || '').trim().replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/i.test(raw)) return '#' + raw.split('').map((c) => c + c).join('').toUpperCase();
+  if (/^[0-9a-f]{6}$/i.test(raw)) return '#' + raw.toUpperCase();
+  return null;
+}
+
+function customColor() {
+  return normaliseHex(store.get(CUSTOM_COLOR_KEY)) || CUSTOM_DEFAULT;
+}
+
+function applyCustomColor(hex, { persist = true } = {}) {
+  const clean = normaliseHex(hex);
+  if (!clean) return false;
+  if (persist) {
+    store.set(CUSTOM_COLOR_KEY, clean);
+    store.set('freef1_team', CUSTOM_TEAM_ID);
+  }
+  applyTeamTheme(CUSTOM_TEAM_ID, clean);
+  paintCustomCard();
+  syncColorInputs(clean);
+  return true;
+}
+
+/* Keep the picker and the hex field showing the colour that is actually applied. Skipped while
+   the field has focus so it does not fight somebody mid-type. */
+function syncColorInputs(hex: string) {
+  const picker = $('liveryColorPicker');
+  const field = $('liveryColorHex');
+  if (picker) picker.value = hex;
+  if (field && document.activeElement !== field) {
+    field.value = hex;
+    field.classList.remove('is-invalid');
+  }
+}
+
+/* Repaint just the "Own colour" swatch card — used while the picker is being dragged, so the
+   card never lags behind the value the cockpit is already showing. */
+function paintCustomCard() {
+  const hex = customColor();
+  const card = tGrid?.querySelector<HTMLElement>(`.tcard[data-team="${CUSTOM_TEAM_ID}"]`);
+  if (!card) return;
+  card.style.setProperty('--tc', hex);
+  const badge = card.querySelector<HTMLElement>('.tbadge');
+  if (badge) {
+    badge.style.background = `linear-gradient(140deg,${hex},${shade(hex, -50)})`;
+    badge.style.color = inkOn(hex);
+  }
+}
+
+function paintTheme(color) {
   const rs = document.documentElement.style;
-  rs.setProperty('--team', t.color);
-  rs.setProperty('--team-2', shade(t.color, 36));
-  rs.setProperty('--team-ink', inkOn(t.color));
-  rs.setProperty('--red-glow', t.color + '70');
+  rs.setProperty('--team', color);
+  rs.setProperty('--team-2', shade(color, 36));
+  rs.setProperty('--team-ink', inkOn(color));
+  rs.setProperty('--red-glow', color + '70');
+  dispatchEvent(new CustomEvent('freef1themechange', { detail: { color } }));
+}
+
+function applyTeamTheme(id, overrideColor?: string) {
+  if (id === CUSTOM_TEAM_ID) {
+    paintTheme(overrideColor || customColor());
+  } else {
+    const t = teams.find((x) => x.id === id) || teams[0];
+    paintTheme(t.color);
+  }
   document.querySelectorAll<HTMLElement>('.tcard').forEach((c) => c.classList.toggle('on', c.dataset.team === id));
-  dispatchEvent(new CustomEvent('freef1themechange', { detail: { color: t.color } }));
 }
 
 function teamBadge(t) {
@@ -1678,12 +2144,98 @@ function renderTeamGrid() {
     });
     tGrid.appendChild(c);
   });
+
+  /* Own-colour card sits last and mirrors the team cards, so choosing it feels identical. */
+  const hex = customColor();
+  const custom = document.createElement('div');
+  custom.className = 'tcard tcard-custom';
+  custom.dataset.team = CUSTOM_TEAM_ID;
+  custom.setAttribute('role', 'button');
+  custom.tabIndex = 0;
+  custom.setAttribute('aria-label', 'Use your own livery colour');
+  custom.style.setProperty('--tc', hex);
+  custom.innerHTML = `<div class="tbadge mark" style="background:linear-gradient(140deg,${hex},${shade(hex, -50)});color:${inkOn(hex)}">${FREEF1_MARK}</div>` +
+    '<div class="tname">Own colour</div><div class="tick">✓</div>';
+  const chooseCustom = () => {
+    applyCustomColor(customColor());
+    syncLiveryInputs();
+  };
+  custom.addEventListener('click', chooseCustom);
+  custom.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      chooseCustom();
+    }
+  });
+  tGrid.appendChild(custom);
 }
+
+/* ═══ Custom livery controls ═══ */
+const liveryPicker = $('liveryColorPicker');
+const liveryHex = $('liveryColorHex');
+const liveryApply = $('liveryColorApply');
+const liverySwatches = $('liverySwatches');
+const LIVERY_SWATCHES = ['#E10600', '#00D2BE', '#1E41FF', '#FF8000', '#B4A07A', '#C6FF00', '#FF0080', '#F5F6F7'];
+
+function syncLiveryInputs() {
+  const hex = customColor();
+  if (liveryPicker) liveryPicker.value = hex;
+  if (liveryHex && document.activeElement !== liveryHex) liveryHex.value = hex;
+  if (liveryHex) liveryHex.classList.remove('is-invalid');
+  paintCustomCard();
+  document.querySelectorAll<HTMLElement>('.tcard').forEach((c) => c.classList.toggle('on', c.dataset.team === store.get('freef1_team')));
+}
+
+if (liverySwatches) {
+  LIVERY_SWATCHES.forEach((value) => {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'lc-swatch';
+    dot.style.setProperty('--sw', value);
+    dot.setAttribute('aria-label', `Use ${value}`);
+    dot.addEventListener('click', () => applyCustomColor(value));
+    liverySwatches.appendChild(dot);
+  });
+}
+
+liveryPicker?.addEventListener('input', () => {
+  /* Live preview while dragging the picker; committed on change. */
+  if (liveryHex) liveryHex.value = liveryPicker.value.toUpperCase();
+  applyTeamTheme(CUSTOM_TEAM_ID, liveryPicker.value);
+  paintCustomCard();
+});
+liveryPicker?.addEventListener('change', () => applyCustomColor(liveryPicker.value));
+
+liveryHex?.addEventListener('input', () => {
+  const clean = normaliseHex(liveryHex.value);
+  liveryHex.classList.toggle('is-invalid', !clean && liveryHex.value.trim().length > 1);
+  if (clean) { applyTeamTheme(CUSTOM_TEAM_ID, clean); paintCustomCard(); }
+});
+const commitHex = () => {
+  const clean = normaliseHex(liveryHex?.value);
+  if (clean) applyCustomColor(clean);
+  else syncLiveryInputs();
+};
+liveryHex?.addEventListener('change', commitHex);
+liveryHex?.addEventListener('blur', commitHex);
+liveryHex?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    commitHex();
+  }
+});
+liveryApply?.addEventListener('click', () => {
+  const clean = normaliseHex(liveryHex?.value) || customColor();
+  applyCustomColor(clean);
+  if (liveryPicker) liveryPicker.value = clean;
+  if (liveryHex) liveryHex.value = clean;
+});
 
 $("teamSelectBtn")?.addEventListener('click', () => {
   openModal(tOverlay);
   renderTeamGrid();
   applyTeamTheme(store.get('freef1_team') || 'default');
+  syncLiveryInputs();
 });
 $("teamSelectClose")?.addEventListener('click', () => closeModal(tOverlay));
 
@@ -1705,6 +2257,19 @@ addEventListener('keydown', (e) => {
 /* ═══════════════ 23. APPLICATION INITIALIZATION ═══════════════ */
 // Apply stored team livery
 applyTeamTheme(store.get('freef1_team') || 'default');
+
+// Resolve the embdlol channel directory before the feed row is built (falls back if it fails).
+void loadCatalogues().then(() => {
+  renderButtons();
+  prefetchDynamicLinks(currentSource);
+});
+void loadProviderHealth();
+window.setInterval(() => {
+  if (!document.hidden) void loadProviderHealth();
+}, 5 * 60_000);
+
+// The 4K address is resolved on first click; nothing here talks to Discord.
+void handleResetRequest();
 
 // Initial controls & player setup
 populate();
