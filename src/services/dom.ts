@@ -97,10 +97,6 @@ export interface ElementIdMap {
   'teamSelectTitle': HTMLElement;
   'teamSelectClose': HTMLButtonElement;
   'teamGrid': HTMLElement;
-  'liveryColorPicker': HTMLInputElement;
-  'liveryColorHex': HTMLInputElement;
-  'liveryColorApply': HTMLButtonElement;
-  'liverySwatches': HTMLElement;
   'driverOverlay': HTMLElement;
   'driverSheet': HTMLElement;
   'driverTitle': HTMLElement;

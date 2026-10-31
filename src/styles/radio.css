@@ -83,33 +83,17 @@
   color: var(--amber);
 }
 
-/* The ✕ character sat high because the glyph's own metrics ride on a line box. An SVG cross is
-   centred by the flex box itself, so it is optically centred at every size and rotation. */
 .radio-rc-close {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 36px;
   height: 36px;
-  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--line);
   background: rgba(0,0,0,.4);
   color: var(--muted);
   cursor: pointer;
-  line-height: 1;
+  font-size: .8rem;
   transition: transform .25s var(--ease),border-color .25s var(--ease),color .25s var(--ease);
-}
-
-.radio-rc-close svg {
-  width: 13px;
-  height: 13px;
-  display: block;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
 }
 
 .radio-rc-close:hover {
