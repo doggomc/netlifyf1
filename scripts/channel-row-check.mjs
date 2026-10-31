@@ -72,18 +72,20 @@ async function openPage({ embdlolChannels = [], weeloState = {} } = {}) {
     headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ channels: [{ name: 'Sky Sports F1 FHD UK', status: 'online' }, { name: 'DAZN F1 FHD', status: 'online' }] }),
   }));
-  /* weelo's status map: the specials read their state from here, never from a bundled copy. */
-  await page.route('**weelo.live/players/state.json*', (route) => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    headers: { 'Access-Control-Allow-Origin': '*' },
-    body: JSON.stringify(weeloState),
-  }));
+  /* weelo's status map comes through f1admin, because weelo.live refuses the cross-origin request
+     however open its headers look. Registered after the catch-all so it wins. */
   await page.route('**/api/v1/sources/*', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ stream_key: 'skyf1', live_sources: [] }),
+  }));
+
+  await page.route(`${BACKEND}/api/stream/weelo*`, (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'Access-Control-Allow-Origin': '*' },
+    body: JSON.stringify({ state: weeloState, count: Object.keys(weeloState).length }),
   }));
 
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -174,6 +176,11 @@ const weeloUp = {
   await page.waitForTimeout(800);
   const english = await rowLabels(page);
   check('the row opens on the English tab', english.includes('Sky HD') && !english.includes('Sky Sport Italia'), english.join(' | '));
+  /* Regression: the tab ids are the state values ('en'), not the labels. Keying them off the label
+     made English filter as Other, so the row looked empty and the active tab was unmarked. */
+  const marked = await page.evaluate(() => [...document.querySelectorAll('#feedTabs button.chip')]
+    .filter((b) => b.getAttribute('aria-selected') === 'true').map((b) => b.textContent.trim()));
+  check('exactly one tab is marked as selected on load', marked.length === 1 && marked[0] === 'English', marked.join(' | ') || 'none marked');
   check('English keeps the specials in their own block', (await specialLabels(page)).length === 5, (await specialLabels(page)).join(' | '));
 
   await tab(page, 'Other');

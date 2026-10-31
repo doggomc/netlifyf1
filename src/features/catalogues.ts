@@ -4,6 +4,8 @@
 
 export interface CatalogueDeps {
   fetchWithTimeout: (url: string, init: RequestInit, ms: number) => Promise<Response>;
+  /** f1admin's base address, where the weelo status relay lives. */
+  backend: string;
 }
 
 export interface Catalogues {
@@ -41,9 +43,10 @@ const CDNLIVE_CATALOGUE = 'https://api.cdnlivetv.tv/api/v1/channels/?user=cdnliv
 const MIRROR_KEYS = ['skyf1'];
 const MIRROR_HOSTS = ['https://strmfree.st', 'https://streamfree.top'];
 const TTL_MS = 5 * 60_000;
-/* weelo publishes a fifteen-second status map for the onboards it relays. It is CORS-open, so the
-   browser reads it directly — no backend, no key. */
-const WEELO_STATE = 'https://weelo.live/players/state.json';
+/* weelo publishes a fifteen-second status map for the onboards it relays, but weelo.live refuses
+   the cross-origin request however open its headers look, so f1admin relays it at
+   /api/stream/weelo. Asking weelo directly here left every onboard on "unknown". */
+const WEELO_STATE = '/api/stream/weelo'; // joined to deps.backend
 
 const empty = (): Catalogues => ({ embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {} });
 
@@ -119,11 +122,13 @@ async function fetchMirrors(deps: CatalogueDeps): Promise<Record<string, { url: 
 
 /* Every state.json value is a plain string; '_fallback'/'_p2p' are objects and are skipped. */
 async function fetchWeelo(deps: CatalogueDeps): Promise<Record<string, string>> {
-  const response = await deps.fetchWithTimeout(WEELO_STATE, { cache: 'no-store', headers: { Accept: 'application/json' } }, 4000);
+  const response = await deps.fetchWithTimeout(`${deps.backend}${WEELO_STATE}`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 4000);
   if (!response.ok) throw new Error(`weelo state ${response.status}`);
   const json = await response.json();
+  /* The relay answers { state: { id: status } }; a raw state.json would answer the map itself. */
+  const map = json?.state || json;
   const next: Record<string, string> = {};
-  for (const [id, status] of Object.entries(json || {})) {
+  for (const [id, status] of Object.entries(map || {})) {
     if (id.startsWith('_') || typeof status !== 'string') continue;
     next[id] = status.trim().toLowerCase();
   }

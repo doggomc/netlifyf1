@@ -432,7 +432,7 @@ let cataloguesReady = false;
 
 async function loadCatalogues(): Promise<void> {
   const { loadCatalogues: load } = await import('./features/catalogues');
-  catalogues = await load({ fetchWithTimeout });
+  catalogues = await load({ fetchWithTimeout, backend: BACKEND_API });
   cataloguesReady = true;
 }
 
@@ -933,7 +933,9 @@ function renderTabBar() {
   if (!bar) return;
   bar.replaceChildren(...['English', 'Other', 'All'].map((label) => {
     const b = document.createElement('button');
-    const id = label.toLowerCase();
+    /* The state value is 'en', not the label: keying the tab off 'english' meant English filtered
+       as Other and no chip ever matched. */
+    const id = label === 'English' ? 'en' : label.toLowerCase();
     b.type = 'button';
     b.className = 'chip' + (id === sourceTab ? ' active' : '');
     b.setAttribute('role', 'tab');
