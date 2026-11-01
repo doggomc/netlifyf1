@@ -13,7 +13,7 @@ Commit the **contents of this directory** to `doggomc/netlifyf1`, replacing the 
 | Publish directory | `dist` |
 | Node version | 22 |
 
-Do **not** publish the repository root anymore: TypeScript and source CSS must be built. `npm ci` uses the committed lockfile. Vite copies `public/_headers`, `public/_redirects`, images, fonts and `.well-known/discord` into `dist`.
+Do **not** publish the repository root anymore: TypeScript and source CSS must be built. `npm ci` uses the committed lockfile. Static files sit at the repository root: `assets/` (photos, fonts, icons) is served at `/assets/*`, and `site-assets/` holds the Netlify rules (`_headers`, `_redirects`) plus `fonts.css`, `robots.txt`, `sitemap.xml` and `.well-known/discord`. `vite.config.ts` serves those folders in dev and copies them into `dist` on build, so the published URLs are unchanged.
 
 The production API remains `https://f1admin.onrender.com`. Keep the existing production Netlify hostname so the Render and Cloudflare origin allowlists continue to match. Netlify deploy previews are already recognized by the Render backend's existing rules. If using a new custom hostname, configure both services' allowlists separately.
 
@@ -60,7 +60,8 @@ src/
   ui/select.ts         Accessible custom select widget
   types/               Runtime-validated site config and browser/support contracts
   styles/              Existing design; radio CSS loads with that feature
-public/                Unchanged public assets and Netlify rules
+assets/                Photos, fonts and icons, served at /assets/*
+site-assets/           Netlify rules (_headers, _redirects), fonts.css, robots.txt, sitemap.xml, .well-known/
 ```
 
 The migration preserves the current appearance and reuses the tricky player/fallback logic rather than redesigning or replacing it. Ancillary gallery/404 inline behaviours remain static. Core services, calendar/data and config validation have an additional **strict TypeScript** gate; compatibility UI modules use the broader non-strict gate while their provider adapters are incrementally typed. There are no `@ts-nocheck` exclusions.

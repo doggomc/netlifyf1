@@ -1,7 +1,13 @@
 import type { FeatureContext } from '../app';
 import { $ } from '../services/dom';
 export function init(ctx: FeatureContext) {
-const { fetchJson, JOLPI, SITE_SEASON, hexFor, escapeHtml, readApiFallback, fadeSwapContent, photoFor, inkOn, store, FOLLOW_KEY, TEAM_ALIAS, teams, mapPool, schedule, fmtPts, ageFrom, TEAM_LOGO, fmtDob, applyTeamTheme, closeModal, openModal } = ctx;
+const { fetchJson, JOLPI, SITE_SEASON, hexFor, escapeHtml, readApiFallback, fadeSwapContent, inkOn, store, FOLLOW_KEY, TEAM_ALIAS, teams, mapPool, schedule, fmtPts, ageFrom, TEAM_LOGO, fmtDob, applyTeamTheme, closeModal, openModal } = ctx;
+/* Headshots live in their own chunk so their image paths never sit in the startup bundle. The
+   lookup starts with this import and is simply empty until it lands. */
+let photoFor = (_id: string): string | null => null;
+void import('../data/driver-photos').then(({ DRIVER_PHOTO, DRIVER_KEY }) => {
+  photoFor = (id) => DRIVER_PHOTO[DRIVER_KEY[id] || id] || null;
+});
 /* ═══════════════ 14. STANDINGS (DRIVERS & CONSTRUCTORS) ═══════════════ */
 const rowsEl = $("standingsList");
 let driverStandingsPromise = null;

@@ -36,6 +36,8 @@ interface ReplayIndex {
 }
 
 const index = replayData as unknown as ReplayIndex;
+/* An embed gets this long to produce a document before we call it blocked. */
+const FEED_TIMEOUT_MS = 8000;
 
 /* Race weekend sessions only, in the order a weekend happens. The source also publishes
    press conferences, Paddock Uncut and The F1 Show; those are deliberately not listed. */
@@ -152,30 +154,86 @@ export function init(_ctx: FeatureContext) {
     if (countEl) countEl.textContent = `${items.length} session${items.length === 1 ? '' : 's'}`;
   }
 
+  /* Most providers autoplay when asked; the flag is only a request, never a requirement. */
+  function withAutoplay(url: string): string {
+    try {
+      const parsed = new URL(url);
+      if (!parsed.searchParams.has('autoplay')) parsed.searchParams.set('autoplay', '1');
+      return parsed.href;
+    } catch (_) {
+      return url;
+    }
+  }
+
+  /* A cross-origin frame we cannot read is assumed to have loaded; one still on about:blank is not. */
+  function committed(frame: HTMLIFrameElement): boolean {
+    try {
+      const href = frame.contentWindow ? frame.contentWindow.location.href : '';
+      return href !== '' && href !== 'about:blank';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function showEmpty(message: string, directUrl?: string) {
+    frameBox.innerHTML = '';
+    emptyEl.hidden = false;
+    emptyEl.textContent = message;
+    if (!directUrl) return;
+    const link = document.createElement('a');
+    link.className = 'rp-direct';
+    link.href = directUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'Open it on the provider’s site';
+    emptyEl.append(document.createElement('br'), link);
+  }
+
+  function hideEmpty() {
+    emptyEl.hidden = true;
+    emptyEl.textContent = 'This session has no embeddable player yet.';
+  }
+
   function escapeText(value: string) {
     return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] as string));
   }
 
-  /* Each player is its own same-origin iframe pointing at the source's player host. The urls come
-     from the build-time file, but they are still checked before being put in a src. */
+  /* Each player is its own iframe pointing at the source's player host. The urls come from the
+     build-time file, but they are still checked before being put in a src. */
   function loadFeed(item: ReplayItem, playerIndex: number) {
     const player = item.players[playerIndex];
     if (!player || !/^https:\/\//i.test(player.url)) {
       frameBox.innerHTML = '';
-      emptyEl.hidden = false;
+      showEmpty('This session has no embeddable player yet.');
       return;
     }
-    emptyEl.hidden = true;
     const frame = document.createElement('iframe');
-    frame.src = player.url;
+    /* Play on click, not on arrival: an embed that has to be woken up by a second click inside
+       the frame reads as "the play button does nothing". */
+    frame.src = withAutoplay(player.url);
     frame.title = `${sessionLabel(item)} replay`;
-    frame.loading = 'lazy';
+    frame.loading = 'eager';
     frame.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
     frame.allowFullscreen = true;
+    frame.setAttribute('allowfullscreen', '');
     frame.referrerPolicy = 'no-referrer';
     frame.setAttribute('frameborder', '0');
     frame.setAttribute('scrolling', 'no');
     frameBox.replaceChildren(frame);
+    hideEmpty();
+
+    /* A provider that refuses to be embedded leaves an empty box and no error event, so the
+       frame is given a few seconds to commit a document. If it never does, say so and offer the
+       other feeds plus a direct link, rather than a dead rectangle. */
+    const startedAt = Date.now();
+    const watchdog = window.setInterval(() => {
+      if (!frame.isConnected) return window.clearInterval(watchdog);
+      if (committed(frame)) return window.clearInterval(watchdog);
+      if (Date.now() - startedAt < FEED_TIMEOUT_MS) return;
+      window.clearInterval(watchdog);
+      frame.remove();
+      showEmpty('This feed will not play in an embedded player here.', player.url);
+    }, 500);
 
     feedsEl.querySelectorAll<HTMLElement>('button').forEach((button, i) => {
       button.classList.toggle('active', i === playerIndex);

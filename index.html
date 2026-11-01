@@ -57,7 +57,8 @@
     <a href="#grid">The Grid</a>
     <a href="#standings">Standings</a>
     <a class="help-nav-link" href="/help.html">Help<span class="help-notification-dot" hidden aria-label="Unread support reply"></span></a>
-    <a href="/replays" data-route="replays">Replays</a>
+    <!-- Replays hidden: parked until the ok.ru embeds are reliable again (round 9). -->
+    <a href="/replays" data-route="replays" hidden>Replays</a>
     <a href="/info" data-route="info">Info</a>
     <a href="/discord" data-route="discord">Discord</a>
   </div>
@@ -126,6 +127,7 @@
       </div>
       <div class="card deck-box">
         <h3>Feed Sources</h3>
+        <div class="chips tabs" id="feedTabs" role="tablist" aria-label="Feed language"></div>
         <div class="chips" id="links"></div>
       </div>
     </div>
@@ -534,25 +536,18 @@
   </div>
 </div>
 
-<div class="modal" id="superlicenseOverlay" role="dialog" aria-modal="true" aria-labelledby="superlicenseTitle">
-  <div class="sheet" style="max-width:560px">
-    <div class="sheet-head"><h2 id="superlicenseTitle">Superlicense</h2><button class="x" id="superlicenseClose" type="button" aria-label="Close superlicense">&times;</button></div>
-    <p class="sl-copy">For you to obtain your superlicense and get to watch F1 in UHD, you have to link your discord.</p>
-    <div class="sl-step">
-      <div class="sl-step-label">Step 01 &middot; Join the server</div>
-      <button class="btn sm" id="superlicenseJoin" type="button">Join the Discord</button>
+<div class="modal" id="joinNudge" role="dialog" aria-modal="true" aria-labelledby="joinNudgeTitle">
+  <div class="sheet" style="max-width:520px">
+    <div class="sheet-head"><h2 id="joinNudgeTitle">Watch in 4K</h2><button class="x" id="joinNudgeClose" type="button" aria-label="Close">&times;</button></div>
+    <p class="jn-copy">I would really appreciate it if you joined the Discord — that is where I post session alerts, so you never miss lights out.</p>
+    <div class="jn-actions">
+      <a class="btn sm primary" id="joinNudgeJoin" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">Join the Discord</a>
+      <button class="btn sm" id="joinNudgeContinue" type="button">Continue to 4K</button>
     </div>
-    <div class="sl-step">
-      <div class="sl-step-label">Step 02 &middot; Run this in <span id="superlicenseChannel">#4k-access</span></div>
-      <div class="sl-command" id="superlicenseCommand" tabindex="0" role="button" aria-label="Copy the link command">
-        <code id="superlicenseCode">/link —————</code>
-        <span class="sl-copy-hint" id="superlicenseCopyHint">Copy</span>
-      </div>
-      <div class="sl-status" id="superlicenseStatus" aria-live="polite">Generating your code&hellip;</div>
-    </div>
-    <div class="sl-actions">
-      <button class="btn sm" id="superlicenseDismiss" type="button">Close</button>
-    </div>
+    <label class="jn-optout">
+      <input type="checkbox" id="joinNudgeDontShow">
+      <span>Don&rsquo;t show this again</span>
+    </label>
   </div>
 </div>
 

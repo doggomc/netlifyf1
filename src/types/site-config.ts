@@ -4,7 +4,7 @@ export interface StreamWindow { active: boolean; reason?: string; startedAt?: nu
 export interface SiteConfig {
   maintenance?: Maintenance;
   streamOverride?: StreamOverride;
-  sources?: { disabled: string[] };
+  sources?: { disabled: string[]; overrides?: Record<string, { label?: string; url?: string }> };
   streamWindow?: StreamWindow;
   news?: unknown[];
 }
@@ -29,6 +29,15 @@ export function parseSiteConfig(value: unknown): SiteConfig | null {
   }
   if (record(value.sources) && Array.isArray(value.sources.disabled)) {
     result.sources = { disabled: value.sources.disabled.filter((id): id is string => typeof id === 'string').slice(0, 50) };
+    /* Race Control's per-chip name and link. HTTPS only, the rule the backend enforces. */
+    const overrides: Record<string, { label?: string; url?: string }> = {};
+    for (const [id, entry] of Object.entries(record(value.sources.overrides) ? value.sources.overrides : {}).slice(0, 60)) {
+      if (!record(entry)) continue;
+      const label = text(entry.label, 40)?.trim();
+      const url = text(entry.url, 500) || '';
+      if (label || /^https:\/\//i.test(url)) overrides[id] = { ...(label ? { label } : {}), ...(/^https:\/\//i.test(url) ? { url } : {}) };
+    }
+    result.sources.overrides = overrides;
   }
   if (record(value.streamWindow) && typeof value.streamWindow.active === 'boolean') {
     const w = value.streamWindow;

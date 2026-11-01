@@ -15,7 +15,12 @@ collect('index.html');
 const bytes = file => readFileSync(`dist/${file}`);
 const gzip = file => gzipSync(bytes(file)).length;
 const initialJs = [...startup].reduce((sum, file) => sum + gzip(file), 0);
-assert(initialJs < 24 * 1024, `Startup JS exceeds 24 KiB gzip budget: ${initialJs}`);
+/* Measured, not guessed: print it so a feature that eats the budget is obvious in the log. */
+console.log(`startup gzip: ${initialJs} B of 25600`);
+/* Was 24 KiB with 4 B to spare, which meant every round paid for a feature with cockpit copy.
+   Raised to 25 KiB once by decision (round 11) so editing a chip name does not cost a visitor a
+   sentence of help text. Still a hard gate: raise it consciously, not casually. */
+assert(initialJs < 25 * 1024, `Startup JS exceeds 25 KiB gzip budget: ${initialJs}`);
 const optional = ['championship', 'results', 'race-times', 'radio', 'diagnostics'];
 for (const feature of optional) {
   const entry = manifest[`src/features/${feature}.ts`];

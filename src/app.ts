@@ -1,7 +1,8 @@
 import { setupCustomSelects } from './ui/select';
-import { TEAM_LOGO, TEAM_HEX, TEAM_ALIAS, photoFor, teams } from './data/teams';
+import { TEAM_LOGO, TEAM_HEX, TEAM_ALIAS, teams } from './data/teams';
 import { NO_STREAM_MESSAGES, LOADER_LINES, BLOCKED_TITLE, BLOCKED_COPY_IOS, BLOCKED_COPY, HIJACK_TITLE, HIJACK_COPY } from './data/cockpit-messages';
 import { BACKEND_API, SITE_CONFIG_CACHE_KEY, SITE_SEASON, OPENF1_API, JOLPI } from './config';
+import type { ProviderHealthState, HealthDeps } from './features/provider-health';
 import { parseSiteConfig, type SiteConfig } from './types/site-config';
 import { onIdle, onVisible, lazyButton } from './services/lazy';
 import { store } from './services/storage';
@@ -9,6 +10,7 @@ import { fetchWithTimeout, fetchJson, readApiFallback } from './services/api';
 import { $ } from './services/dom';
 import { schedule, type RaceEvent, type Session } from './data/schedule';
 import { mapPool } from './services/pool';
+import type { Catalogues } from './features/catalogues';
 /* ═══════════════════════════════════════════════════════════════════════════
    FreeF1 - Formula 1 Live Companion
    Client Application Logic
@@ -23,6 +25,7 @@ let streamWindowState = { active: false, reason: '', startedAt: null, updatedAt:
 let siteConfigEventSource = null;
 
 const NAV_TIMEOUT_MS = 9000;
+const NAV_SOFT_MS = 4000;
 
 const FOLLOW_KEY = 'freef1_following';
 const RADIO_RC_STORE_KEY = 'freef1_radio_rc';
@@ -72,8 +75,10 @@ const BLOCKED_COPY_TEXT = IS_IOS ? BLOCKED_COPY_IOS : BLOCKED_COPY;
 
 // Keep News data and rendering intact for admins, but hide its public view until re-enabled.
 const PUBLIC_NEWS_ENABLED = false;
-const VIEWS = { home: 'viewHome', ...(PUBLIC_NEWS_ENABLED ? { news: 'viewNews' } : {}), replays: 'viewReplays', info: 'viewInfo', discord: 'viewDiscord' };
-const VIEW_TITLES = { ...(PUBLIC_NEWS_ENABLED ? { news: 'News - FreeF1' } : {}), replays: 'Race Replays - FreeF1', info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1' };
+// Replays are parked while the embedded players are unreliable; the code stays for when they return.
+const PUBLIC_REPLAYS_ENABLED = false;
+const VIEWS = { home: 'viewHome', ...(PUBLIC_NEWS_ENABLED ? { news: 'viewNews' } : {}), ...(PUBLIC_REPLAYS_ENABLED ? { replays: 'viewReplays' } : {}), info: 'viewInfo', discord: 'viewDiscord' };
+const VIEW_TITLES = { ...(PUBLIC_NEWS_ENABLED ? { news: 'News - FreeF1' } : {}), ...(PUBLIC_REPLAYS_ENABLED ? { replays: 'Race Replays - FreeF1' } : {}), info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
 const INK_LIGHT = '#fff';
@@ -110,19 +115,6 @@ const newsDateFormat = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric'
 });
 
-const raceDateFormat = new Intl.DateTimeFormat('en-GB', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric'
-});
-
-const raceClockFormat = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-  timeZoneName: 'short'
-});
-
 const radioRcTimeFmt = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
   minute: '2-digit',
@@ -135,11 +127,6 @@ function formatNewsDate(timestamp) {
   return Number.isNaN(date.getTime()) ? '-' : newsDateFormat.format(date);
 }
 
-function formatRaceDateTime(timestamp) {
-  const date = new Date(Number(timestamp));
-  if (Number.isNaN(date.getTime())) return '-';
-  return `${raceDateFormat.format(date)} · ${raceClockFormat.format(date)}`;
-}
 
 function fmtDob(dob) {
   if (!dob) return '-';
@@ -336,9 +323,6 @@ function isSessionEnded(s: Session) {
   return hoursSince(s) > sessionDurationHours(s) + extra;
 }
 
-function isDateEnded(d) {
-  return Boolean(d && (Date.now() - new Date(d + 'T23:59:59Z').getTime()) > 0);
-}
 
 function getCurrentLiveSession() {
   if (streamWindowState.active && currentEvent && currentSession) {
@@ -394,101 +378,240 @@ function kebab(value) {
   return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function getStreamEastSlug(event, session) {
-  return `ppv-${kebab(event?.name)}-${kebab(session?.name)}`;
-}
 
 /* The taifood embeds are addressed per round and per session:
    /embed/<event-name>---<session-name>-<provider id>. Both names are slugged the same way
    ("Mexico City Grand Prix" + "Practice 1" -> mexico-city-grand-prix---practice-1-31363),
    so each provider is just a fixed numeric id. */
-function getTaidUrl(num) {
-  return `https://taifood-blog.asia/embed/${kebab(currentEvent?.name)}---${kebab(currentSession?.name)}-${num}`;
+/* taifood addresses are <event>---<session>-<id>. There is NO quality mark on the address: their
+   resolver answers 200 for "…-race-31407" and 404 for "…-31407SD" and "…-31407SD1080pHD". The
+   "_540p" suffix is the only variant that exists, and it is below our floor, so we never ask for it.
+   The event is spelled as the schedule spells it; the alias is kept as a second candidate. */
+const EVENT_ALIASES = { 'mexico-city': 'mexico' };
+function taidCandidates(num) {
+  const base = kebab(currentEvent?.name);
+  /* Schedule spelling first, alias second — whichever their resolver accepts is the one that plays. */
+  return [base, EVENT_ALIASES[base]].filter(Boolean)
+    .map((event) => `https://taifood-blog.asia/embed/${event}---${kebab(currentSession?.name)}-${num}`);
 }
 
-/* taid  -> numbered taifood embed (/embed/<event>---<session>-<id>)
-   ppv   -> path-scheme taifood embed (/embed/f1/<season>/<city>/<session>)
-   url   -> fixed address that does not vary by round */
-interface StreamSource { id: string; label: string; url?: string; suffix?: string; streamNum?: number; taid?: number; rp?: ReferrerPolicy; ppv?: boolean; embdlol?: string; gated?: boolean; }
+/* ═══ Link pools ═══
+   A source is a POOL of links, not one address. Every entry carries the qualities it can serve so
+   the player can stay at 720p or better; anything below 720p is never offered.
+   addressing: 'fixed' = a stamped URL or a taifood id, 'dynamic' = a token minted per request
+   (ehgembxe), never stored. */
+type Addressing = 'fixed' | 'dynamic';
 
-/* ═══ embdlol ═══
-   embdlol.st publishes its channel directory at https://api.embdlol.st/struct (CORS: *), each
-   entry being { id: <ULID>, channelname: 'f1frisky' }. The embed is then /embed/<id>, and the
-   player itself resolves the playlist with POST https://api.embdlol.st/watch {watchId:<id>},
-   which returns a tokenised HLS url. Channel ids rotate, so they are resolved at runtime and
-   the fallbacks below are only a safety net for when the directory call fails. */
-const EMBDLOL_STRUCT = 'https://api.embdlol.st/struct';
+interface StreamLink {
+  url?: string;
+  taid?: number;
+  ppv?: boolean;
+  mark?: string;                // taifood quality suffix, e.g. 'SD1080pHD'
+  provider: string;
+  label?: string;               // only where it differs from the provider name
+  addressing?: Addressing;      // defaults to 'fixed' (a stamped URL or a taifood id)
+  quality?: number;             // omitted/ad 0 = unknown or adaptive, else vertical pixels
+  rp?: ReferrerPolicy;
+}
+
+interface StreamSource {
+  id: string;
+  label: string;
+  links: StreamLink[];
+  rp?: ReferrerPolicy;
+  embdlol?: string;             // catalogue channel name, when the pool is looked up
+  gated?: boolean;              // the 4K chip: resolved server-side, plays through the nudge
+  lang?: 'en' | 'other';        // which tab the chip belongs to
+  special?: 'onboard' | 'data' | 'feed'; // drawn apart from the broadcaster chips
+  weelo?: string;               // weelo stream id, when the pool is looked up there
+  taifood?: string;             // chip key in taifood's per-race list ('apple', 'sky', …)
+  /* Race Control's own view of the chip: the shipped name and pool, and the live state. */
+  base?: { label: string; links: StreamLink[] };
+  hidden?: boolean;
+}
+
+/* Minimum vertical resolution we will ever put on screen. */
+const MIN_QUALITY = 720;
+
 const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
-const EMBDLOL_FALLBACK: Record<string, string> = {
-  f1frisky: '01a18dc5-b97c-737c-96db-147ef2ac4c49',
-  f1friapple: '01a18dc6-1eb0-72ed-bd95-6ed59bea9202',
-  f1fridazn: '01a18dc6-afce-741b-b969-3b382841bf7f',
-  f1friskyit: '01a18dc7-1542-77fd-bb59-2ef66eebd20f',
-  f1friskyde: '01a18dc7-8432-703b-ac15-c045a7a9c6c3'
-};
-/* Channels the open feeds may use. Anything not listed here is never resolved in the browser. */
-const PUBLIC_EMBDLOL = ['f1frisky', 'f1friapple', 'f1fridazn', 'f1friskyit', 'f1friskyde'];
-let embdlolChannels: Record<string, string> = {};
-let embdlolLoadedAt = 0;
 
-async function loadEmbdlolChannels() {
-  if (Date.now() - embdlolLoadedAt < 5 * 60_000 && Object.keys(embdlolChannels).length) return;
-  try {
-    const response = await fetchWithTimeout(EMBDLOL_STRUCT, { cache: 'default', headers: { Accept: 'application/json' } }, 4000);
-    if (!response.ok) throw new Error(`embdlol struct ${response.status}`);
-    const json = await response.json();
-    const next: Record<string, string> = {};
-    for (const channel of Array.isArray(json?.channels) ? json.channels : []) {
-      const name = String(channel?.channelname || '').toLowerCase();
-      /* Allowlist, not a blocklist: the members-only 4K channel is resolved by the server and
-         must not be named or id'd anywhere in the public bundle. */
-      if (PUBLIC_EMBDLOL.includes(name) && channel?.id) next[name] = String(channel.id);
-    }
-    if (Object.keys(next).length) {
-      embdlolChannels = next;
-      embdlolLoadedAt = Date.now();
-    }
-  } catch (_) {
-    /* Directory unreachable: the fallbacks keep the feeds working. */
-  }
+/* ═══ Provider catalogues ═══
+   embdlol ids rotate and cdnlivetv publishes status, so both come from the lazy catalogue chunk. */
+let catalogues: Catalogues = { embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {}, taifood: {}, weeloEvents: {}, ppv: '' };
+/* Until the catalogue has answered once, an EMB chip has NO pool. Treating "not loaded yet" as
+   "nothing upstream" is what made every EMB chip look dead on a cold click. */
+let cataloguesReady = false;
+
+async function loadCatalogues(): Promise<void> {
+  const { loadCatalogues: load } = await import('./features/catalogues');
+  catalogues = await load({ fetchWithTimeout, backend: BACKEND_API });
+  cataloguesReady = true;
 }
 
-function embdlolUrl(name: string) {
-  const id = embdlolChannels[name] || EMBDLOL_FALLBACK[name];
-  return id ? `${EMBDLOL_EMBED}${id}` : '';
+function cdnLivePlayer(name: string): string {
+  return `https://cdnlivetv.tv/api/v1/channels/player/?name=${encodeURIComponent(name)}&code=&user=cdnlivetv&plan=free`;
 }
-/* Sky UHD is the main source: it is first in the row and it is what plays on load, on a
-   session change and on "jump to live". If Race Control disables it, the player falls through
-   to the first source that is still enabled. */
+
+/* strmfree publishes the live mirrors of a channel at /api/v1/sources/<key>. They join the pool,
+   so a mirror it starts publishing today plays without a redeploy. Under 720p is dropped. */
+function mirrorLinks(key: string, quality: number): StreamLink[] {
+  return (catalogues.mirrors[key] || []).filter((mirror) => mirror.quality === quality).map((mirror) => ({ provider: 'strmfree', quality, url: mirror.url }));
+}
+
+/* What plays on load and on "jump to live"; if Race Control disables it, the first enabled source. */
 const DEFAULT_SOURCE_ID = "sky-uk";
-const sources: StreamSource[]=[
- {id:"sky-uk",label:"Sky UHD",url:"https://strmfree.st/embed/racing/skyf1"},
- {id:"skyf1-1080",label:"Sky F1 1080p",url:"https://streamfree.top/embed/racing/skyf11080p"},
- {id:"emb-sky",label:"Sky F1 (EMB)",embdlol:"f1frisky"},
- {id:"emb-apple",label:"Apple TV (EMB)",embdlol:"f1friapple"},
- {id:"emb-dazn",label:"DAZN ES (EMB)",embdlol:"f1fridazn"},
- {id:"emb-italia",label:"Sky Italia (EMB)",embdlol:"f1friskyit"},
- {id:"emb-de",label:"Sky DE (EMB)",embdlol:"f1friskyde"},
- /* HEVC-only 4K and it is the single rendition in the master playlist, so any browser without
-    HEVC decode shows nothing at all. Kept, named, and placed after the H.264 feeds. */
- /* Members-only: the channel id is never in the bundle, it comes from /api/discord/4k after the
-    server has checked the visitor is in the Discord server. */
- {id:"emb-uhd",label:"F1 UHD 4K",gated:true},
- {id:"sky-f1-uk",label:"Sky Sports F1 UK",url:"https://cdnlivetv.tv/api/v1/channels/player/?name=Sky%20Sports%20F1%20FHD%20UK&code=&user=cdnlivetv&plan=free",rp:"unsafe-url"},
- {id:"sky-sports",label:"Sky Sports",url:"https://hakunamatata5.org/hakunamatata5.html",rp:"unsafe-url"},
- {id:"appletv",label:"AppleTV",taid:31374,rp:"unsafe-url"},
- {id:"dazn",label:"DAZN",taid:31376,rp:"unsafe-url"},
- {id:"viaplay",label:"Viaplay",taid:31380,rp:"unsafe-url"},
- {id:"sky-italia",label:"Sky Sport Italia",taid:31378,rp:"unsafe-url"},
- {id:"westream",label:"WeStream F1",url:"https://westreamf1.com/westreamf1.php"},
- {id:"wikisport",label:"WikiSport",url:"https://wikisport.info/strm/f1.php"},
- {id:"ppv",label:"F1 PPV",ppv:true,rp:"unsafe-url"}
+
+/* The embdlol feeds we draw a chip for; labels and languages are keyed below. */
+const EMB_FEEDS = 'sky,apple,dazn,skyit,skyde,world,german,spanish,italian,fullhd1,fullhd3'.split(',');
+/* A feed may only fall back to another feed of its own language, never to English Sky. */
+const EMB_LANG: Record<string, string> = { dazn: 'es', spanish: 'es', skyit: 'it', italian: 'it', skyde: 'de', german: 'de' };
+
+const EMB_LABELS: Record<string, string> = { skyit: 'Sky Italia', skyde: 'Sky DE' };
+
+
+/* ═══ Tabs ═══
+   English is what a visitor lands on: the Sky feeds, the English-speaking broadcasters and the
+   specials. Other is everything whose commentary is not English, plus the unlabelled mirrors that
+   have no language to promise. All shows the row exactly as it was before the tabs existed. */
+let sourceTab = 'en';
+
+/* ═══ Specials ═══
+   weelo relays the onboards and the data channel: the id is the address (weelo.live/<id>/index.html
+   is an HLS master playlist) and /players/state.json says whether it is up. They are drawn in their
+   own block, and one that is not on air says so instead of opening a dead frame. */
+/* label:stream id:kind — the id is the whole address, so it is written once. */
+/* [label, id, special, language]. Language comes from weelo's own event feed: 'Multi-audio' feeds
+   carry several commentaries, so they are not English-only and belong under Other. */
+const SPECIALS = [
+  ['Kimi Antonelli', 'peogcgpgbgchegaciclejgngjgacbeogehpgogfgmgmgjgjcacieee', 'onboard', 'en'],
+  ['Charles Leclerc', 'peogcgpgbgchegacicdeigbgchmgfgdhacmefgdgmgfgchdgjcacieee', 'onboard', 'en'],
+  ['Max Verstappen', 'peogcgpgbgchegacicnebgihacgffgchdhehbgahahfgogjcacieee', 'onboard', 'en'],
+  ['Drivers Track', 'gebdacefgfaciceechjgghfgchacefchbgdglgfgchjcacieee', 'onboard', 'en'],
+  ['Data Channel', 'gebdacefgfaciceebgehbgacdeigbgogogfgmgjcacieee', 'data', 'en'],
+  ['International Feed', 'jeogehfgchogbgehjgpgogbgmgacgefgfgegacicgebdjcacieee', 'feed', 'other'],
+  ['F1 TV (World)', 'gebdacefgfacieee', 'feed', 'other'],
+  ['Sky Sports (weelo)', 'dflgjhacdfahpgchehacbdacoekfacieee', 'feed', 'en'],
+  ['F1 TV (Shows)', 'gebdacefgfacicdfigpghhdhjcacieee', 'feed', 'en'],
+] as const;
+
+const SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, special, lang]): StreamSource => ({
+  id: `weelo-${weelo.slice(2, 10)}`,
+  label,
+  lang,
+  special,
+  weelo,
+  links: [],
+}));
+
+/* ═══ The source list ═══
+   Every link here was verified by probe: strmfree/streamfree pages answer 200 with a live player
+   shell, cdnlivetv reports channel status, taifood ids come from the live manifests. Anything
+   below 720p (taifood's _540p tier, embdlol's 720p German channel) is deliberately absent. */
+const sources: StreamSource[] = [
+  /* Main channel: strmfree at 1080p. Both domains of the mirror pair are listed, and the
+     provider's own resolver is polled at play time for any extra live mirror it publishes. */
+  { id: "sky-uk", label: "Sky HD", links: [
+      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf11080p" },
+      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf11080p" },
+      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf1" },
+      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf1?server=origin&quality=1080p&category=racing" }
+  ]},
+  /* The 2160p variant of the same channel, on both domains. */
+  { id: "sky-uhd", label: "Sky UHD", links: [
+      { provider: 'strmfree', quality: 2160, url: "https://strmfree.st/embed/racing/skyf12160p" },
+      { provider: 'strmfree', quality: 2160, url: "https://streamfree.top/embed/racing/skyf12160p" }
+  ]},
+  /* embdlol channels. Their ids rotate, so the address is resolved from the catalogue at play
+     time and the pool is replaced with every F1 channel it lists (see linkPool). */
+  /* embdlol feeds: a chip names the FEED; the catalogue says which channel carries it today. */
+  ...EMB_FEEDS.map((embdlol) => ({ id: `emb-${embdlol}`, label: `${EMB_LABELS[embdlol] || embdlol.toUpperCase()} (EMB)`, embdlol, lang: (EMB_LANG[embdlol] ? 'other' : 'en') as StreamSource['lang'], links: [] })),
+  { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
+
+  /* Works, but serves heavy advertising, so it sits below the EMB feeds. */
+  { id: "sky-f1-uk", label: "Sky Sports F1 UK", rp: "unsafe-url", links: [
+      /* The channel name is both the label and the address, so it is written once. */
+      ...['Sky Sports F1 FHD UK', 'DAZN F1 FHD', 'Viaplay Sports 1 FHD UK', 'Viaplay Sports 2 FHD UK']
+        .map((label) => ({ provider: 'cdnlivetv', label, quality: 1080, url: cdnLivePlayer(label) }))
+  ]},
+
+  /* ehgembxe mints a JWT per request via 302 → /play/<jwt>; the frontend asks our server for it.
+     The token has a short life, so the link is re-resolved before every attempt. */
+  { id: "ehgembxe", label: "Sky Sports F1 HD (EHG)", links: [
+      { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-7758' },
+      { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-4089' }
+  ]},
+
+  /* Onboards and the data channel: the specials block, right after the broadcast feeds. */
+  ...SPECIAL_SOURCES,
+
+  { id: "sky-sports", label: "Sky Sports", rp: "unsafe-url", links: [
+      { provider: 'hakunamatata', url: "https://hakunamatata5.org/hakunamatata5.html" }
+  ]},
+
+  /* taifood: the event and session are in the path. 31377 is the only id flagged 720p-safe. */
+  { id: "appletv", label: "AppleTV", taifood: "apple", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31385 },
+      { provider: 'taifood', taid: 31374 }
+  ]},
+  { id: "dazn", label: "DAZN", taifood: "dazn", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31387 },
+      { provider: 'taifood', taid: 31376 }
+  ]},
+  { id: "viaplay", label: "Viaplay", taifood: "viaplay", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31391 },
+      { provider: 'taifood', taid: 31380 }
+  ]},
+  { id: "sky-italia", label: "Sky Sport Italia", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31389 },
+      { provider: 'taifood', taid: 31378 }
+  ]},
+
+  /* New taifood feeds that were not on the site at all. */
+  { id: "sky-de", label: "Sky Sport F1 DE", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31388 },
+      { provider: 'taifood', taid: 31377 }
+  ]},
+  { id: "v-sport", label: "V Sport Motor SE", taifood: "v", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31390 }
+  ]},
+
+  /* Three entry points, one upstream channel (/hls/stream.m3u8?ch=spn). Failover only. */
+  { id: "wikisport", label: "WikiSport", links: [
+      { provider: 'wikisport', url: "https://wikisport.info/strm/f1.php" },
+      { provider: 'wikisport', url: "https://wikisport.info/fsl/f1s2.php" },
+      { provider: 'wikisport', url: "https://wikisport.info/fsl/f1s3.php" }
+  ]},
+
+  { id: "westream", label: "WeStream F1", links: [
+      { provider: 'westream', url: "https://westreamf1.com/westreamf1.php" }
+  ]},
+
+  /* Path-scheme taifood: /embed/f1/<season>/<event>/<session> */
+  { id: "ppv", label: "F1 PPV", rp: "unsafe-url", links: [
+      { provider: 'taifood', ppv: true }
+  ]}
 ];
 
+const sourceEnabled = (s) => !s.hidden;
 
+/* ═══ Session key ═══
+   Every source URL is derived from the live event + session, and the key is stamped onto feeds
+   that cannot carry a session in their path. That way a browser can never reuse the previous
+   session's player document, and a stale address is visible rather than silent. */
+function sessionKey(event = currentEvent, session = currentSession): string {
+  return `${SITE_SEASON}-${event?.slug || 'none'}-${session?.slug || 'none'}`;
+}
 
-let disabledSources = new Set();
-const sourceEnabled = (s) => !disabledSources.has(s.id) && (!s.gated || discordGate.verified);
+/* Fixed-channel feeds ignore the key upstream, but a distinct address per session stops the
+   iframe and any service worker from serving a cached document from the last session. */
+function stampSession(url: string, key = sessionKey()): string {
+  if (!url) return '';
+  const hashIndex = url.indexOf('#');
+  const hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
+  const base = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}s=${encodeURIComponent(key)}${hash}`;
+}
 
 /* The main source, unless Race Control has switched it off - then the first enabled one. */
 function preferredSourceIndex() {
@@ -525,31 +648,141 @@ let currentSource = sources.findIndex((s) => s.id === DEFAULT_SOURCE_ID);
 let activeView = 'home';
 let playerLoadToken = 0;
 
-const buildUrl = (i) => {
-  const s = sources[i];
-  if (!s) return "";
-  if (s.taid) return getTaidUrl(s.taid);
-  if (s.ppv) return `https://taifood-blog.asia/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}`;
-  if (s.gated) return discordGate.url || '';
-  if (s.embdlol) return embdlolUrl(s.embdlol);
-  if (s.streamNum) {
-    const slug = getStreamEastSlug(currentEvent, currentSession);
-    return `https://embed.st/embed/admin/${slug}/${s.streamNum}`;
+/* Resolve a link to an absolute address for the current session, or '' when it cannot be served.
+   This is the single place a source's address is decided. */
+function resolveLink(link: StreamLink, key = sessionKey()): string {
+  if (link.quality && link.quality < MIN_QUALITY) return '';
+  if (link.taid) return taidCandidates(link.taid)[0];
+  if (link.ppv) return `https://taifood-blog.asia/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}`;
+  /* A link Race Control typed is opened exactly as written: no session stamp on someone else's URL. */
+  return link.url ? (link.provider === 'custom' ? link.url : stampSession(link.url, key)) : '';
+}
+
+function linkPool(index: number): string[] {
+  const source = sources[index];
+  if (!source) return [];
+  if (source.gated) {
+    const url = resolveLink({ provider: 'embdlol', quality: 0, url: fourKUrl });
+    return url ? [url] : [];
   }
-  return s.url || (s.suffix !== undefined ? `https://embedindia.st/embed/f1/${SITE_SEASON}/${currentEvent.slug}/${currentSession.slug}${s.suffix || ""}` : "");
-};
+  const key = sessionKey();
+  let links = source.links.slice();
+
+  /* Published mirrors first (they are the addresses the provider itself calls live), then the
+     static list, then the provider's plain channel name as a last resort. */
+  if (source.id === 'sky-uk' || source.id === 'sky-uhd') {
+    const wanted = source.id === 'sky-uhd' ? 2160 : 1080;
+    links = [...mirrorLinks('skyf1', wanted), ...links.filter((link) => link.quality === wanted || !link.url?.includes('embed/racing/'))];
+  }
+
+  /* A weelo special has exactly one address, and only publishes it when weelo says it can play.
+     'soon' still plays: it means the feed is about to come up, and the provider page waits for it. */
+  if (source.weelo) return specialDown(source) ? [] : [stampSession(`https://weellz.live/beta?stream=${source.weelo}`, key)];
+
+  if (source.embdlol) {
+    /* The named feed first, then the other feeds in the SAME language. Never a feed in another
+       language: the Spanish chip used to fall through to Sky and play English commentary. */
+    /* Not loaded yet: leave the pool empty and say "waiting", never "unavailable". */
+    if (!cataloguesReady) return [];
+    const lang = EMB_LANG[source.embdlol];
+    links = Object.entries(catalogues.embdlol)
+      .filter(([feed]) => EMB_LANG[feed] === lang)
+      .map(([, id]) => ({ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }));
+  }
+
+  /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
+     reported offline sinks to the end. Ordering only — no link is ever dropped for being dead. */
+  links = links.slice().sort((a, b) => linkRank(a) - linkRank(b));
+
+  const dynamic = links.filter((link) => link.addressing === 'dynamic');
+
+  /* A taifood chip leads with the address the provider publishes for THIS race (it changes every
+     weekend), then falls back to our id candidates. Provider's own list wins, ours is the parachute. */
+  const live = source.taifood ? (catalogues.taifood[source.taifood] || []).map((c) => c.uri) : [];
+  /* The PPV chip's address comes from their own API for the race they are serving right now. */
+  if (source.id === 'ppv' && catalogues.ppv) live.unshift(catalogues.ppv);
+  const pool = links.filter((link) => link.addressing !== 'dynamic')
+    .flatMap((link) => (link.taid ? taidCandidates(link.taid) : [resolveLink(link, key)]))
+    .filter(Boolean);
+  if (live.length) pool.unshift(...live);
+  /* A dynamic link is only usable once its token is in hand. These tokens lapse and the provider
+     then shows a "Link expired" page, so a stale one is refreshed before its address is offered. */
+  for (const link of dynamic) {
+    const ready = cachedDynamicUrl(link.url || '');
+    if (ready) pool.push(stampSession(ready, key));
+    else if (link.url) void resolveDynamicLink(link.url);
+  }
+
+  const good = lastGoodLink[source.id];
+  return good && pool.includes(good) ? [good, ...pool.filter((url) => url !== good)] : pool;
+}
+
+/* Warm a dynamic provider's token so the chip plays on first click. */
+function prefetchDynamicLinks(index: number) {
+  void Promise.all(missingTokens(index).map((link) => resolveDynamicLink(link.url as string)));
+}
+
+/* The dynamic links of a chip whose token is not in hand yet. */
+const missingTokens = (index: number) =>
+  (sources[index]?.links || []).filter((link) => link.addressing === 'dynamic' && link.url && !cachedDynamicUrl(link.url));
+
+/* Anything derived from the previous session is dropped here: the 4K address, resolved dynamic
+   tokens and the per-source "last good link". A new session can repoint a provider completely. */
+function resetSessionState() {
+  fourKUrl = '';
+  fourKRequest++;
+  for (const key of Object.keys(lastGoodLink)) delete lastGoodLink[key];
+}
+
+/* The link that last worked for a source, so a reload does not begin by retrying a dead address.
+   Cleared on session change: a new session can repoint the provider entirely. */
+const lastGoodLink: Record<string, string> = {};
+
+function rememberGoodLink(sourceId: string, url: string) {
+  lastGoodLink[sourceId] = url;
+}
+
+
+/* ═══ Provider health ═══
+   The server probes each provider (catalogue status where it exists, a real document fetch where
+   it does not). This only reorders and annotates; it never removes a source, because a probe
+   failing is not the same as a feed being dead. Loaded lazily so it stays out of startup JS. */
+const healthState: ProviderHealthState = { providers: {}, dynamic: {} };
+
+function healthDeps(): HealthDeps {
+  return { backend: BACKEND_API, state: healthState, onChange: () => renderButtons(), fetchWithTimeout };
+}
+
+async function loadProviderHealth() {
+  const module = await import('./features/provider-health');
+  await module.loadProviderHealth(healthDeps());
+}
+
+/* Best-known link first: a catalogue saying "online" beats a probe saying "live". An offline
+   report sinks to the end; no link is ever dropped for being dead. */
+function linkRank(link: StreamLink): number {
+  const catalogue = catalogues.cdnlive[link.label];
+  const probe = linkHealthStatus(link);
+  return catalogue === 'online' || (!catalogue && probe === 'live') ? 0 : catalogue || probe ? 2 : 1;
+}
+
+function linkHealthStatus(link: StreamLink): string {
+  if (link.provider === 'cdnlivetv') return healthState.providers[`cdnlivetv:${link.label}`]?.status || '';
+  const direct = healthState.providers[link.label || link.provider];
+  return direct?.status || healthState.providers[link.provider]?.status || '';
+}
+
+/* Kept for the callers that only need one address (the header label, the override path). */
+const buildUrl = (i) => linkPool(i)[0] || '';
 
 function updateHeader() {
   const parts = currentEvent.name.split(" ");
   const last = parts.slice(-2).join(" ");
   const first = parts.slice(0, -2).join(" ") || parts[0];
 
-  const heroTitle = $("heroTitle");
-  const heroTitle2 = $("heroTitle2");
-  const heroSession = $("heroSession");
-  const heroRound = $("heroRound");
-  const stageLabel = $("stageLabel");
-  const sourceLabel = $("sourceLabel");
+  const heroTitle = $("heroTitle"), heroTitle2 = $("heroTitle2");
+  const heroSession = $("heroSession"), heroRound = $("heroRound");
+  const stageLabel = $("stageLabel"), sourceLabel = $("sourceLabel");
 
   if (heroTitle) heroTitle.textContent = first;
   if (heroTitle2) heroTitle2.textContent = last;
@@ -566,93 +799,50 @@ function updateHeader() {
   }
 
   normalizeCurrentSource();
-  const src = sources[currentSource] || { id: "none", label: "-", suffix: "" };
-  if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + (src.suffix !== undefined ? src.suffix : "/" + src.id);
+  const src = sources[currentSource] || { id: "none", label: "-" };
+  if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
 
-/* ═══ Discord gate ═══
-   discordGate mirrors /api/discord/status. The 4K chip is an ordinary chip at all times;
-   what changes is whether it plays or opens the Superlicense panel. */
-let discordGate = { configured: false, verified: false, invite: '', channel: '#4k-access', user: null, url: '' };
+/* ═══ 4K join nudge ═══
+   The 4K chip is public: there is no membership gate, no /link code and no token. Clicking it
+   offers a short "joining helps with session alerts" prompt, then plays the feed. The popup can
+   be silenced with its own checkbox; the feed always continues either way. */
+const FOURK_NUDGE_KEY = 'freef1_4k_nudge_off';
+const DISCORD_INVITE = 'https://discord.gg/KYXHCAzhN4';
+const joinNudgeOverlay = document.getElementById('joinNudge');
+const joinNudgeDontShow = document.getElementById('joinNudgeDontShow') as HTMLInputElement | null;
 
-/* The session is a signed token in localStorage. No cookies anywhere, so adblockers, Brave and
-   Safari's third-party-cookie blocking cannot break the link. It lasts until the account is found
-   to have left the Discord server. */
-const DISCORD_TOKEN_KEY = 'freef1_dg_token';
+let fourKUrl = '';
+let fourKRequest = 0;
 
-function discordToken(): string {
-  try { return localStorage.getItem(DISCORD_TOKEN_KEY) || ''; } catch (_) { return ''; }
-}
+const nudgeMuted = () => store.get(FOURK_NUDGE_KEY) === '1';
+const setNudgeMuted = (muted: boolean) => { muted ? store.set(FOURK_NUDGE_KEY, '1') : store.remove(FOURK_NUDGE_KEY); };
 
-function setDiscordToken(token: string) {
+/* The address is resolved server-side because the upstream channel id rotates. */
+async function fetchFourKUrl(): Promise<string> {
+  if (fourKUrl) return fourKUrl;
+  const seq = ++fourKRequest;
   try {
-    if (token) localStorage.setItem(DISCORD_TOKEN_KEY, token);
-    else localStorage.removeItem(DISCORD_TOKEN_KEY);
-  } catch (_) {}
-}
-
-function discordAuthHeaders(): Record<string, string> {
-  const token = discordToken();
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-}
-
-/* Two status calls can be in flight at once (the boot check and the one that runs after linking).
-   Without this guard the slower, tokenless answer lands last and overwrites a verified session. */
-let gateRequestSeq = 0;
-
-async function loadDiscordGate() {
-  const seq = ++gateRequestSeq;
-  try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/status`, { cache: 'no-store', headers: discordAuthHeaders() }, 8000);
-    const json = await response.json();
-    if (seq !== gateRequestSeq) return discordGate;
-    discordGate = { ...discordGate, ...json };
-    if (json?.code === 'left-server') {
-      /* Definite answer from Discord: they are gone, so the stored token is worthless. */
-      setDiscordToken('');
-      discordGate = { ...discordGate, verified: false, url: '' };
-    }
-    if (json?.verified) await fetchFourKUrl();
-  } catch (_) {
-    /* A network blip must never relock somebody who is already verified. */
-    if (seq !== gateRequestSeq) return discordGate;
-    if (!discordGate.verified) discordGate = { ...discordGate, configured: false };
-  }
-  if (seq === gateRequestSeq) renderButtons();
-  return discordGate;
-}
-
-/* Only a genuine membership answer may downgrade the visitor. A timeout, a 500 or a missing
-   channel is OUR side failing, and downgrading there would lock out a paying member. */
-async function fetchFourKUrl() {
-  try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/4k`, { cache: 'no-store', headers: discordAuthHeaders() }, 9000);
+    const response = await fetchWithTimeout(`${BACKEND_API}/api/stream/uhd`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 9000);
     const json = await response.json().catch(() => ({}));
-    if (response.status === 401 || response.status === 403) {
-      if (json?.code === 'not-verified' || json?.code === 'left-server') setDiscordToken('');
-      discordGate = { ...discordGate, verified: false, url: '' };
+    if (seq !== fourKRequest) return fourKUrl;
+    if (!response.ok || !json?.url) {
+      showToast(json?.error || 'The 4K feed is unavailable right now.', 'warning');
       return '';
     }
-    if (response.ok) {
-      discordGate = { ...discordGate, verified: true, url: String(json.url || '') };
-      return discordGate.url;
-    }
-    discordGate = { ...discordGate, url: '' };
-    showToast(json?.error || 'The 4K feed is unavailable right now.', 'warning');
-    return '';
+
+    fourKUrl = String(json.url);
+    return fourKUrl;
   } catch (_) {
-    discordGate = { ...discordGate, url: '' };
     showToast('Could not reach the 4K service. Try again.', 'warning');
     return '';
   }
 }
 
-/* The 4K channel publishes a single HEVC rendition. Chrome/Edge/Firefox on most desktops have no
-   HEVC decoder, so the frame stays black however well the link worked. */
+/* 4K is a single HEVC rendition: no decoder means a black frame. The probe is a hint, never a gate —
+   the chip always tries, since TV/console browsers decode HEVC in hardware. */
 let hevcSupport: boolean | null = null;
 function canPlayHevc(): boolean {
   if (hevcSupport !== null) return hevcSupport;
@@ -666,15 +856,71 @@ function canPlayHevc(): boolean {
   return hevcSupport;
 }
 
-/* Briefly highlights the 4K chip so it is findable the moment the link lands. */
-const HEVC_WARNING = '4K is HEVC: plays in Safari and on iPhone, black on most desktops.';
-let flashFourKUntil = 0;
-function flashFourKChip() {
-  flashFourKUntil = Date.now() + 3000;
+const HEVC_WARNING = '4K is HEVC: if the picture stays black, watch in Safari.';
+
+function closeJoinNudge() {
+  if (joinNudgeOverlay) closeModal(joinNudgeOverlay);
+}
+
+function openJoinNudge(onContinue: () => void) {
+  if (!joinNudgeOverlay) { onContinue(); return; }
+  if (joinNudgeDontShow) joinNudgeDontShow.checked = false;
+  openModal(joinNudgeOverlay);
+
+  const continueBtn = document.getElementById('joinNudgeContinue');
+  const joinBtn = document.getElementById('joinNudgeJoin');
+  const closeBtn = document.getElementById('joinNudgeClose');
+  const proceed = () => {
+    if (joinNudgeDontShow?.checked) setNudgeMuted(true);
+    closeJoinNudge();
+    onContinue();
+  };
+
+  /* Replace the handlers with fresh closures so a second click never stacks up. */
+  if (continueBtn) continueBtn.onclick = proceed;
+  if (closeBtn) closeBtn.onclick = () => closeJoinNudge();
+  if (joinBtn) joinBtn.onclick = () => {
+    window.open(DISCORD_INVITE, '_blank', 'noopener');
+    proceed();
+  };
+  if (joinNudgeOverlay) {
+    joinNudgeOverlay.onclick = (event) => {
+      if (event.target === joinNudgeOverlay) closeJoinNudge();
+    };
+  }
+}
+
+/* Clicking the 4K chip: nudge (once a click, unless silenced) → play. */
+async function playFourK() {
+  const index = sources.findIndex((source) => source.gated);
+  if (index < 0) return;
+  const url = await fetchFourKUrl();
+  if (!url) return;
+  currentSource = index;
+  renderButtons();
+  updateHeader();
+  load();
+  if (!canPlayHevc()) showToast(HEVC_WARNING, 'warning');
+}
+
+/* ehgembxe mints a JWT per request (302 → /play/<jwt>), so the address cannot be stored.
+   The server does the hop; the lazy module below holds the result briefly. */
+async function resolveDynamicLink(path: string): Promise<string> {
+  return (await import('./features/provider-health')).resolveDynamicLink(healthDeps(), path);
+}
+
+function cachedDynamicUrl(path: string): string {
+  const cached = healthState.dynamic[path];
+  return cached && Date.now() - cached.at < 60_000 ? cached.url : '';
+}
+
+function chooseFourK() {
+  if (nudgeMuted()) { void playFourK(); return; }
+  openJoinNudge(() => { void playFourK(); });
 }
 
 /* ═══ Reset ═══
-   /?reset=discord forgets the Discord link on this browser; /?reset=all also drops the livery,
+   /?reset=discord forgets any legacy Discord link state; /?reset=all also drops the livery,
    saved preferences and cached API data. */
 async function handleResetRequest() {
   let mode = '';
@@ -694,208 +940,104 @@ async function handleResetRequest() {
       Object.keys(localStorage).filter((key) => key.startsWith('freef1')).forEach((key) => localStorage.removeItem(key));
       sessionStorage.clear();
     } else {
-      setDiscordToken('');
+      /* Leftover tokens from the retired Superlicense gate, plus the nudge opt-out. */
+      localStorage.removeItem('freef1_dg_token');
+      setNudgeMuted(false);
     }
   } catch (_) {}
 
   location.replace(clean);
 }
 
-/* ═══ Superlicense ═══
-   Clicking the 4K chip without a link opens this panel. The server mints a five-digit code, the
-   member runs /link <code> in #4k-access, the bot vouches for them, and the poll below collects a
-   token that stays on this browser for good. */
-const superOverlay = document.getElementById('superlicenseOverlay');
-const superCodeEl = document.getElementById('superlicenseCode');
-const superStatusEl = document.getElementById('superlicenseStatus');
-const superChannelEl = document.getElementById('superlicenseChannel');
-const superCommandEl = document.getElementById('superlicenseCommand');
+/* A chip only counts as English when it says so; anything unlabelled shows under All, where no
+   language is promised. */
+/* An unlabelled chip is English by default; only a chip that says 'other' leaves the tab. */
+const inTab = (s: StreamSource, tab = sourceTab) => tab === 'all' || (s.lang || 'en') === (tab === 'en' ? 'en' : 'other');
 
-let linkPollTimer: number | null = null;
-let linkCode = '';
-let linkPollToken = '';
+/* weelo says 'online' or 'soon' for a feed worth opening; 'offline' and 'dark' are not. */
+/* weelo's event feed names the live ids for the current race; its status map is a stale cache that
+   says 'dark' for everything. The event feed wins when it knows the id. */
+const specialState = (s: StreamSource) => {
+  const known = s.weelo ? catalogues.weeloEvents[s.weelo] : undefined;
+  if (known) return known.live ? 'live' : 'offline';
+  return (s.weelo && catalogues.weelo[s.weelo]) || '';
+};
+const specialDown = (s: StreamSource) => /^(offline|dark)$/.test(specialState(s));
 
-function setSuperStatus(text: string, kind = '') {
-  if (!superStatusEl) return;
-  superStatusEl.textContent = text;
-  superStatusEl.className = 'sl-status' + (kind ? ' ' + kind : '');
-}
-
-function stopLinkPolling() {
-  if (linkPollTimer !== null) {
-    window.clearInterval(linkPollTimer);
-    linkPollTimer = null;
-  }
-}
-
-function copyLinkCommand() {
-  if (!linkCode) return;
-  const command = `/link ${linkCode}`;
-  const hint = superCommandEl?.querySelector('.sl-copy-hint') || null;
-  const done = () => {
-    if (!hint) return;
-    hint.textContent = 'Copied';
-    window.setTimeout(() => { hint.textContent = 'Copy'; }, 1600);
-  };
-  try {
-    navigator.clipboard?.writeText(command).then(done).catch(done);
-  } catch (_) { done(); }
-}
-
-async function requestLinkCode() {
-  setSuperStatus('Generating your code\u2026');
-  if (superCodeEl) superCodeEl.textContent = '/link \u2014\u2014\u2014\u2014\u2014';
-  try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/link/start`, {
-      method: 'POST', cache: 'no-store', headers: { Accept: 'application/json' }
-    }, 9000);
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok || !json?.code) {
-      setSuperStatus(json?.message || 'Could not generate a code. Try again.', 'warn');
-      return;
-    }
-    linkCode = String(json.code);
-    linkPollToken = String(json.pollToken || '');
-    if (superCodeEl) superCodeEl.textContent = `/link ${linkCode}`;
-    if (superChannelEl && json.channel) superChannelEl.textContent = String(json.channel);
-    if (json.invite && !discordGate.invite) discordGate = { ...discordGate, invite: String(json.invite) };
-    setSuperStatus(`Waiting for /link ${linkCode} in ${json.channel || '#4k-access'}\u2026 valid 15 min.`);
-    startLinkPolling();
-  } catch (_) {
-    setSuperStatus('Could not reach the server. Try again.', 'warn');
-  }
-}
-
-async function pollLinkOnce() {
-  if (!linkCode || !linkPollToken || !discordGate) return;
-  try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/discord/link/poll`, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ code: linkCode, pollToken: linkPollToken })
-    }, 8000);
-    const json = await response.json().catch(() => ({}));
-    if (json?.state === 'claimed' && json.token) {
-      stopLinkPolling();
-      setDiscordToken(String(json.token));
-      const name = json.user?.name ? ` ${json.user.name}` : '';
-      setSuperStatus(`Granted${name}. Loading 4K\u2026`, 'ok');
-      await loadDiscordGate();
-      closeSuperlicense();
-      await playGatedFeed();
-      return;
-    }
-    if (json?.state === 'expired') {
-      stopLinkPolling();
-      linkCode = '';
-      linkPollToken = '';
-      setSuperStatus('That code expired. Click the 4K chip again for a new one.', 'warn');
-    }
-  } catch (_) {
-    /* Transient: keep polling quietly, the next tick retries. */
-  }
-}
-
-function startLinkPolling() {
-  stopLinkPolling();
-  void pollLinkOnce();
-  linkPollTimer = window.setInterval(() => void pollLinkOnce(), 2000);
-}
-
-function openSuperlicense() {
-  if (!superOverlay) {
-    showToast('Linking needs the full site in a browser tab.', 'warning');
-    return;
-  }
-  openModal(superOverlay);
-  if (linkCode) {
-    /* Reopened while a code is still live: keep waiting rather than burning a new one. */
-    setSuperStatus(`Waiting for /link ${linkCode} in ${discordGate.channel}\u2026`);
-    startLinkPolling();
-    return;
-  }
-  void requestLinkCode();
-}
-
-function closeSuperlicense() {
-  stopLinkPolling();
-  if (superOverlay) closeModal(superOverlay);
-}
-
-function joinDiscord() {
-  if (discordGate.invite) {
-    window.open(discordGate.invite, '_blank', 'noopener');
-    setSuperStatus('Now run the command in #4k-access.', '');
-  }
-}
-
-/* Pull the feed up once the link lands. */
-async function playGatedFeed() {
-  const index = sources.findIndex((source) => source.gated);
-  if (index < 0) return;
-  if (!discordGate.url) await fetchFourKUrl();
-  if (!discordGate.url) return;
-  currentSource = index;
-  flashFourKChip();
-  renderButtons();
-  updateHeader();
-  load();
-  if (!canPlayHevc()) {
-    showToast(HEVC_WARNING, 'warning');
-  }
-}
-
-if (superOverlay) {
-  document.getElementById('superlicenseClose')?.addEventListener('click', closeSuperlicense);
-  document.getElementById('superlicenseDismiss')?.addEventListener('click', closeSuperlicense);
-  document.getElementById('superlicenseJoin')?.addEventListener('click', joinDiscord);
-  superCommandEl?.addEventListener('click', copyLinkCommand);
+function renderTabBar() {
+  $('feedTabs')?.replaceChildren(...['English', 'Other', 'All', 'Multi-viewer'].map((label) => {
+    const b = document.createElement('button');
+    /* The state value is 'en', not the label: keying off the label made English filter as Other. */
+    const id = label === 'English' ? 'en' : label === 'Multi-viewer' ? 'mv' : label.toLowerCase();
+    b.type = 'button';
+    b.className = 'chip' + (id === sourceTab ? ' active' : '');
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(id === sourceTab));
+    b.textContent = label;
+    /* Switching a tab redraws the row; the player is untouched. Multi-viewer opens the grid and
+       swaps the chip row for the weelo picker instead of filtering. */
+    b.onclick = () => {
+      sourceTab = id;
+      if (id === 'mv') openMultiViewer();
+      else closeMultiViewer(), renderButtons();
+    };
+    return b;
+  }));
 }
 
 function renderButtons() {
   if (!linksEl) return;
-  linksEl.innerHTML = "";
+  linksEl.replaceChildren();
   normalizeCurrentSource();
-  sources.forEach((s, i) => {
-    /* The 4K feed is a normal chip in its normal slot, permanently. Clicking it either plays the
-       feed (already linked) or opens the Superlicense panel. */
-    if (s.gated) {
-      const gated = document.createElement("button");
-      gated.type = "button";
-      gated.className = "chip" + (i === currentSource && discordGate.verified ? " active" : "") + (Date.now() < flashFourKUntil ? " chip-flash" : "");
-      gated.textContent = s.label;
-      if (!canPlayHevc()) gated.title = 'HEVC: Safari and iPhone only';
-      gated.onclick = async () => {
-        if (!discordGate.verified) return openSuperlicense();
-        currentSource = i;
-        if (!discordGate.url) {
-          await fetchFourKUrl();
-          if (!discordGate.url) { renderButtons(); return; }
-        }
-        if (!canPlayHevc()) {
-          showToast(HEVC_WARNING, 'warning');
-        }
-        renderButtons();
-        updateHeader();
-        load();
-      };
-      linksEl.appendChild(gated);
-      return;
-    }
-    if (!sourceEnabled(s)) return;
+  renderTabBar();
+
+  const visible = sources.map((_s, i) => i).filter((i) => sourceEnabled(sources[i]) && inTab(sources[i]));
+
+  const chipFor = (s: StreamSource, i: number) => {
     const b = document.createElement("button");
-    b.className = "chip" + (i === currentSource ? " active" : "") + (s.gated && Date.now() < flashFourKUntil ? " chip-flash" : "");
+    b.type = "button";
+    b.className = "chip" + (i === currentSource ? " active" : "");
+    if (s.gated && !canPlayHevc()) b.title = HEVC_WARNING;
+    /* Specials carry weelo's own state, so a chip that cannot play never looks clickable. */
+    if (s.special) {
+      b.className += s.special === 'data' ? ' chip-special chip-data' : ' chip-special';
+      if (specialDown(s)) b.className += ' is-down', b.title = `weelo: ${specialState(s)}`;
+    }
     b.textContent = s.label;
     b.onclick = async () => {
+      if (specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} on weelo. It comes up on race weekends.` });
+      /* The 4K chip asks once whether they want session alerts before playing. */
+      if (s.gated) return chooseFourK();
+      prefetchDynamicLinks(i);
       currentSource = i;
       renderButtons();
       updateHeader();
       load();
     };
-    linksEl.appendChild(b);
-  });
+    return b;
+  };
 
+  /* Broadcasters in row order, then the specials in their own block, so an onboard cannot be
+     mistaken for another broadcaster. */
+  const broadcasters = visible.filter((i) => !sources[i].special);
+  const specials = visible.filter((i) => sources[i].special);
+  broadcasters.forEach((i) => linksEl.appendChild(chipFor(sources[i], i)));
+
+  if (specials.length) {
+    const block = document.createElement('div');
+    block.className = 'special-row';
+    block.innerHTML = '<span class="special-head">Onboards &amp; data</span>';
+    specials.forEach((i) => block.appendChild(chipFor(sources[i], i)));
+    linksEl.appendChild(block);
+  }
+}
+
+let multiviewer: Promise<any> | undefined;
+function openMultiViewer() {
+  void (multiviewer ??= import('./features/multiviewer').then((m) => m.init(featureContext))).then((m) => m?.show?.(true));
+}
+function closeMultiViewer() {
+  void multiviewer?.then((m) => m?.show?.(false));
 }
 
 let nsTimer = null;
@@ -974,7 +1116,8 @@ function switchToNextSource() {
 }
 
 function showNoStream(opts: { blocked?: boolean; title?: string; text?: string; hijack?: boolean; keepFrame?: boolean } = {}) {
-  const blocked = Boolean(opts && opts.blocked);
+  /* Blocked is the default: the auto-cycling "no session" panel is the one case that opts out. */
+  const blocked = opts.blocked !== false;
   const hijack = Boolean(opts && opts.hijack);
   loaderEl?.classList.add("hidden");
   noStreamEl?.classList.add("visible");
@@ -1095,32 +1238,39 @@ function watchFrameNavigation(f, token, isSettled) {
     if (token !== playerLoadToken || !isSettled()) return;
     navs++;
     if (navs === 1) return;
-    showNoStream({ blocked: true, hijack: true, keepFrame: true });
+    showNoStream({ hijack: true, keepFrame: true });
   });
 }
 
-function showStreamBlocked() {
-  showNoStream({ blocked: true, text: BLOCKED_COPY });
-}
-
-function attemptSource(token, order, idx, startedAt) {
+function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
   if (token !== playerLoadToken) return;
-  if (idx >= order.length) {
-    showStreamBlocked();
+  if (idx >= order.length) return showNoStream({ text: BLOCKED_COPY });
+  const sourceIndex = order[idx];
+  const pool = linkPool(sourceIndex);
+  if (linkIdx >= pool.length) {
+    /* An EMB chip with no catalogue channel has no link anywhere; jumping to another provider on
+       its behalf looked like the wrong chip had been clicked. Say so instead. */
+    /* A chip with nothing upstream says so; jumping to another provider on its behalf looked like
+       the wrong chip had been clicked. */
+    if (!idx && (sources[sourceIndex].embdlol || sources[sourceIndex].weelo)) return showNoStream({ title: 'No link upstream', text: 'This feed has no channel upstream right now.' });
+    attemptSource(token, order, idx + 1, startedAt, 0);
     return;
   }
-  const targetUrl = buildUrl(order[idx]);
-  setLoaderText(idx === 0 ? "Establishing feed…" : "Feed unreachable - switching source…");
-  const f = makeStreamIframe(targetUrl, sources[order[idx]].rp);
+
+  const targetUrl = pool[linkIdx];
+  setLoaderText(!idx && !linkIdx ? "Establishing feed…" : idx === order.length - 1 && linkIdx === pool.length - 1 ? "Every feed is unreachable…" : "Switching link…");
+
+  const f = makeStreamIframe(targetUrl, sources[sourceIndex].rp);
   let settled = false;
 
   const reveal = () => {
     settled = true;
-    if (currentSource !== order[idx]) {
-      currentSource = order[idx];
+    if (currentSource !== sourceIndex) {
+      currentSource = sourceIndex;
       renderButtons();
       updateHeader();
     }
+    rememberGoodLink(sources[sourceIndex].id, targetUrl);
     f.classList.add('loaded');
     setStreamOnScreen(true);
     requestScreenWakeLock().catch(()=>{});
@@ -1129,28 +1279,32 @@ function attemptSource(token, order, idx, startedAt) {
     }, 180);
   };
 
-  f.onload = () => {
+  const advance = (removed = true) => {
     if (token !== playerLoadToken || settled) return;
-    if (!iframeCommitted(f)) return;
-    reveal();
+    settled = true;
+    if (removed) f.remove();
+    attemptSource(token, order, idx, startedAt, linkIdx + 1);
   };
 
-  f.onerror = () => {
-    if (token !== playerLoadToken || settled) return;
-    f.remove();
-    attemptSource(token, order, idx + 1, startedAt);
+  let loaded = false;
+
+  f.onload = () => {
+    loaded = true;
+    if (iframeCommitted(f)) reveal();
   };
+  f.onerror = () => advance();
 
   watchFrameNavigation(f, token, () => settled);
 
+  /* A live provider answers in a second or two, so an address that has returned nothing at all
+     after 4s is dead and the next link is tried. The 9s ceiling catches a frame that loaded but
+     never committed a document. */
   window.setTimeout(() => {
-    if (token !== playerLoadToken || !f.isConnected || settled) return;
-    if (iframeCommitted(f)) {
-      reveal();
-      return;
-    }
-    f.remove();
-    attemptSource(token, order, idx + 1, startedAt);
+    if (!loaded) advance();
+  }, NAV_SOFT_MS);
+  window.setTimeout(() => {
+    if (loaded && f.isConnected && iframeCommitted(f)) reveal();
+    else advance();
   }, NAV_TIMEOUT_MS);
 
   playerEl?.appendChild(f);
@@ -1187,7 +1341,7 @@ function load() {
         }
       };
       f.onerror = () => {
-        if (token === playerLoadToken) showStreamBlocked();
+        if (token === playerLoadToken) showNoStream({ text: BLOCKED_COPY });
       };
     } else {
       f.src = streamOverride.url;
@@ -1218,7 +1372,7 @@ function load() {
           if (token !== playerLoadToken || !wasSettled()) return;
           navs++;
           if (navs === 1) return;
-          showNoStream({ blocked: true, hijack: true, keepFrame: true });
+          showNoStream({ hijack: true, keepFrame: true });
         });
       }
       window.setTimeout(() => {
@@ -1229,7 +1383,7 @@ function load() {
           return;
         }
         f.remove();
-        showStreamBlocked();
+        showNoStream({ text: BLOCKED_COPY });
       }, NAV_TIMEOUT_MS);
     }
     playerEl?.appendChild(f);
@@ -1238,7 +1392,7 @@ function load() {
   }
 
   if (!isStreamAvailable(currentSession)) {
-    showNoStream();
+    showNoStream({ blocked: false });
     return;
   }
 
@@ -1255,6 +1409,22 @@ function load() {
       text: "Race control has disabled all stream sources. Nothing to play until one is re-enabled."
     });
     return;
+  }
+  /* An EMB chip clicked before the catalogue answered would look empty: wait, then reload. */
+  if (!cataloguesReady && sources[currentSource]?.embdlol) {
+    setLoaderText('Loading channels…');
+    return void loadCatalogues().then(() => token === playerLoadToken && load());
+  }
+
+  /* A dynamic provider has no address until its token is fetched, so fetch it first — otherwise the
+     ladder skips the chip and plays a different provider. */
+  const missing = missingTokens(currentSource);
+  if (missing.length) {
+    setLoaderText('Fetching a token…');
+    return void Promise.all(missing.map((link) => resolveDynamicLink(link.url as string))).then((urls) => {
+      if (token !== playerLoadToken) return;
+      urls.some(Boolean) ? load() : attemptSource(token, order, 0, performance.now());
+    });
   }
   attemptSource(token, order, 0, performance.now());
 }
@@ -1336,18 +1506,16 @@ function applyMaintenanceMode(state, { fresh = false } = {}) {
   }
 }
 
+/* Names, links and visibility live in features/chips.ts, fetched on the first snapshot. */
 function applySourceConfig(payload) {
-  const knownIds = new Set(sources.map((source) => source.id));
-  const disabled = Array.isArray(payload?.disabled) ? payload.disabled.filter((id) => knownIds.has(String(id))) : [];
-  const next = new Set(disabled.map(String));
-  if (next.size === disabledSources.size && [...next].every((id) => disabledSources.has(id))) return;
-  const previous = sources[currentSource];
-  disabledSources = next;
-  const isStillUsable = Boolean(previous) && sourceEnabled(previous);
-  if (!isStillUsable) normalizeCurrentSource();
-  renderButtons();
-  updateHeader();
-  if (!isStillUsable) load();
+  void import('./features/chips').then(({ applySourceConfig: apply }) => apply(payload, {
+    sources,
+    current: () => currentSource,
+    usable: (source) => Boolean(source) && sourceEnabled(source),
+    normalize: normalizeCurrentSource,
+    render: () => { renderButtons(); updateHeader(); },
+    reload: load
+  }));
 }
 
 function applySiteConfig(input: unknown, { fresh = false } = {}) {
@@ -1788,7 +1956,9 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
 
 (function initView() {
   const route = routeFromPath(location.pathname);
-  history.replaceState({ view: route }, '', location.pathname + location.search + location.hash);
+  /* A parked view (/replays) or any unknown path resolves to home; drop the dead URL too. */
+  const stray = route === 'home' && location.pathname.replace(/\/+$/, '') !== '';
+  history.replaceState({ view: route }, '', stray ? '/' : location.pathname + location.search + location.hash);
   if (route === 'home') {
     setActiveNav('home');
     syncDocumentMeta('home');
@@ -1936,6 +2106,7 @@ $("currentStreamBtn")?.addEventListener("click", () => {
   if (!live) return;
   currentEvent = live.event;
   currentSession = live.session;
+  resetSessionState();
   currentSource = preferredSourceIndex();
   updateSessions();
   updateHeader();
@@ -1950,6 +2121,7 @@ eventSelect?.addEventListener("change", () => {
   if (!ev || ev.sessions.every(isSessionEnded)) return;
   currentEvent = ev;
   currentSession = ev.sessions.find((s) => !isSessionEnded(s)) || ev.sessions[0];
+  resetSessionState();
   currentSource = preferredSourceIndex();
   updateSessions();
   updateHeader();
@@ -1962,6 +2134,7 @@ sessionSelect?.addEventListener("change", () => {
   const s = currentEvent.sessions.find((s) => s.slug === sessionSelect.value);
   if (!s || isSessionEnded(s)) return;
   currentSession = s;
+  resetSessionState();
   currentSource = preferredSourceIndex();
   updateHeader();
   renderButtons();
@@ -2212,13 +2385,17 @@ addEventListener('keydown', (e) => {
 applyTeamTheme(store.get('freef1_team') || 'default');
 
 // Resolve the embdlol channel directory before the feed row is built (falls back if it fails).
-void loadEmbdlolChannels().then(() => renderButtons());
+void loadCatalogues().then(() => {
+  renderButtons();
+  prefetchDynamicLinks(currentSource);
+});
+void loadProviderHealth();
+window.setInterval(() => {
+  if (!document.hidden) void loadProviderHealth();
+}, 5 * 60_000);
 
-// Discord gate: read the token out of the URL fragment FIRST, then ask the server once.
-void (async () => {
-  await handleResetRequest();
-  await loadDiscordGate();
-})();
+// The 4K address is resolved on first click; nothing here talks to Discord.
+void handleResetRequest();
 
 // Initial controls & player setup
 populate();
@@ -2256,7 +2433,6 @@ export const featureContext = {
   escapeHtml,
   readApiFallback,
   fadeSwapContent,
-  photoFor,
   inkOn,
   store,
   FOLLOW_KEY,
@@ -2285,7 +2461,10 @@ export const featureContext = {
   get currentSource() { return currentSource; },
   get activeView() { return activeView; },
   isStreamAvailable,
-  get disabledSources() { return disabledSources; },
+  get disabledSources() { return new Set(sources.filter((s) => s.hidden).map((s) => s.id)); },
+  specialState,
+  renderButtons,
+  isSpecialDown: specialDown,
   buildUrl,
   BACKEND_API,
 };
