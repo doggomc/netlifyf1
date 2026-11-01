@@ -26,6 +26,8 @@ export interface Catalogues {
   ppv: string;
 }
 
+export { staleSession } from './session-guard';
+
 export const EMBDLOL_STRUCT = 'https://api.embdlol.st/struct';
 export const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
 /* embdlol renames its F1 channels for every race — f1frisky, f1mexicosatsky, … — so a channel is

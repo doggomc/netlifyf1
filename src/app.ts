@@ -11,6 +11,7 @@ import { $ } from './services/dom';
 import { schedule, type RaceEvent, type Session } from './data/schedule';
 import { mapPool } from './services/pool';
 import type { Catalogues } from './features/catalogues';
+import { staleSession } from './features/session-guard';
 /* ═══════════════════════════════════════════════════════════════════════════
    FreeF1 - Formula 1 Live Companion
    Client Application Logic
@@ -390,7 +391,10 @@ function kebab(value) {
 const EVENT_ALIASES = { 'mexico-city': 'mexico' };
 function taidCandidates(num) {
   const base = kebab(currentEvent?.name);
-  /* Schedule spelling first, alias second — whichever their resolver accepts is the one that plays. */
+  /* Schedule spelling first, alias second — whichever their resolver accepts is the one that plays.
+     Verified against their own /fetch: 'mexico-city-grand-prix---race-31407' answers 200 while
+     'mexico---race-31407' and 'mexico-city---race-31407' both answer 404, so the long schedule
+     spelling is correct and must stay first. */
   return [base, EVENT_ALIASES[base]].filter(Boolean)
     .map((event) => `https://taifood-blog.asia/embed/${event}---${kebab(currentSession?.name)}-${num}`);
 }
@@ -697,8 +701,12 @@ function linkPool(index: number): string[] {
   const dynamic = links.filter((link) => link.addressing === 'dynamic');
 
   /* A taifood chip leads with the address the provider publishes for THIS race (it changes every
-     weekend), then falls back to our id candidates. Provider's own list wins, ours is the parachute. */
-  const live = source.taifood ? (catalogues.taifood[source.taifood] || []).map((c) => c.uri) : [];
+     weekend), then falls back to our id candidates. Provider's own list wins, ours is the parachute.
+     Addresses naming a different session are skipped: taifood leaves the previous session in its
+     list marked 'online', and that address renders black rather than failing visibly. */
+  const live = source.taifood
+    ? (catalogues.taifood[source.taifood] || []).map((c) => c.uri).filter((uri) => !staleSession(uri, currentSession?.slug))
+    : [];
   /* The PPV chip's address comes from their own API for the race they are serving right now. */
   if (source.id === 'ppv' && catalogues.ppv) live.unshift(catalogues.ppv);
   const pool = links.filter((link) => link.addressing !== 'dynamic')

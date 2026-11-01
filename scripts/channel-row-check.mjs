@@ -34,7 +34,7 @@ const browser = await chromium.launch();
 
 /* Every off-site address is intercepted. Feeds answer like a player shell; embdlol's directory is
    empty unless the test supplies channels, which is how "no F1 upstream" is simulated. */
-async function openPage({ embdlolChannels = [], weeloState = {}, siteConfig = null, weeloEvents = [], ppvStreams = [] } = {}) {
+async function openPage({ embdlolChannels = [], weeloState = {}, siteConfig = null, weeloEvents = [], ppvStreams = [], taifoodChannels = [] } = {}) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const feeds = [];
   const errors = [];
@@ -75,6 +75,12 @@ async function openPage({ embdlolChannels = [], weeloState = {}, siteConfig = nu
     contentType: 'application/json',
     headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ channels: embdlolChannels }),
+  }));
+  await page.route('**/api/stream/taifood', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'Access-Control-Allow-Origin': '*' },
+    body: JSON.stringify({ channels: taifoodChannels }),
   }));
   await page.route('**api.cdnlivetv.tv/**', (route) => route.fulfill({
     status: 200,
@@ -325,11 +331,13 @@ const weeloUp = {
   check('no quality mark is ever appended to a taifood address', !asked.some((u) => /-\d+(SD|SD1080pHD)$/.test(u)), asked.filter((u) => /-\d+SD/.test(u)).join(' | '));
   check('no page errors in the taifood pass', errors.length === 0, errors.join(' | '));
 
-  /* The pool holds both spellings: the schedule says Mexico City, the provider's pages say Mexico.
-     Checked at the source, because a chip that resolves on the first address never asks for the
-     second one and there is nothing to observe in the network log. */
+  /* The pool holds both spellings: the schedule says Mexico City, the alias says Mexico. Checked at
+     the source, because a chip that resolves on the first address never asks for the second one and
+     there is nothing to observe in the network log. The comment explaining which spelling the
+     provider actually accepts sits between the two, so the window has to be wider than one screen. */
   const src = readFileSync(new URL('../src/app.ts', import.meta.url), 'utf8');
-  check('the alternate event spelling is in the pool', /EVENT_ALIASES = \{ 'mexico-city': 'mexico' \}/.test(src) && /taidCandidates[\s\S]{0,400}EVENT_ALIASES\[base\]/.test(src));
+  const fn = src.slice(src.indexOf('function taidCandidates'), src.indexOf('function taidCandidates') + 1200);
+  check('the alternate event spelling is in the pool', /EVENT_ALIASES/.test(src) && /EVENT_ALIASES\[base\]/.test(fn), fn.slice(0, 120));
   await page.close();
 }
 
@@ -477,6 +485,52 @@ if (false) {
   check('the data channel is tagged DATA', tagOf('Data Channel') === 'DATA', tagOf('Data Channel'));
   check('a weelo full feed is tagged FEED, not ONBD', tagOf('F1 TV (Shows)') === 'FEED', tagOf('F1 TV (Shows)'));
   await page.close();
+}
+
+/* ── 14. taifood's stale entries must never reach the player ── */
+{
+  /* What the relay returns while the race is on: practice 3 still listed as online, plus the race. */
+  const { page, feeds, errors } = await openPage({ taifoodChannels: [
+    { id: '1', name: 'Apple TV', lang: '', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---practice-3-31385' },
+    { id: '2', name: 'Apple TV (F1TV)', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31407' },
+    { id: '3', name: 'Apple TV (F1TV)', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31407_540p' },
+  ] });
+  await page.waitForTimeout(1800);
+  await clickChipExact(page, 'AppleTV');
+  await page.waitForTimeout(3000);
+  const asked = feeds.filter((u) => /taifood/.test(u));
+  check('Apple TV opens an address, not a black frame', asked.length > 0, 'nothing requested');
+  check('the previous session\'s address is never played', !asked.some((u) => /practice/.test(u)), asked.join(' | '));
+  check('no 540p address is ever offered', !asked.some((u) => /540p/.test(u)), asked.join(' | '));
+  check('no page errors in the taifood staleness pass', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* ── 15. the tab bar is one row of equal buttons at every width ── */
+{
+  for (const [name, width, height] of [['360', 360, 800], ['390', 390, 844], ['768', 768, 1024], ['1440', 1440, 1000]]) {
+    const { page } = await openPage();
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(1800);
+    const m = await page.evaluate(() => {
+      const tabs = [...document.querySelectorAll('#feedTabs button.chip')];
+      const rects = tabs.map((t) => t.getBoundingClientRect());
+      return {
+        labels: tabs.map((t) => t.textContent.trim()),
+        rows: new Set(rects.map((r) => Math.round(r.top))).size,
+        widths: [...new Set(rects.map((r) => Math.round(r.width)))],
+        heights: [...new Set(rects.map((r) => Math.round(r.height)))],
+        over: Math.max(...rects.map((r) => Math.round(r.right - document.querySelector('#feedTabs').getBoundingClientRect().right))),
+      };
+    });
+    /* All sat beneath English/Other at full width: the odd-last-chip rule meant for the broadcaster
+       grid was reaching the tab bar. Same size, same row, nothing past the container. */
+    check(`the tabs share one row at ${name}px`, m.rows === 1, `${m.rows} rows · ${m.labels.join('|')}`);
+    check(`every tab is the same size at ${name}px`, m.widths.length === 1 && m.heights.length === 1,
+      `widths ${m.widths.join('/')} · heights ${m.heights.join('/')}`);
+    check(`no tab spills past the tab bar at ${name}px`, m.over <= 1, `${m.over}px over`);
+    await page.close();
+  }
 }
 
 await browser.close();
