@@ -1007,7 +1007,7 @@ function renderButtons() {
     if (s.gated && !canPlayHevc()) b.title = HEVC_WARNING;
     /* Specials carry weelo's own state, so a chip that cannot play never looks clickable. */
     if (s.special) {
-      b.className += s.special === 'data' ? ' chip-special chip-data' : ' chip-special';
+      b.className += ` chip-special chip-${s.special}`;
       if (specialDown(s)) b.className += ' is-down', b.title = `weelo: ${specialState(s)}`;
     }
     b.textContent = s.label;

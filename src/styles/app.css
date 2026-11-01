@@ -4800,6 +4800,13 @@ body.view-swapping {
 
 /* ── Specials: onboards and the data channel, set apart from the broadcasters ── */
 .special-row {
+  /* #links is a flex row on desktop but a TWO-COLUMN GRID on phones, so the specials block is a grid
+     item there and was confined to one half-width column (141px inside a 328px card) with every
+     chip bleeding off the right edge. Span the grid, and claim a full basis in the flex case. */
+  grid-column: 1 / -1;
+  flex: 1 0 100%;
+  min-width: 0;
+  width: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -4841,6 +4848,12 @@ body.view-swapping {
   content: 'DATA';
 }
 
+/* A weelo feed is a full programme, not a camera on one car: it gets its own tag so nobody opens
+   'International Feed' expecting an onboard. */
+.chip-special.chip-feed::before {
+  content: 'FEED';
+}
+
 .chip-special.is-down {
   opacity: .48;
   border-style: dotted;
@@ -4861,9 +4874,31 @@ body.view-swapping {
     grid-template-columns: repeat(3,minmax(0,1fr));
   }
 
+  /* One chip per line on a phone. `minmax(0,1fr)` and not `1fr`: a grid column sized to its
+     content takes the width of the longest label, so the row ran past the card and every chip
+     bled off the right edge. The chips themselves must be width-capped and free to wrap — without
+     this the label is a single unbreakable run ('INTERNATIONAL FEED' at .09em tracking) and it
+     overflows the chip's own box, which `overflow: hidden` then clipped. */
   .special-row {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .special-row .chip {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    letter-spacing: .05em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  /* Room for the tag on the first line, and the label wraps under itself rather than pushing the
+     chip wider than the grid column. */
+  .special-row .chip::before {
+    margin-right: 6px;
   }
 }
 

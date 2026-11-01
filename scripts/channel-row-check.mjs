@@ -433,6 +433,52 @@ if (false) {
   await page.close();
 }
 
+/* ── 13. the specials block fits a phone, and each chip says what it is ── */
+{
+  /* `.chips` is a two-column grid on phones, so the specials block is a grid item and was confined
+     to one half-width column: every chip bled off the right edge of the card on mobile. */
+  const sizes = [['360', 360, 800], ['375', 375, 667], ['390', 390, 844], ['412', 412, 915]];
+  for (const [name, width, height] of sizes) {
+    const { page, errors } = await openPage();
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(1800);
+    const fit = await page.evaluate(() => {
+      const card = document.querySelector('#links').closest('.card').getBoundingClientRect();
+      const row = document.querySelector('#links .special-row');
+      const chips = [...document.querySelectorAll('#links .special-row .chip')];
+      return {
+        count: chips.length,
+        overs: chips.map((c) => Math.round(c.getBoundingClientRect().right - card.right)),
+        clipped: chips.filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.textContent.trim()),
+        rowW: Math.round(row.getBoundingClientRect().width),
+        cardW: Math.round(card.width),
+        pageOver: document.documentElement.scrollWidth - window.innerWidth,
+      };
+    });
+    check(`the specials block fits the card at ${name}px`, fit.overs.every((o) => o <= 1) && fit.pageOver <= 0,
+      `chips over by ${Math.max(...fit.overs)}px · row ${fit.rowW}/${fit.cardW}`);
+    /* Not just "does not overflow": the block must actually USE the card. Confined to one grid
+       column it was 137px inside a 318px card — cramped, and the chips bled once their labels
+       were wider than that column. */
+    check(`the specials block spans the card at ${name}px`, fit.rowW >= fit.cardW - 60,
+      `row ${fit.rowW}px inside a ${fit.cardW}px card`);
+    check(`no special chip clips its label at ${name}px`, fit.clipped.length === 0, fit.clipped.join(' | '));
+    check(`no page errors at ${name}px`, errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+
+  /* The tag has to describe the chip: a weelo full programme is not an onboard. */
+  const { page } = await openPage();
+  await page.waitForTimeout(1800);
+  const tagged = await page.evaluate(() => [...document.querySelectorAll('#links .special-row .chip')]
+    .map((c) => [c.textContent.trim(), getComputedStyle(c, '::before').content.replace(/"/g, '')]));
+  const tagOf = (label) => (tagged.find(([l]) => l === label) || [, 'missing'])[1];
+  check('an onboard is tagged ONBD', tagOf('Kimi Antonelli') === 'ONBD', tagOf('Kimi Antonelli'));
+  check('the data channel is tagged DATA', tagOf('Data Channel') === 'DATA', tagOf('Data Channel'));
+  check('a weelo full feed is tagged FEED, not ONBD', tagOf('F1 TV (Shows)') === 'FEED', tagOf('F1 TV (Shows)'));
+  await page.close();
+}
+
 await browser.close();
 const failed = results.filter((entry) => !entry.pass);
 console.log(`\n${results.length - failed.length}/${results.length} channel-row checks passed`);
