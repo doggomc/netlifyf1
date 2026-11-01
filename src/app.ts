@@ -680,14 +680,14 @@ function linkPool(index: number): string[] {
   if (source.weelo) return specialDown(source) ? [] : [stampSession(`https://weellz.live/beta?stream=${source.weelo}`, key)];
 
   if (source.embdlol) {
-    /* The named feed first, then the other feeds in the SAME language. Never a feed in another
-       language: the Spanish chip used to fall through to Sky and play English commentary. */
+    /* embdlol publishes exactly the channels that exist right now, so the picker takes the id for
+       THIS feed and matches nothing else. It used to take every feed sharing a language, which is
+       why each English chip offered the same channel (whole block: the one English feed) and every
+       Spanish/Italian/German chip offered nothing at all (no non-English feed is up). */
     /* Not loaded yet: leave the pool empty and say "waiting", never "unavailable". */
     if (!cataloguesReady) return [];
-    const lang = EMB_LANG[source.embdlol];
-    links = Object.entries(catalogues.embdlol)
-      .filter(([feed]) => EMB_LANG[feed] === lang)
-      .map(([, id]) => ({ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }));
+    const id = catalogues.embdlol[source.embdlol];
+    links = id ? [{ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }] : [];
   }
 
   /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
@@ -964,8 +964,14 @@ const specialState = (s: StreamSource) => {
 };
 const specialDown = (s: StreamSource) => /^(offline|dark)$/.test(specialState(s));
 
+/* The multi-viewer is switched off for now. Everything behind it (the lazy chunk, the picker, the
+   CSS) is still in the tree: flip this to true to bring the tab back. */
+const MULTIVIEWER_ENABLED = false;
+
 function renderTabBar() {
-  $('feedTabs')?.replaceChildren(...['English', 'Other', 'All', 'Multi-viewer'].map((label) => {
+  const tabs = ['English', 'Other', 'All'];
+  if (MULTIVIEWER_ENABLED) tabs.push('Multi-viewer');
+  $('feedTabs')?.replaceChildren(...tabs.map((label) => {
     const b = document.createElement('button');
     /* The state value is 'en', not the label: keying off the label made English filter as Other. */
     const id = label === 'English' ? 'en' : label === 'Multi-viewer' ? 'mv' : label.toLowerCase();
@@ -978,7 +984,7 @@ function renderTabBar() {
        swaps the chip row for the weelo picker instead of filtering. */
     b.onclick = () => {
       sourceTab = id;
-      if (id === 'mv') openMultiViewer();
+      if (id === 'mv' && MULTIVIEWER_ENABLED) openMultiViewer();
       else closeMultiViewer(), renderButtons();
     };
     return b;
@@ -987,6 +993,7 @@ function renderTabBar() {
 
 function renderButtons() {
   if (!linksEl) return;
+  if (!MULTIVIEWER_ENABLED && sourceTab === 'mv') sourceTab = 'en';
   linksEl.replaceChildren();
   normalizeCurrentSource();
   renderTabBar();
@@ -1252,6 +1259,7 @@ function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
        its behalf looked like the wrong chip had been clicked. Say so instead. */
     /* A chip with nothing upstream says so; jumping to another provider on its behalf looked like
        the wrong chip had been clicked. */
+    if (!idx && sources[sourceIndex].gated) return showNoStream({ title: '4K is not upstream', text: 'embdlol is not publishing a 4K channel for this race. It appears a few hours before lights out — the UHD chip will come back on its own, nothing to reload.' });
     if (!idx && (sources[sourceIndex].embdlol || sources[sourceIndex].weelo)) return showNoStream({ title: 'No link upstream', text: 'This feed has no channel upstream right now.' });
     attemptSource(token, order, idx + 1, startedAt, 0);
     return;

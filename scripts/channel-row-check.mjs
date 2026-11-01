@@ -282,6 +282,23 @@ const weeloUp = {
   await page.waitForTimeout(2500);
   const dazn = await frameSrc(page);
   check('every EMB chip that has a channel opens a player', dazn.includes('embdlol.st/embed/'), dazn);
+
+  /* Each English chip must open the channel for ITS feed. Every one of them used to open Sky's,
+     because the pool took the first feed of the same language instead of the named feed. */
+  await tab(page, 'English');
+  await page.waitForTimeout(400);
+  await clickChip(page, 'WORLD (EMB)');
+  await page.waitForTimeout(2500);
+  const world = await frameSrc(page);
+  check('each English feed opens its own channel, not Sky\'s', world.includes('01a192d0-450c') && !world.includes('01a192cf-6841'), world);
+
+  /* A feed embdlol does not list has no channel anywhere: say so, never borrow another language's. */
+  await tab(page, 'Other');
+  await page.waitForTimeout(400);
+  await clickChip(page, 'SPANISH (EMB)');
+  await page.waitForTimeout(2500);
+  const spanish = await frameSrc(page);
+  check('a feed with no channel upstream never plays another feed', !spanish.includes('embdlol.st/embed/'), spanish);
   check('no page errors in the catalogue-naming pass', errors.length === 0, errors.join(' | '));
   await page.close();
 }
@@ -367,7 +384,14 @@ const weeloUp = {
   });
   await page.waitForTimeout(2500);
   const tabs = await page.evaluate(() => [...document.querySelectorAll('#feedTabs button.chip')].map((b) => b.textContent.trim()));
-  check('the multi-viewer tab sits after All', tabs.join('|') === 'English|Other|All|Multi-viewer', tabs.join(' | '));
+  check('the multi-viewer tab is not offered while it is switched off', tabs.join('|') === 'English|Other|All', tabs.join(' | '));
+  check('the multi-viewer markup stays out of the row', await page.evaluate(() => !document.querySelector('#links .chip-mv') && !document.querySelector('#feedTabs button.chip:last-child').textContent.includes('Multi')));
+  await page.close();
+}
+
+/* The grid spec below still describes MULTIVIEWER_ENABLED = true. It is parked, not deleted: flip
+   the flag in src/app.ts (and this `if (false)` to `if (true)`) to exercise it again. */
+if (false) {
 
   await page.locator('#feedTabs button.chip', { hasText: 'Multi-viewer' }).click();
   await page.waitForSelector('#links .chip-mv', { timeout: 15000 }).catch(() => {});
