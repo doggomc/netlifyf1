@@ -34,7 +34,7 @@ const browser = await chromium.launch();
 
 /* Every off-site address is intercepted. Feeds answer like a player shell; embdlol's directory is
    empty unless the test supplies channels, which is how "no F1 upstream" is simulated. */
-async function openPage({ embdlolChannels = [], weeloState = {}, siteConfig = null, weeloEvents = [], ppvStreams = [], taifoodChannels = [] } = {}) {
+async function openPage({ embdlolChannels = [], weeloState = {}, siteConfig = null, weeloEvents = [], ppvStreams = [], taifoodChannels = [], uhdUrl = '' } = {}) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const feeds = [];
   const errors = [];
@@ -76,6 +76,10 @@ async function openPage({ embdlolChannels = [], weeloState = {}, siteConfig = nu
     headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ channels: embdlolChannels }),
   }));
+  /* The 4K address is resolved server-side because embdlol rotates the id per session. */
+  await page.route('**/api/stream/uhd', (route) => (uhdUrl
+    ? route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ url: uhdUrl, source: 'emb-uhd' }) })
+    : route.fulfill({ status: 503, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'The 4K channel is not listed upstream right now.', code: 'unavailable' }) })));
   await page.route('**/api/stream/taifood', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -131,8 +135,10 @@ const clickChip = async (page, label) => {
 };
 const frameSrc = (page) => page.evaluate(() => document.querySelector('#player iframe')?.src || '');
 const tab = (page, label) => page.locator('#feedTabs button.chip', { hasText: label }).first().click();
-/* Exact match: 'DAZN' would otherwise hit 'DAZN (EMB)' first and test the wrong chip. */
-const clickChipExact = (page, label) => page.locator('#links button.chip', { hasText: new RegExp(`^${label}$`) }).first().click();
+/* Exact match: 'DAZN' would otherwise hit 'DAZN (EMB)' first and test the wrong chip. The label is
+   regex-escaped, because '(EMB)' as written is a capture group — it waited for 'SKY EMB'. */
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const clickChipExact = (page, label) => page.locator('#links button.chip', { hasText: new RegExp(`^${escapeRe(label)}$`) }).first().click();
 const rowLabels = (page) => page.evaluate(() => [...document.querySelectorAll('#links button.chip')].map((b) => b.textContent.trim()));
 const specialLabels = (page) => page.evaluate(() => [...document.querySelectorAll('#links .special-row button.chip')].map((b) => b.textContent.trim()));
 
@@ -531,6 +537,63 @@ if (false) {
     check(`no tab spills past the tab bar at ${name}px`, m.over <= 1, `${m.over}px over`);
     await page.close();
   }
+}
+
+/* ── 16. Sunday's real embdlol list: short codes, and the 4K row ── */
+{
+  /* Exactly what embdlol published at 16:17 UTC on race day: a 'sun' day prefix and the SHORT codes
+     esp / ita / deu. 'esp' matched no chip at all before this round, so the live Spanish feed was
+     unreachable while Sky, F1 World and the UHD row all worked. */
+  const sunday = [
+    { channelname: 'f1mexicosunsky', id: '01a19792-d063-7469-ac4c-02633faa4ea4' },
+    { channelname: 'f1mexicosunworld', id: '01a19792-f229-74d9-b524-4262850e94e3' },
+    { channelname: 'f1mexicosunuhd', id: '01a19793-1056-7568-8b1d-3860145c4cd3' },
+    { channelname: 'f1mexicosunesp', id: '01a19793-35f4-7699-9d0f-b2ac0e7f2a69' },
+    { channelname: 'f1mexicosunita', id: '01a19793-4ed1-7349-9987-0437b8be76ad' },
+    { channelname: 'f1mexicosundeu', id: '01a19793-6769-777d-93bd-df7d83aa6a9f' },
+    { channelname: 'f1mexicosun360p', id: '01a19793-a0af-71f0-98b9-6e5fc65f9eb9' },
+  ];
+  const { page, errors } = await openPage({
+    embdlolChannels: sunday,
+    weeloState: weeloUp,
+    uhdUrl: 'https://embdlol.st/embed/01a19793-1056-7568-8b1d-3860145c4cd3',
+  });
+  await page.waitForTimeout(1800);
+
+  await clickChipExact(page, 'SKY (EMB)');
+  await page.waitForTimeout(2600);
+  const sky = await frameSrc(page);
+  check("Sunday's Sky feed reaches its chip", sky.includes('01a19792-d063'), sky);
+
+  await clickChipExact(page, 'WORLD (EMB)');
+  await page.waitForTimeout(2600);
+  const world = await frameSrc(page);
+  check("Sunday's F1 World feed reaches its chip", world.includes('01a19792-f229'), world);
+
+  await tab(page, 'Other');
+  await page.waitForTimeout(500);
+  for (const [label, id] of [['SPANISH (EMB)', '01a19793-35f4'], ['ITALIAN (EMB)', '01a19793-4ed1'], ['GERMAN (EMB)', '01a19793-6769']]) {
+    await clickChipExact(page, label);
+    await page.waitForTimeout(2600);
+    const src = await frameSrc(page);
+    check(`the short code reaches ${label}`, src.includes(id), src);
+  }
+
+  await tab(page, 'English');
+  await page.waitForTimeout(500);
+  await clickChipExact(page, 'F1 UHD 4K');
+  await page.waitForTimeout(1200);
+  /* The 4K chip offers the "session alerts" nudge once before playing; its own test suite covers
+     that. Here we only care which address the player ends up on, so step through it. */
+  const continueBtn = page.locator('#joinNudgeContinue');
+  if (await continueBtn.isVisible().catch(() => false)) await continueBtn.click();
+  await page.waitForTimeout(3000);
+  const uhd = await frameSrc(page);
+  check('the 4K chip plays the UHD row when one is published', uhd.includes('01a19793-1056'), uhd);
+  /* The 360p row is published alongside the rest and is below the floor: it must never be offered. */
+  check('the 360p row is never offered', !uhd.includes('01a19793-a0af'), uhd);
+  check('no page errors in the Sunday catalogue pass', errors.length === 0, errors.join(' | '));
+  await page.close();
 }
 
 await browser.close();

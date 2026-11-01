@@ -34,13 +34,17 @@ export const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
    matched by the feed it carries, not by its full name. */
 /* Longest first: 'fullhd1' must win over 'de', 'italian' over 'ita'. 'uhd' is matched but never
    published — the 4K channel is resolved by the server and must not be named in the bundle. */
+/* Sunday's set is f1mexicosunsky / sunworld / sunuhd / sunesp / sunita / sundeu (+ sun360p), so the
+   short codes have to be here: without 'esp' the live Spanish feed matched no chip at all. 'sun' is
+   the day prefix embdlol puts in front of the feed name, and it is not a feed of its own.
+   '360p' is deliberately absent — it is below the 720p floor. */
 const FEED_SUFFIXES = ['fullhd1', 'fullhd3', 'italian', 'spanish', 'german', 'skyit', 'skyde',
-  'apple', 'world', 'dazn', 'sky', 'ita', 'deu', 'uhd'];
+  'apple', 'world', 'dazn', 'sky', 'esp', 'ita', 'deu', 'uhd'];
 export const PUBLIC_EMBDLOL = FEED_SUFFIXES.slice(0, -1);
 const FEED_PATTERN = new RegExp(`^f1[a-z]*?(${FEED_SUFFIXES.join('|')})$`);
 /* embdlol's short codes and the long key a chip uses: Mexico published f1mexicosatita and
    f1mexicosatdeu, which matched no chip and left the whole EMB block without a channel. */
-const FEED_ALIASES: Record<string, string> = { ita: 'italian', deu: 'german' };
+const FEED_ALIASES: Record<string, string> = { esp: 'spanish', ita: 'italian', deu: 'german' };
 
 /* 'f1mexicosatuhd' → 'uhd', 'f1mexicosatita' → 'italian'. Anything else has no key. */
 export function feedKey(name: unknown): string {
