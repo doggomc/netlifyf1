@@ -578,7 +578,7 @@ const sources: StreamSource[] = [
 
   /* ehgembxe mints a JWT per request via 302 → /play/<jwt>; the frontend asks our server for it.
      The token has a short life, so the link is re-resolved before every attempt. */
-  { id: "ehgembxe", label: "Sky Sports F1 HD (EHG)", links: [
+  { id: "ehgembxe", label: "Sky Sports F1 HD (EHG)", rp: "origin", links: [
       { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-7758' },
       { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-4089' },
       { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-5690' }
@@ -1299,13 +1299,17 @@ function iframeCommitted(f) {
   }
 }
 
+/* A provider's anti-embed check can read an EMPTY referrer as "sandboxed": ehgembxe answers
+   no-referrer with "Remove sandbox attributes on the iframe tag" and mounts no player, while the
+   same token plays with an origin referrer (verified in a real browser, not headless). 'origin'
+   sends only our domain — enough to look embedded, and no path or query ever leaves the site. */
 function makeStreamIframe(url, rp) {
   const f = document.createElement("iframe");
   f.src = url;
   f.allow = IFRAME_ALLOW;
   f.setAttribute('allow', IFRAME_ALLOW);
   f.allowFullscreen = true;
-  f.referrerPolicy = rp || "no-referrer";
+  f.referrerPolicy = rp || "origin";
   f.title = "Live stream";
   return f;
 }
@@ -1445,7 +1449,8 @@ function load() {
       f.allow = IFRAME_ALLOW;
       f.setAttribute('allow', IFRAME_ALLOW);
       f.allowFullscreen = true;
-      f.referrerPolicy = "no-referrer";
+      /* Same rule as a source iframe: an empty referrer can be read as a sandboxed frame. */
+      f.referrerPolicy = 'origin';
       f.title = "Live stream";
       f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;opacity:0;transition:opacity .7s ease';
       f.onload = () => {

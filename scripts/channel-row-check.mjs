@@ -670,6 +670,29 @@ if (false) {
   await page.close();
 }
 
+/* ── 18. an empty referrer is read as a sandboxed frame by some providers ── */
+{
+  /* ehgembxe answers a no-referrer request with "Remove sandbox attributes on the iframe tag" and
+     mounts nothing, while the same token plays when the frame sends an origin referrer. The player
+     must therefore never build a frame with referrerPolicy 'no-referrer' or a sandbox attribute. */
+  const { page, errors } = await openPage({ weeloState: weeloUp });
+  await page.waitForTimeout(1500);
+  await clickChipExact(page, 'Sky Sports F1 HD (EHG)');
+  await page.waitForTimeout(2500);
+  const frame = await page.evaluate(() => {
+    const f = document.querySelector('#player iframe');
+    return f ? { rp: f.referrerPolicy, sandbox: f.hasAttribute('sandbox'), at: (f.getAttribute('referrerpolicy') || '') } : null;
+  });
+  check('the EHG frame is built without a sandbox attribute', frame && frame.sandbox === false, JSON.stringify(frame));
+  check('the EHG frame sends an origin referrer, never an empty one', frame && frame.rp === 'origin', JSON.stringify(frame));
+  await clickChipExact(page, 'Sky HD');
+  await page.waitForTimeout(2000);
+  const other = await page.evaluate(() => document.querySelector('#player iframe')?.referrerPolicy || '(none)');
+  check('every other chip sends an origin referrer too', other === 'origin', other);
+  check('no page errors in the referrer pass', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 await browser.close();
 const failed = results.filter((entry) => !entry.pass);
 console.log(`\n${results.length - failed.length}/${results.length} channel-row checks passed`);
