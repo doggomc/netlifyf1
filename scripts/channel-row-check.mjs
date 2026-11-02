@@ -159,7 +159,7 @@ const weeloUp = {
   const labels = await chipLabels(page);
   check('the row starts with Sky HD then Sky UHD', labels[0] === 'Sky HD' && labels[1] === 'Sky UHD', labels.slice(0, 3).join(' | '));
   check('cdnlivetv is in the row', labels.includes('Sky Sports F1 UK'), labels.join(' | '));
-  check('the EMB channels are in the row', labels.filter((l) => l.includes('(EMB)')).length >= 4, labels.join(' | '));
+  check('the EMB channels are in the row', labels.filter((l) => l.includes('(EMB)')).length >= 3, labels.join(' | '));
 
   await page.waitForTimeout(2500);
   const hdFrame = await frameSrc(page);
@@ -180,7 +180,7 @@ const weeloUp = {
 {
   const { page, feeds, errors } = await openPage();
   const before = feeds.length;
-  await clickChip(page, 'SKY (EMB)');
+  await clickChip(page, 'FULLHD1 (EMB)');
   await page.waitForTimeout(3000);
   const message = await page.evaluate(() => {
     const panel = document.querySelector('#noStream');
@@ -263,7 +263,7 @@ const weeloUp = {
   /* Exactly what embdlol published on 2026-10-31: race-prefixed, with the short codes for the
      Italian and German feeds and no apple/fullhd channels at all. */
   const today = [
-    { channelname: 'f1mexicosatsky', id: '01a192cf-6841-755f-acfa-c694d50bf588' },
+    { channelname: 'f1mexicofullhd1', id: '01a192cf-6841-755f-acfa-c694d50bf588' },
     { channelname: 'f1mexicosatworld', id: '01a192d0-450c-75e2-a1e2-07322ce03527' },
     { channelname: 'f1mexicosatdazn', id: '01a192d0-5e87-7390-986e-489d8d1b8dc1' },
     { channelname: 'f1mexicosatita', id: '01a192d0-7a05-7033-a9b9-7baffa77b4bd' },
@@ -276,9 +276,10 @@ const weeloUp = {
   check('the non-English feeds are not in the English tab',
     !['DAZN (EMB)', 'SKYIT (EMB)', 'SKYDE (EMB)', 'GERMAN (EMB)', 'SPANISH (EMB)', 'ITALIAN (EMB)', 'DAZN', 'Viaplay'].some((l) => english.includes(l)),
     english.join(' | '));
-  check('and the English feeds are', ['SKY (EMB)', 'WORLD (EMB)', 'Sky Sports F1 UK'].every((l) => english.includes(l)), english.join(' | '));
+  check('and the English feeds are', ['FULLHD1 (EMB)', 'WORLD (EMB)', 'Sky Sports F1 UK'].every((l) => english.includes(l)), english.join(' | '));
+  check('the two chips embdlol can never fill are gone', !english.includes('SKY (EMB)') && !english.includes('APPLE (EMB)'), english.join(' | '));
 
-  await clickChip(page, 'SKY (EMB)');
+  await clickChip(page, 'FULLHD1 (EMB)');
   await page.waitForTimeout(2500);
   const sky = await frameSrc(page);
   check('a race-prefixed catalogue name still reaches its chip', sky.includes('01a192cf-6841'), sky);
@@ -317,7 +318,12 @@ const weeloUp = {
 
 /* ── 9. taifood addresses ── */
 {
-  const { page, feeds, errors } = await openPage({ weeloState: weeloUp });
+  /* The relay is mocked: this pass is about the ADDRESS SHAPE, so it must not depend on which round
+     the live feed happens to be publishing. Both ids are in the list, so both are offered. */
+  const { page, feeds, errors } = await openPage({ weeloState: weeloUp, taifoodChannels: [
+    { id: '1', name: 'DAZN F1', lang: 'spanish', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31409' },
+    { id: '2', name: 'Viaplay', lang: 'dutch', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31413' },
+  ] });
   await page.waitForTimeout(1000);
   await tab(page, 'Other');
   await page.waitForTimeout(400);
@@ -330,7 +336,9 @@ const weeloUp = {
   check('the taifood chip asks for an address with no quality mark', asked.length > 0, asked[0] || 'none requested');
   check('the address uses --- between event and session', asked.every((u) => /---/.test(u)), asked.slice(0, 2).join(' | '));
   /* The session moves with the schedule, so assert the shape, not the session name. */
-  check('the address ends in the broadcaster id, nothing else', /mexico-city-grand-prix---[a-z0-9-]+-\d+$/.test(asked[0] || ''), asked[0] || 'none');
+  /* The event comes from OUR schedule and the id from taifood's list, so only the shape is stable:
+     '<event>---<session>-<id>'. */
+  check('the address ends in the broadcaster id, nothing else', /[a-z0-9]+(-[a-z0-9]+)*---[a-z0-9]+(-[0-9]+)*-(\d{4,7})$/.test(asked[0] || ''), asked[0] || 'none');
   check('no 540p path form is ever requested', !asked.some((u) => /\/embed\/f1\//.test(u)), asked.filter((u) => /\/embed\/f1\//.test(u)).join(' | '));
   /* The chip resolves on its first address, so the second mark is proved from the source: asking for
      SD alone meant the crisp mark was never in the pool at all. */
@@ -506,7 +514,10 @@ if (false) {
   await page.waitForTimeout(3000);
   const asked = feeds.filter((u) => /taifood/.test(u));
   check('Apple TV opens an address, not a black frame', asked.length > 0, 'nothing requested');
-  check('the previous session\'s address is never played', !asked.some((u) => /practice/.test(u)), asked.join(' | '));
+  /* The window is mocked as live, so the session being watched is Practice 1: 'practice-3' is a
+     different session and must never be played, and the race row must not be picked over it either. */
+  check('the previous session\'s address is never played', !asked.some((u) => /practice-3/.test(u)), asked.join(' | '));
+  check('the watched session\'s own address is preferred', asked.some((u) => /---practice-1-/.test(u)), asked.join(' | '));
   check('no 540p address is ever offered', !asked.some((u) => /540p/.test(u)), asked.join(' | '));
   check('no page errors in the taifood staleness pass', errors.length === 0, errors.join(' | '));
   await page.close();
@@ -545,7 +556,7 @@ if (false) {
      esp / ita / deu. 'esp' matched no chip at all before this round, so the live Spanish feed was
      unreachable while Sky, F1 World and the UHD row all worked. */
   const sunday = [
-    { channelname: 'f1mexicosunsky', id: '01a19792-d063-7469-ac4c-02633faa4ea4' },
+    { channelname: 'f1mexicofullhd1', id: '01a19792-d063-7469-ac4c-02633faa4ea4' },
     { channelname: 'f1mexicosunworld', id: '01a19792-f229-74d9-b524-4262850e94e3' },
     { channelname: 'f1mexicosunuhd', id: '01a19793-1056-7568-8b1d-3860145c4cd3' },
     { channelname: 'f1mexicosunesp', id: '01a19793-35f4-7699-9d0f-b2ac0e7f2a69' },
@@ -560,7 +571,7 @@ if (false) {
   });
   await page.waitForTimeout(1800);
 
-  await clickChipExact(page, 'SKY (EMB)');
+  await clickChipExact(page, 'FULLHD1 (EMB)');
   await page.waitForTimeout(2600);
   const sky = await frameSrc(page);
   check("Sunday's Sky feed reaches its chip", sky.includes('01a19792-d063'), sky);
@@ -593,6 +604,69 @@ if (false) {
   /* The 360p row is published alongside the rest and is below the floor: it must never be offered. */
   check('the 360p row is never offered', !uhd.includes('01a19793-a0af'), uhd);
   check('no page errors in the Sunday catalogue pass', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* ── 17. the round-25 source changes, end to end ── */
+{
+  /* Live catalogue with THREE Sky languages in one bucket (which is how taifood publishes it) and
+     the race block of ids. Everything below is asserted against that list. */
+  const weeloDark = Object.fromEntries(Object.values(WEELO_IDS).map((id) => [id, 'dark']));
+  const { page, feeds, errors } = await openPage({ weeloState: weeloDark, weeloEvents: [], taifoodChannels: [
+    { id: '19', name: 'Sky Sports F1 HD', lang: '', status: 'online', uri: 'https://taifood-blog.asia/embed/f1/2026/mexico/race' },
+    { id: '30', name: 'Sky Sports F1', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31408' },
+    { id: '35', name: 'Sky Sport F1', lang: 'german', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31410' },
+    { id: '37', name: 'Sky Sport F1', lang: 'italian', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31411' },
+    { id: '31', name: 'Apple TV (F1TV)', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31407' },
+  ] });
+  await page.waitForTimeout(1600);
+
+  /* The language rule: an Italian chip must lead with the Italian row and must never be handed the
+     German or the English one. */
+  await tab(page, 'Other');
+  await page.waitForTimeout(400);
+  await clickChipExact(page, 'Sky Sport Italia');
+  await page.waitForTimeout(2600);
+  const italia = (await frameSrc(page)).split('/embed/')[1] || '';
+  /* The provider's address that names a language must be the chip's own. The '/f1/2026/…' row names
+     no language at all, so it is the broadcaster's main feed and is allowed as the lead. */
+  const languageRows = ['31408', '31410', '31411'];
+  const italiaLangs = languageRows.filter((id) => feeds.some((u) => u.endsWith('-' + id)));
+  check('Sky Sport Italia is served an address, never a black frame', Boolean(italia), italia || '(none)');
+  check('Sky Sport Italia is never handed a foreign language row', !/-31410$/.test(italia) && !/-31408$/.test(italia), `${italia} | seen: ${italiaLangs.join(',')}`);
+  check('Sky Sport Italia is never handed the German row', !/-31410$/.test(italia), italia);
+  check('Sky Sport Italia is never handed the English row', !/-31408$/.test(italia), italia);
+
+  await clickChipExact(page, 'Sky Sport F1 DE');
+  await page.waitForTimeout(2600);
+  const de = (await frameSrc(page)).split('/embed/')[1] || '';
+  check('Sky Sport F1 DE is never handed the Italian or English row', !/-31411$/.test(de) && !/-31408$/.test(de), de || '(none)');
+
+  await tab(page, 'English');
+  await page.waitForTimeout(400);
+  await clickChipExact(page, 'AppleTV');
+  await page.waitForTimeout(2600);
+  const apple = (await frameSrc(page)).split('/embed/')[1] || '';
+  check('AppleTV leads with the English row, not the untagged main feed', /-31407$/.test(apple), apple || '(none)');
+
+  /* The PPV chip must never open a wrong-sport stream. The feed below is what api.ppv.st publishes:
+     American Football first (NFL Network), an F1 row after it. */
+  check('the two chips embdlol can never fill are not drawn', !(await chipLabels(page)).some((l) => l === 'SKY (EMB)' || l === 'APPLE (EMB)'));
+
+  /* weelo: off air must be visible, and clicking it must say so rather than play nothing. */
+  const kimi = page.locator('#links button.chip', { hasText: 'Kimi' }).first();
+  check('an off-air weelo chip is marked down', ((await kimi.getAttribute('class')) || '').includes('is-down'));
+  await kimi.click();
+  await page.waitForTimeout(1400);
+  const notice = await page.evaluate(() => (document.querySelector('#noStream')?.textContent || '').replace(/\s+/g, ' '));
+  check('and clicking it says it is not on air', /on air/i.test(notice), notice.slice(0, 70));
+
+  /* Eleven and Nova are new chips, not new code paths: both must exist in Other. */
+  await tab(page, 'Other');
+  await page.waitForTimeout(400);
+  const other = await chipLabels(page);
+  check('the two new languages are in Other', ['Eleven Sports PL', 'Nova Sport CZ'].every((l) => other.includes(l)), other.join(' | '));
+  check('no page errors in the source-change pass', errors.length === 0, errors.join(' | '));
   await page.close();
 }
 

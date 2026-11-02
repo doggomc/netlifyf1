@@ -15,7 +15,9 @@ export interface HealthDeps {
   shouldSync?: () => boolean;
 }
 
-const DYNAMIC_TTL_MS = 60_000;
+/* ehgembxe's minted JWT dies in ~15-30 seconds, so an address is only reusable for a heartbeat.
+   Caching it for a minute guaranteed a 403 'Link Expired' page on every click. */
+const DYNAMIC_TTL_MS = 8_000;
 
 export async function loadProviderHealth(deps: HealthDeps): Promise<void> {
   try {

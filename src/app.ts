@@ -3,6 +3,8 @@ import { TEAM_LOGO, TEAM_HEX, TEAM_ALIAS, teams } from './data/teams';
 import { NO_STREAM_MESSAGES, LOADER_LINES, BLOCKED_TITLE, BLOCKED_COPY_IOS, BLOCKED_COPY, HIJACK_TITLE, HIJACK_COPY } from './data/cockpit-messages';
 import { BACKEND_API, SITE_CONFIG_CACHE_KEY, SITE_SEASON, OPENF1_API, JOLPI } from './config';
 import type { ProviderHealthState, HealthDeps } from './features/provider-health';
+/* A type-only import: the catalogue module itself stays in its lazy chunk. */
+import type { TaifoodChannel } from './features/catalogues';
 import { parseSiteConfig, type SiteConfig } from './types/site-config';
 import { onIdle, onVisible, lazyButton } from './services/lazy';
 import { store } from './services/storage';
@@ -399,6 +401,38 @@ function taidCandidates(num) {
     .map((event) => `https://taifood-blog.asia/embed/${event}---${kebab(currentSession?.name)}-${num}`);
 }
 
+/* taifood answers 200 with the same ~269 KB player shell for a valid id, an id from last round and a
+   nonsense id alike, so nothing in the response separates a live address from a black frame — and a
+   black frame commits a document, which makes the player's failover believe it succeeded. The only
+   trustworthy statement of what exists is the list taifood publishes, so a taifood address that
+   names an id that list does not carry is never offered: an honest 'no link upstream' beats a chip
+   that looks connected and shows nothing. */
+function taifoodPublishesId(url, catalogue: Record<string, TaifoodChannel[]>): boolean {
+  const num = (String(url).match(/-(\d{4,7})(?:_\d+p)?$/) || [])[1];
+  if (!num) return true;                 // the path form (/embed/f1/2026/<event>/<session>) carries no id
+  return Object.values(catalogue || {}).some((rows) => (rows || []).some((row) => (String(row.uri).match(/-(\d{4,7})(?:_\d+p)?$/) || [])[1] === num));
+}
+
+function taifoodUsable(url: string, source: StreamSource): boolean {
+  if (!/taifood-blog\.asia\/embed\//.test(url)) return true;
+  if (!cataloguesReady) return true;     // before the list answers, judge nothing
+  const list = catalogues.taifood || {};
+  // The PPV chip's own address comes from the PPV feed, not from the taifood channel list.
+  if (source.id === 'ppv') return true;
+  return taifoodPublishesId(url, list);
+}
+
+/* How well a taifood row fits a chip: 0 = the language the chip is for, 1 = an untagged row (the
+   broadcaster's main feed — usable, but never preferred), -1 = another language, never offered.
+   A chip names its language in taifood's own vocabulary ('italian', 'german', …) so no mapping
+   table can drift; an English chip has no such name and matches on 'english'. */
+function taifoodLangRank(rowLang: string | undefined, chip: StreamSource): number {
+  const row = String(rowLang || '').toLowerCase();
+  const wanted = String(chip.tfLang || (chip.lang === 'other' ? '' : 'english')).toLowerCase();
+  if (!row) return 1;
+  return row === wanted ? 0 : -1;
+}
+
 /* ═══ Link pools ═══
    A source is a POOL of links, not one address. Every entry carries the qualities it can serve so
    the player can stay at 720p or better; anything below 720p is never offered.
@@ -429,6 +463,7 @@ interface StreamSource {
   special?: 'onboard' | 'data' | 'feed'; // drawn apart from the broadcaster chips
   weelo?: string;               // weelo stream id, when the pool is looked up there
   taifood?: string;             // chip key in taifood's per-race list ('apple', 'sky', …)
+  tfLang?: string;              // taifood's own name for the commentary language, e.g. 'italian'
   /* Race Control's own view of the chip: the shipped name and pool, and the live state. */
   base?: { label: string; links: StreamLink[] };
   hidden?: boolean;
@@ -466,7 +501,10 @@ function mirrorLinks(key: string, quality: number): StreamLink[] {
 const DEFAULT_SOURCE_ID = "sky-uk";
 
 /* The embdlol feeds we draw a chip for; labels and languages are keyed below. */
-const EMB_FEEDS = 'sky,apple,dazn,skyit,skyde,world,german,spanish,italian,fullhd1,fullhd3'.split(',');
+/* embdlol publishes ONE English F1 channel at a time, and fmexicofullhd1/3 are two names for it, so
+   the 'sky' and 'apple' chips could never resolve to anything the other two do not. They were empty
+   for their whole life; the ten below are the feeds embdlol actually publishes per language. */
+const EMB_FEEDS = 'fullhd1,fullhd3,dazn,skyit,skyde,world,german,spanish,italian'.split(',');
 /* A feed may only fall back to another feed of its own language, never to English Sky. */
 const EMB_LANG: Record<string, string> = { dazn: 'es', spanish: 'es', skyit: 'it', italian: 'it', skyde: 'de', german: 'de' };
 
@@ -542,7 +580,8 @@ const sources: StreamSource[] = [
      The token has a short life, so the link is re-resolved before every attempt. */
   { id: "ehgembxe", label: "Sky Sports F1 HD (EHG)", links: [
       { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-7758' },
-      { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-4089' }
+      { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-4089' },
+      { provider: 'ehgembxe', label: 'dynamic', addressing: 'dynamic', quality: 1080, url: 'ehgembxe/f596f98r-5690' }
   ]},
 
   /* Onboards and the data channel: the specials block, right after the broadcast feeds. */
@@ -553,30 +592,39 @@ const sources: StreamSource[] = [
   ]},
 
   /* taifood: the event and session are in the path. 31377 is the only id flagged 720p-safe. */
+  /* Ids are the RACE block of the round taifood published when this was written (31407–31415): the
+     race row first, then the practice/sprint ids as the parachute. They rotate every session, so
+     they are only ever a fallback — the live catalogue leads the pool and decides what exists. */
   { id: "appletv", label: "AppleTV", taifood: "apple", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31385 },
-      { provider: 'taifood', taid: 31374 }
+      { provider: 'taifood', taid: 31407 },
+      { provider: 'taifood', taid: 31385 }
   ]},
-  { id: "dazn", label: "DAZN", taifood: "dazn", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31387 },
-      { provider: 'taifood', taid: 31376 }
+  { id: "dazn", tfLang: "spanish", label: "DAZN", taifood: "dazn", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31409 },
+      { provider: 'taifood', taid: 31387 }
   ]},
-  { id: "viaplay", label: "Viaplay", taifood: "viaplay", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31391 },
-      { provider: 'taifood', taid: 31380 }
+  { id: "viaplay", tfLang: "dutch", label: "Viaplay", taifood: "viaplay", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31413 },
+      { provider: 'taifood', taid: 31391 }
   ]},
-  { id: "sky-italia", label: "Sky Sport Italia", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31389 },
-      { provider: 'taifood', taid: 31378 }
+  { id: "sky-italia", tfLang: "italian", label: "Sky Sport Italia", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31411 },
+      { provider: 'taifood', taid: 31389 }
   ]},
-
-  /* New taifood feeds that were not on the site at all. */
-  { id: "sky-de", label: "Sky Sport F1 DE", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31388 },
-      { provider: 'taifood', taid: 31377 }
+  { id: "sky-de", tfLang: "german", label: "Sky Sport F1 DE", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31410 },
+      { provider: 'taifood', taid: 31388 }
   ]},
-  { id: "v-sport", label: "V Sport Motor SE", taifood: "v", lang: "other", rp: "unsafe-url", links: [
+  { id: "v-sport", tfLang: "swedish", label: "V Sport Motor SE", taifood: "v", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31412 },
       { provider: 'taifood', taid: 31390 }
+  ]},
+  /* The two languages neither of the reference sites' lists had: Polish (Eleven) and Czech (Nova). */
+  { id: "eleven", tfLang: "polish", label: "Eleven Sports PL", taifood: "eleven", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31415 }
+  ]},
+  { id: "nova", tfLang: "czech", label: "Nova Sport CZ", taifood: "nova", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'taifood', taid: 31414 }
   ]},
 
   /* Three entry points, one upstream channel (/hls/stream.m3u8?ch=spn). Failover only. */
@@ -648,6 +696,9 @@ const newsStatusEl = $("newsStatus");
 const _def = pickDefault();
 let currentEvent = _def.event;
 let currentSession = _def.session;
+/* One fresh mint per dynamic path per load, so an expired token cannot loop. */
+const freshMints = new Set<string>();
+
 let currentSource = sources.findIndex((s) => s.id === DEFAULT_SOURCE_ID);
 let activeView = 'home';
 let playerLoadToken = 0;
@@ -704,14 +755,24 @@ function linkPool(index: number): string[] {
      weekend), then falls back to our id candidates. Provider's own list wins, ours is the parachute.
      Addresses naming a different session are skipped: taifood leaves the previous session in its
      list marked 'online', and that address renders black rather than failing visibly. */
+  /* taifood lists every language of a broadcaster under one first word ('sky' holds English,
+     German and Italian), so a chip is matched on broadcaster AND language: Sky Italia must never be
+     handed the German address. A missing language means 'the broadcaster's untagged feed', which is
+     what the Apple TV row is. */
   const live = source.taifood
-    ? (catalogues.taifood[source.taifood] || []).map((c) => c.uri).filter((uri) => !staleSession(uri, currentSession?.slug))
+    ? (catalogues.taifood[source.taifood] || [])
+        .map((c) => ({ uri: c.uri, rank: taifoodLangRank(c.lang, source) }))
+        .filter((entry) => entry.rank >= 0 && !staleSession(entry.uri, currentSession?.slug))
+        /* The right language first; an untagged row is the broadcaster's main feed and is only a
+           parachute, so no Italian chip can start on English audio. */
+        .sort((a, b) => a.rank - b.rank)
+        .map((entry) => entry.uri)
     : [];
   /* The PPV chip's address comes from their own API for the race they are serving right now. */
   if (source.id === 'ppv' && catalogues.ppv) live.unshift(catalogues.ppv);
   const pool = links.filter((link) => link.addressing !== 'dynamic')
     .flatMap((link) => (link.taid ? taidCandidates(link.taid) : [resolveLink(link, key)]))
-    .filter(Boolean);
+    .filter((url) => Boolean(url) && taifoodUsable(url, source));
   if (live.length) pool.unshift(...live);
   /* A dynamic link is only usable once its token is in hand. These tokens lapse and the provider
      then shows a "Link expired" page, so a stale one is refreshed before its address is offered. */
@@ -919,7 +980,8 @@ async function resolveDynamicLink(path: string): Promise<string> {
 
 function cachedDynamicUrl(path: string): string {
   const cached = healthState.dynamic[path];
-  return cached && Date.now() - cached.at < 60_000 ? cached.url : '';
+  /* Same window as the token: an ehgembxe JWT is dead after ~15-30 seconds. */
+  return cached && Date.now() - cached.at < 8_000 ? cached.url : '';
 }
 
 function chooseFourK() {
@@ -1023,10 +1085,11 @@ function renderButtons() {
       if (specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} on weelo. It comes up on race weekends.` });
       /* The 4K chip asks once whether they want session alerts before playing. */
       if (s.gated) return chooseFourK();
-      prefetchDynamicLinks(i);
       currentSource = i;
       renderButtons();
       updateHeader();
+      /* load() mints the token and opens the player in the same tick. Prefetching first would spend
+         the credential before the iframe asked for it, and these tokens die in seconds. */
       load();
     };
     return b;
@@ -1295,10 +1358,25 @@ function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
     }, 180);
   };
 
+  /* A minted token can die between minting and the frame's request (ehgembxe's last ~15-30s), and
+     the provider answers the dead one with a 403 "Link Expired" page. That is worth ONE fresh mint,
+     not a jump to another provider: the address was right, only the credential aged out. */
+  const dynamicPath = (sources[sourceIndex].links || []).find((link) => link.addressing === 'dynamic' && cachedDynamicUrl(link.url || '') === targetUrl)?.url;
+
   const advance = (removed = true) => {
     if (token !== playerLoadToken || settled) return;
     settled = true;
     if (removed) f.remove();
+    if (dynamicPath) {
+      /* Drop the cached (now dead) credential so the next attempt mints a new one. */
+      delete healthState.dynamic[dynamicPath];
+      if (!freshMints.has(dynamicPath)) {
+        freshMints.add(dynamicPath);
+        attemptSource(token, order, idx, Date.now(), 0);
+        return;
+      }
+      freshMints.delete(dynamicPath);
+    }
     attemptSource(token, order, idx, startedAt, linkIdx + 1);
   };
 
@@ -1312,14 +1390,17 @@ function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
 
   watchFrameNavigation(f, token, () => settled);
 
-  /* A live provider answers in a second or two, so an address that has returned nothing at all
-     after 4s is dead and the next link is tried. The 9s ceiling catches a frame that loaded but
-     never committed a document. */
+  /* A live provider answers in a second or two, so an address that has committed no document at all
+     after 4s is dead and the next link is tried. A committed frame is kept even without a load
+     event: ehgembxe's player runs a wasm challenge and never fires one, and discarding it there
+     threw away a working feed. The 9s ceiling reveals whatever committed, else moves on. */
   window.setTimeout(() => {
-    if (!loaded) advance();
+    if (settled) return;
+    if (!loaded && !iframeCommitted(f)) advance();
   }, NAV_SOFT_MS);
   window.setTimeout(() => {
-    if (loaded && f.isConnected && iframeCommitted(f)) reveal();
+    if (settled) return;
+    if (f.isConnected && iframeCommitted(f)) reveal();
     else advance();
   }, NAV_TIMEOUT_MS);
 
@@ -2403,7 +2484,8 @@ applyTeamTheme(store.get('freef1_team') || 'default');
 // Resolve the embdlol channel directory before the feed row is built (falls back if it fails).
 void loadCatalogues().then(() => {
   renderButtons();
-  prefetchDynamicLinks(currentSource);
+  /* No prefetch for token providers: their address dies in seconds, so warming it at load time is
+     the same as burning it. It is minted on click instead. */
 });
 void loadProviderHealth();
 window.setInterval(() => {

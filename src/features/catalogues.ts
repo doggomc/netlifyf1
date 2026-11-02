@@ -201,17 +201,32 @@ async function fetchWeeloEvents(deps: CatalogueDeps): Promise<Record<string, { l
 }
 
 /* PPV's current F1 address, which is the path-form taifood link. One motorsport entry at a time. */
+/* PPV publishes every sport it carries — 36 American football channels, 151 football, NBA, cricket,
+   golf, rugby, wrestling — and they all point at taifood, so "the first taifood embed" was
+   nfl-network. The F1 address is the one whose venue/session is in the path, or whose title mentions
+   F1/Formula 1; nothing else is acceptable for this chip. */
+const PPV_F1_PATTERNS = [
+  /formula[\s-]?1|\bf1\b|grand\s?prix/i,        // title or tag says F1
+  /\/embed\/f1\//i,                             // the path form: /embed/f1/2026/<event>/<session>
+  /---(?:race|qualifying|sprint|practice)[-\w]*/i // the session form: <event>---<session>-<id>
+];
+
 async function fetchPpv(deps: CatalogueDeps): Promise<string> {
   const response = await deps.fetchWithTimeout(PPV_STREAMS, { cache: 'no-store', headers: { Accept: 'application/json' } }, 5000);
   if (!response.ok) throw new Error(`ppv ${response.status}`);
   const json = await response.json();
+  const candidates: { uri: string; haystack: string }[] = [];
   for (const group of Array.isArray(json?.streams) ? json.streams : []) {
     for (const stream of Array.isArray(group?.streams) ? group.streams : []) {
       const uri = String(stream?.iframe || '');
-      if (/taifood-blog\.asia\/embed\//.test(uri)) return uri;
+      if (!/taifood-blog\.asia\/embed\//.test(uri)) continue;
+      /* Everything a stream says about itself, so a mislabelled category cannot hide an F1 row. */
+      const haystack = [stream?.name, stream?.tag, stream?.source_tag, stream?.category_name, stream?.uri_name, uri].join(' ');
+      candidates.push({ uri, haystack });
     }
   }
-  return '';
+  const hit = candidates.find((entry) => PPV_F1_PATTERNS.some((pattern) => pattern.test(entry.haystack)));
+  return hit ? hit.uri : '';
 }
 
 /* Never rejects: a directory being down means "no ids from them", and the other links in the pool

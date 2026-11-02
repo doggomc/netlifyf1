@@ -61,7 +61,7 @@ function applyConfig(input: unknown) {
   if (maintenance.message && messageEl) messageEl.textContent = maintenance.message;
   if (maintenance.eta && returnEtaEl) returnEtaEl.textContent = maintenance.eta;
   if (Number(maintenance.startedAt) > 0) startedAt = Number(maintenance.startedAt);
-  if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Race Control connected · live updates enabled';
+  if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Connected · live updates on';
   updateElapsedTime();
 }
 
