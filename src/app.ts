@@ -523,22 +523,26 @@ let sourceTab = 'en';
    own block, and one that is not on air says so instead of opening a dead frame. */
 /* label:stream id:kind — the id is the whole address, so it is written once. */
 /* [label, weelo id, special, language, chip id]. Language comes from weelo's own event feed:
-   'Multi-audio' feeds carry several commentaries, so they are not English-only and belong under
-   Other.
+   'Multi-audio' is weelo's label for the English world feed with alternate commentaries, so it is
+   still English.
    The chip id is written out, NOT derived from the stream id: those ids share their first eight
    characters, so deriving one gave every onboard the same id ('weelo-ogcgpgbg') and none of them
    was the id Race Control disables ('weelo-kimi'). A disable matched no chip and silently did
    nothing. This list is the contract with f1admin's FEED_SOURCES — keep the ids identical. */
 const SPECIALS = [
+  /* Broadcast feed first, then the timing feeds, then the onboards, then the rest of weelo's list.
+     Every one of them is English: International Feed carries the English world commentary and was
+     filed under Other only because weelo labels it 'Multi-audio'. English is the default view, so a
+     language tab must never be the reason a feed is missing from it. */
+  ['Sky Sports (weelo)', 'dflgjhacdfahpgchehacbdacoekfacieee', 'feed', 'en', 'weelo-skyweelo'],
+  ['Drivers Track', 'gebdacefgfaciceechjgghfgchacefchbgdglgfgchjcacieee', 'onboard', 'en', 'weelo-drivers'],
+  ['Data Channel', 'gebdacefgfaciceebgehbgacdeigbgogogfgmgjcacieee', 'data', 'en', 'weelo-data'],
   ['Kimi Antonelli', 'peogcgpgbgchegaciclejgngjgacbeogehpgogfgmgmgjgjcacieee', 'onboard', 'en', 'weelo-kimi'],
   ['Charles Leclerc', 'peogcgpgbgchegacicdeigbgchmgfgdhacmefgdgmgfgchdgjcacieee', 'onboard', 'en', 'weelo-charles'],
   ['Max Verstappen', 'peogcgpgbgchegacicnebgihacgffgchdhehbgahahfgogjcacieee', 'onboard', 'en', 'weelo-max'],
-  ['Drivers Track', 'gebdacefgfaciceechjgghfgchacefchbgdglgfgchjcacieee', 'onboard', 'en', 'weelo-drivers'],
-  ['Data Channel', 'gebdacefgfaciceebgehbgacdeigbgogogfgmgjcacieee', 'data', 'en', 'weelo-data'],
-  ['International Feed', 'jeogehfgchogbgehjgpgogbgmgacgefgfgegacicgebdjcacieee', 'feed', 'other', 'weelo-intl'],
-  ['F1 TV (World)', 'gebdacefgfacieee', 'feed', 'other', 'weelo-f1tvworld'],
-  ['Sky Sports (weelo)', 'dflgjhacdfahpgchehacbdacoekfacieee', 'feed', 'en', 'weelo-skyweelo'],
-  ['F1 TV (Shows)', 'gebdacefgfacicdfigpghhdhjcacieee', 'feed', 'en', 'weelo-shows'],
+  ['International Feed', 'jeogehfgchogbgehjgpgogbgmgacgefgfgegacicgebdjcacieee', 'feed', 'en', 'weelo-intl'],
+  ['F1 TV (World)', 'gebdacefgfacieee', 'feed', 'en', 'weelo-f1tvworld'],
+  ['F1 TV (Shows)', 'gebdacefgfacicdfigpghhdhjcacieee', 'feed', 'en', 'weelo-shows']
 ] as const;
 
 const SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, special, lang, id]): StreamSource => ({
@@ -1080,7 +1084,7 @@ function renderButtons() {
     }
     b.textContent = s.label;
     b.onclick = async () => {
-      if (specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} on weelo. It comes up on race weekends.` });
+      if (specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
       /* The 4K chip asks once whether they want session alerts before playing. */
       if (s.gated) return chooseFourK();
       currentSource = i;
@@ -1109,11 +1113,13 @@ function renderButtons() {
 }
 
 let multiviewer: Promise<any> | undefined;
+
 /* Lazy: the grid, its button state and its own close control all live in one chunk, downloaded the
    first time somebody opens the grid (or straight away for a ?mv=1 address). */
 function openMultiViewer() {
   void (multiviewer ??= import('./features/multiviewer').then((m) => m.init(featureContext))).then((m) => m?.show(true));
 }
+
 $('mvToggle')?.addEventListener('click', openMultiViewer);
 /* A ?mv=1 address opens the grid once the first config has landed. */
 setTimeout(() => location.search.includes('mv=1') && openMultiViewer(), 900);

@@ -4942,11 +4942,28 @@ body.view-swapping {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  align-self: center;
+  line-height: 1;
 }
 
+/* Every button in this row is .btn.sm, and a weelo chip row can change the row's font metrics, so
+   the shared height is stated once here instead of being inherited from whichever text is longest. */
+.stage-actions .btn {
+  min-height: 48px;
+}
+
+@media (max-width: 760px) {
+  .stage-actions .btn {
+    min-height: 36px;
+  }
+}
+
+/* 12px, the text's own line box: a 14px icon made this button two pixels taller than its neighbours
+   on phones, where .btn height comes from its content rather than a fixed row. */
 #mvToggle svg {
-  width: 14px;
-  height: 14px;
+  display: block;
+  width: 12px;
+  height: 12px;
   flex: none;
 }
 

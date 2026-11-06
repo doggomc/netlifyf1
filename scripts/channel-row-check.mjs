@@ -218,9 +218,11 @@ const weeloUp = {
   const marked = await page.evaluate(() => [...document.querySelectorAll('#feedTabs button.chip')]
     .filter((b) => b.getAttribute('aria-selected') === 'true').map((b) => b.textContent.trim()));
   check('exactly one tab is marked as selected on load', marked.length === 1 && marked[0] === 'English', marked.join(' | ') || 'none marked');
-  /* Seven specials belong to English (five onboards/data + the two English weelo feeds); the two
-     multi-audio weelo feeds sit under Other, so the English block is smaller than the specials list. */
-  check('English keeps the specials in their own block', (await specialLabels(page)).length === 7, (await specialLabels(page)).join(' | '));
+  /* All nine weelo feeds are English now (its 'Multi-audio' label means the English world feed with
+     alternate commentaries), so the whole specials block is in the default tab AND in order. */
+  check('English keeps every special in its own block, in order',
+    (await specialLabels(page)).join('|') === 'Sky Sports (weelo)|Drivers Track|Data Channel|Kimi Antonelli|Charles Leclerc|Max Verstappen|International Feed|F1 TV (World)|F1 TV (Shows)',
+    (await specialLabels(page)).join(' | '));
 
   await tab(page, 'Other');
   await page.waitForTimeout(400);

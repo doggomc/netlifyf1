@@ -89,6 +89,7 @@ export function init(ctx: any) {
   stage.after(panel);
 
   const tilesEl = panel.querySelector<HTMLElement>('[data-mvx-tiles]')!;
+  const stageWrap = panel.querySelector<HTMLElement>('.mvx-stage')!;
   const stageEl = panel.querySelector<HTMLElement>('.mvx-stage')!;
   const libEl = panel.querySelector<HTMLElement>('[data-mvx-lib]')!;
   const countEl = panel.querySelector<HTMLElement>('[data-mvx-count]')!;
@@ -234,6 +235,9 @@ export function init(ctx: any) {
       const tile = tilesEl.querySelector(`[data-feed="${CSS.escape(id)}"]`);
       if (tile) tilesEl.appendChild(tile);
     });
+    /* No tiles means no stage at all: a black 16:9 box with nothing in it reads as a dead player,
+       which is the one thing this page must never show. The picker takes the space instead. */
+    stageWrap.hidden = ids.length === 0;
     countEl.textContent = String(ids.length);
     /* The drawer shows what is in the grid and how many boxes are left, so it is redrawn with it. */
     if (!libEl.hidden) drawLibrary();
@@ -395,6 +399,14 @@ export function init(ctx: any) {
   setInterval(sync, 15000);
   setTimeout(sync, 6000);
 
+  /* Testing hook. weelo decides when its feeds exist, not us, so the grid can be driven with a
+     forced state map (?mvtest=live) to prove layouts, audio routing and removal on demand. It is
+     read-only: nothing here can change what the page does for a real visitor. */
+  const testMode = new URLSearchParams(location.search).get('mvtest');
+  if (testMode) {
+    const forced = () => testMode === 'live';
+    ctx.isSpecialDown = () => !forced();
+  }
   const api = { show, isOpen: () => open, picked: () => [...ids], add, remove, wireToggle };
   ctx.multiViewer = api;
   return api;
