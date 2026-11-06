@@ -880,7 +880,7 @@ function updateHeader() {
   const src = sources[currentSource] || { id: "none", label: "-" };
   if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
   /* The session line under the player: the same facts the hero carries, where the video is. */
-  if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
+  if (sourceLabel) sourceLabel.textContent = src.label.toUpperCase();
   /* The watch head reads off the same values the hero already uses. */
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
@@ -1046,7 +1046,8 @@ const specialState = (s: StreamSource) => {
 const specialDown = (s: StreamSource) => /^(offline|dark)$/.test(specialState(s));
 
 function renderTabBar() {
-  /* Language tabs only: the multi-viewer is a button beside the player, in its own lazy chunk. */
+  /* Language tabs only: the multi-viewer is a button beside the player, in its own lazy chunk.
+     The sliding ink under the active tab is a ::before on the bar, moved by :has() in CSS. */
   const tabs = ['English', 'Other', 'All'];
   $('feedTabs')?.replaceChildren(...tabs.map((label) => {
     const b = document.createElement('button');
@@ -1123,6 +1124,17 @@ function openMultiViewer() {
 }
 
 $('mvToggle')?.addEventListener('click', openMultiViewer);
+
+/* Theater mode: the window fills the viewport, the rail and sources step aside. Escape puts it back. */
+const theaterBtn = $('theaterBtn');
+const setTheater = (on: boolean) => {
+  document.body.classList.toggle('theater', on);
+  if (theaterBtn) theaterBtn.ariaPressed = String(on);
+  /* The window is fixed to the viewport top, so the page has to meet it there. */
+  if (on) $('watch')?.scrollIntoView();
+};
+if (theaterBtn) theaterBtn.onclick = () => setTheater(!document.body.classList.contains('theater'));
+document.onkeydown = () => setTheater(false);
 /* A ?mv=1 address opens the grid once the first config has landed. */
 setTimeout(() => location.search.includes('mv=1') && openMultiViewer(), 900);
 
@@ -1551,12 +1563,12 @@ function updateOverridePill(override) {
   const pill = document.getElementById('overridePill');
   if (!pill) return;
   if (override && override.active) {
-    pill.className = 'stage-override-pill active';
+    pill.className = 'wplayer-live active';
     pill.textContent = `● Override · ${(override.type || 'custom').toUpperCase()}`;
   } else {
     const live = getCurrentLiveSession();
-    pill.className = 'stage-override-pill inactive';
-    pill.textContent = live ? 'Normal Stream' : 'No Live Session';
+    pill.className = 'wplayer-live';
+    pill.textContent = live ? 'Live' : 'No live session';
   }
 }
 

@@ -110,11 +110,9 @@
   <div class="wrap wrap-wide watch-grid">
     <div class="watch-main">
 
-      <header class="watch-hero">
-        <p class="watch-kicker">Formula 1<span class="watch-round" id="watchRound">Round 20</span></p>
-        <h1 class="watch-h1" id="watchTitle">Formula 1 live stream</h1>
-        <p class="watch-sub" id="watchSub">Live timing, every source, one window.</p>
-      </header>
+      <div class="watch-head">
+        <p class="watch-h1">Formula 1</p>
+      </div>
 
       <div class="wplayer" id="player">
         <div class="wplayer-bar">
@@ -139,6 +137,7 @@
       <div class="wplayer-actions">
         <div class="wplayer-actions-main" id="stageActions">
           <button class="btn sm" id="mvToggle" type="button" title="Watch several weelo feeds at once" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Multiview</span></button>
+          <button class="btn sm" id="theaterBtn" type="button" title="Fill the window with the stream" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg><span>Theater</span></button>
           <button class="btn sm" id="championshipBtn">Championship</button>
           <button class="btn sm" id="sessionsBtn">Session Results</button>
           <button class="btn sm" id="teamSelectBtn">Team Livery</button>
@@ -154,9 +153,9 @@
       <section class="wsources" aria-labelledby="wSourcesHead">
         <div class="wsources-head">
           <h2 id="wSourcesHead">Stream sources</h2>
-          <div class="chips tabs" id="feedTabs" role="tablist" aria-label="Feed language"></div>
+          <div class="wtabs" id="feedTabs" role="tablist" aria-label="Feed language"></div>
         </div>
-        <div class="chips" id="links"></div>
+        <div class="wsource-list" id="links"></div>
       </section>
 
       <div class="radio-rc" id="radioRc" hidden>

@@ -16,13 +16,14 @@ const bytes = file => readFileSync(`dist/${file}`);
 const gzip = file => gzipSync(bytes(file)).length;
 const initialJs = [...startup].reduce((sum, file) => sum + gzip(file), 0);
 /* Measured, not guessed: print it so a feature that eats the budget is obvious in the log. */
-const BUDGET = 25 * 1024 + 64;
+const BUDGET = 25 * 1024 + 192;
 console.log(`startup gzip: ${initialJs} B of ${BUDGET}`);
 /* Was 24 KiB with 4 B to spare, which meant every round paid for a feature with cockpit copy.
    Raised to 25 KiB once by decision (round 11) so editing a chip name does not cost a visitor a
    sentence of help text. Round 29 adds 64 B for the multi-viewer's entry point — one listener, one
    lazy import, one ?mv=1 check; the grid itself (9 tiles, layouts, picker) is a lazy chunk. Still a
-   hard gate: raise it consciously, not casually. */
+   hard gate: raise it consciously, not casually. Round 33b adds 128 B for theater mode — one toggle,
+   one Escape handler, one aria-pressed write; the mode itself is CSS. */
 assert(initialJs < BUDGET, `Startup JS exceeds ${BUDGET} B gzip budget: ${initialJs}`);
 const optional = ['championship', 'results', 'race-times', 'radio', 'diagnostics', 'multiviewer'];
 for (const feature of optional) {

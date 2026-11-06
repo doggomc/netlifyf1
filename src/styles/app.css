@@ -736,94 +736,96 @@ from {
   animation: fadeUp .9s var(--ease) .82s forwards;
 }
 
-/* Buttons */
+/* Buttons — one pill, everywhere.
+   Round 33b: the watch page's button (a 36px pill, Inter 600, no tracking, no sweep) became the
+   site's only button. The old uppercase Archivo / skewed-sweep / glow build is replaced rather than
+   layered over, so a button cannot look like two different things on the same page. */
 .btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  font-family: 'Archivo',sans-serif;
-  font-weight: 800;
-  font-size: .82rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  padding: 15px 30px;
-  border-radius: var(--r-sm);
+  gap: 8px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.1;
+  padding: 0 16px;
+  height: 40px;
+  border-radius: 999px;
   cursor: pointer;
-  border: 1px solid var(--line-2);
-  background: var(--surface);
-  color: var(--text);
+  border: 0;
+  background: #ceced912;
+  color: var(--rr-fg, #cecfd2);
   overflow: hidden;
-  transition: transform .22s var(--ease),border-color .22s var(--ease),color .22s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .18s var(--ease), color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
 }
 
+/* A light wash on hover instead of the old red skew sweep: the same weight as the new buttons. */
 .btn::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--team);
-  transform: translateX(-101%) skewX(-14deg) scale(1.3);
-  transition: transform .45s var(--ease);
+  border-radius: inherit;
+  background: #fff;
+  opacity: 0;
+  transition: opacity .18s var(--ease);
   z-index: -1;
 }
 
-/* Hover glow lives on a pseudo-element and fades via opacity: animating
-   box-shadow repaints the button every frame, opacity is compositor-only. */
 .btn::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 14px 34px -12px var(--red-glow);
+  box-shadow: 0 10px 24px -10px var(--red-glow);
   opacity: 0;
-  transition: opacity .28s var(--ease);
+  transition: opacity .24s var(--ease);
 }
 
 .btn:hover {
-  border-color: var(--team);
+  background: #ffffff1f;
   color: #fff;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
-.btn:hover::before {
-  transform: translateX(0) skewX(-14deg) scale(1.3);
-}
-
-.btn:hover::after {
-  opacity: 1;
-}
+.btn:hover::before { opacity: .07; }
+.btn:hover::after { opacity: 0; }
 
 .btn:active {
-  transform: translateY(0) scale(.985);
+  transform: translateY(0) scale(.98);
 }
 
 .btn .btn-ic {
-  width: 17px;
-  height: 17px;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
   flex: none;
 }
 
 .btn.primary {
-  background: var(--team);
-  border-color: var(--team);
-  color: var(--team-ink);
-  box-shadow: 0 12px 34px -12px var(--red-glow);
+  background: var(--rr-brand, #e10600);
+  color: #fff;
+  box-shadow: 0 10px 26px -14px var(--red-glow);
 }
 
-.btn.primary::before {
-  background: #fff;
-}
+.btn.primary::before { background: #fff; }
 
 .btn.primary:hover {
-  color: var(--ink);
+  background: #ff2a22;
+  color: #fff;
 }
 
+.btn.primary:hover::after { opacity: 1; }
+
 .btn.sm {
-  padding: 11px 20px;
-  font-size: .72rem;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 
 .btn:disabled,.btn[aria-disabled="true"] {
@@ -5515,11 +5517,9 @@ body.view-swapping {
 }
 
 /* ════════════════════════════════════════════════════════════════════════════════
-   THE COCKPIT, REBUILT ON A RERACE-STYLE WATCH LAYOUT
-   Their measurements, taken from the live watch page: a 16:9 window with a 16px
-   radius and a hairline ring, a main column beside a 340px info rail, a broadcast
-   group over an onboard face row over a data group, 36px pill buttons that lift on
-   press, and #e10600 as the only accent. Our sources, session data and controls.
+   WATCH — the rerace-style layout
+   A 16:9 window with a hairline ring, one pill action row, grouped source buttons
+   and a 340px rail whose first card sits level with the top of the window.
    ════════════════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -5547,51 +5547,27 @@ body.view-swapping {
 
 .watch-main { min-width: 0; display: grid; gap: 18px; }
 
-/* ── the page head, like theirs: kicker, headline, one line of facts ── */
-.watch-hero { display: grid; gap: 8px; }
-
-.watch-kicker {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .02em;
-  color: var(--rr-fg-3);
-  text-transform: uppercase;
-}
-
-.watch-round {
-  padding: 0 8px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  background: #ffffff0d;
-  color: var(--rr-fg-2);
-  font-size: 11px;
-  letter-spacing: .04em;
-}
+/* The one line above the window. It is exactly one row tall, and the rail is pulled up by that row
+   plus the gap so "Now playing" is level with the top of the player. */
+.watch-head { display: flex; align-items: center; min-height: 36px; }
 
 .watch-h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: 26px;
   line-height: 1.15;
   font-weight: 700;
   letter-spacing: -.01em;
   color: #fff;
 }
 
-.watch-sub { margin: 0; font-size: 14px; color: var(--rr-fg-3); }
-
-/* ── the window: 16:9, 16px radius, hairline ring, nothing else ── */
+/* ── the window ── */
 .wplayer {
   position: relative;
   border-radius: 16px;
   background: #000;
   box-shadow: var(--rr-ring);
   overflow: hidden;
+  transition: border-radius .3s var(--ease), box-shadow .3s var(--ease);
 }
 
 .wplayer-bar {
@@ -5608,7 +5584,12 @@ body.view-swapping {
 .wplayer-dot i {
   width: 8px; height: 8px; border-radius: 999px;
   background: var(--rr-brand);
-  box-shadow: 0 0 0 3px #e1060022;
+  animation: rrPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes rrPulse {
+  0%, 100% { box-shadow: 0 0 0 3px #e1060022; }
+  50% { box-shadow: 0 0 0 6px #e1060010; }
 }
 
 .wplayer-path {
@@ -5635,6 +5616,7 @@ body.view-swapping {
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
+  transition: background-color .25s var(--ease), color .25s var(--ease);
 }
 
 .wplayer-live.active { background: #f8716824; color: #fd9891; }
@@ -5650,7 +5632,16 @@ body.view-swapping {
   border: 0;
 }
 
-/* ── the action row: 36px pills, one line, equal, under the window ── */
+/* Every source switch shows the loader for a tick, and the loader fades its own frame in, so a
+   switch reads as a change rather than a blank flash. */
+#loader:not([hidden]) { animation: rrFade .3s var(--ease); }
+
+@keyframes rrFade {
+  from { opacity: .4; }
+  to { opacity: 1; }
+}
+
+/* ── the action row ── */
 .wplayer-actions {
   display: flex;
   align-items: center;
@@ -5663,64 +5654,58 @@ body.view-swapping {
 .watch-selects { display: flex; gap: 8px; flex: 0 1 420px; min-width: 260px; }
 .watch-selects .sel { flex: 1; min-width: 0; }
 
-.watch-sec .btn {
-  border-radius: 999px;
-  height: 36px;
-  padding: 0 14px;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-style: normal;
-  font-weight: 600;
-  font-size: 13.5px;
-  letter-spacing: 0;
-  text-transform: none;
-  background: #ceced912;
-  border: 0;
-  color: var(--rr-fg);
-  box-shadow: none;
-  transition: background-color .15s, color .15s, transform .15s;
-}
+#mvToggle svg, #theaterBtn svg { width: 15px; height: 15px; flex: none; }
 
-.watch-sec .btn::before, .watch-sec .btn::after { display: none; }
-.watch-sec .btn:hover { background: #ffffff1f; color: #fff; }
-.watch-sec .btn:active { transform: translateY(1px); }
-.watch-sec .btn.primary { background: var(--rr-brand); color: #fff; }
-.watch-sec .btn.primary:hover { background: #ff2a22; }
-
-#mvToggle svg { width: 15px; height: 15px; }
-
-/* ── sources: broadcast group, onboard faces, then the rest ── */
-.wsources { display: grid; gap: 18px; }
-
-.wsources-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.wsources-head h2 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -.01em;
+/* A pressed toggle reads as a switch, not as a hover. */
+.btn[aria-pressed="true"] {
+  background: #1c2b42;
   color: #fff;
+  box-shadow: inset 0 0 0 2px #669df1;
 }
 
-.watch-sec #feedTabs {
-  display: flex;
-  min-width: 240px;
-  gap: 2px;
+/* ── the animated tab slider ── */
+.wtabs {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  /* Equal columns, so the ink is one column wide and needs no measurement at all. */
+  grid-auto-columns: 1fr;
+  width: 288px;
+  max-width: 100%;
   padding: 3px;
   border-radius: 999px;
   background: #ffffff0a;
+  isolation: isolate;
 }
 
-.watch-sec #feedTabs .chip {
-  flex: 1 1 0;
+/* Three equal columns, so the ink is one column wide and slides by whole columns. It is a pseudo
+   element on the bar and is moved by :has(), so it is never re-created and the spring survives
+   every redraw. */
+.wtabs::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 999px;
+  background: #ffffff1f;
+  box-shadow: inset 0 1px 0 #ffffff0f;
+  transition: transform .42s var(--rr-spring);
+}
+
+.wtabs:has(.chip:nth-of-type(2).active)::before { transform: translateX(100%); }
+.wtabs:has(.chip:nth-of-type(3).active)::before { transform: translateX(200%); }
+
+.wtabs .chip {
+  position: relative;
+  z-index: 1;
   height: 30px;
+  min-width: 0;
   padding: 0 16px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 999px;
@@ -5729,156 +5714,263 @@ body.view-swapping {
   font: 600 13px 'Inter', system-ui, sans-serif;
   letter-spacing: 0;
   text-transform: none;
-  transition: color .15s, background-color .15s;
+  transition: color .24s var(--ease);
 }
 
-.watch-sec #feedTabs .chip:hover { color: #fff; }
-.watch-sec #feedTabs .chip.active { background: #ffffff1f; color: #fff; }
+.wtabs .chip::after { display: none; }
+.wtabs .chip:hover { color: #fff; transform: none; border-color: transparent; }
+.wtabs .chip.active { color: #fff; background: transparent; border-color: transparent; box-shadow: none; }
 
-.watch-sec #links {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-@media (max-width: 1200px) { .watch-sec #links { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .watch-sec #links { grid-template-columns: minmax(0, 1fr); } }
-
-/* Broadcasters and the rest read as rows of cards; onboards read as a face row. */
-.watch-sec #links > button.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  height: auto;
-  padding: 8px 14px;
-  border: 0;
-  border-radius: 10px;
+/* ── sources: the same pill language as the action row, one per line ── */
+.wsources {
+  padding: 18px;
+  border-radius: 20px;
   background: var(--rr-ink-850);
   box-shadow: var(--rr-ring);
-  color: #fff;
+}
+
+.wsources-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.wsources-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+
+.wsource-list { display: grid; gap: 8px; }
+
+/* Every source row enters on its own beat, so a tab switch reads as the list rebuilding rather than
+   three rows swapping labels. */
+.wsource-list > button.chip,
+.wsource-list .special-row button.chip {
+  animation: fadeUp .34s var(--ease) backwards;
+}
+
+.wsource-list > *:nth-child(2), .wsource-list .special-row button.chip:nth-child(2) { animation-delay: .02s; }
+.wsource-list > *:nth-child(n+4), .wsource-list .special-row button.chip:nth-child(n+4) { animation-delay: .04s; }
+.wsource-list > *:nth-child(n+7), .wsource-list .special-row button.chip:nth-child(n+7) { animation-delay: .06s; }
+
+.wsource-list > button.chip,
+.wsource-list .special-row button.chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  height: auto;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #ceced912;
+  color: var(--rr-fg);
   font: 600 13.5px 'Inter', system-ui, sans-serif;
   letter-spacing: 0;
   text-transform: none;
   text-align: left;
-  transition: background-color .15s, box-shadow .15s, transform .15s var(--rr-spring);
+  transition: background-color .18s var(--ease), color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
 }
 
-/* Every card leads with a mark, the way their cards lead with a channel logo or a driver face.
-   The specials keep their ONBD / DATA / FEED tag instead, which says more than a dot. */
-.watch-sec #links > button.chip:not(.chip-special)::before,
-.watch-sec #links .special-row button.chip::before {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  background: #ffffff14;
-  box-shadow: inset 0 0 0 1px #ffffff1a;
-}
+.wsource-list > button.chip::after,
+.wsource-list .special-row button.chip::after { display: none; }
 
-.watch-sec #links > button.chip:not(.chip-special)::before { content: ''; }
-
-/* The tag keeps its pill shape on the new cards, sized for a 26px mark. */
-.watch-sec #links .special-row button.chip::before {
-  content: 'ONBD';
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 6px;
-  margin: 0;
-  font-size: .5rem;
-  letter-spacing: .06em;
-  line-height: 1;
-  color: var(--team);
-  background: #e106001f;
-  vertical-align: 0;
-}
-
-.watch-sec #links .special-row button.chip.chip-data::before { content: 'DATA'; color: #669df1; background: #669df11f; }
-.watch-sec #links .special-row button.chip.chip-feed::before { content: 'FEED'; }
-
-.watch-sec #links > button.chip:hover { background: var(--rr-ink-800); transform: translateY(-1px); }
-.watch-sec #links > button.chip.active {
-  background: var(--sel-bg, #1c2b42);
-  box-shadow: inset 0 0 0 2px #669df1;
+.wsource-list > button.chip:hover,
+.wsource-list .special-row button.chip:hover {
+  background: #ffffff1f;
   color: #fff;
+  border-color: transparent;
+  transform: translateY(-1px);
 }
 
-.watch-sec #links .special-row {
-  grid-column: 1 / -1;
+.wsource-list > button.chip.active,
+.wsource-list .special-row button.chip.active {
+  background: #1c2b42;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px #669df1;
+}
+
+.wsource-list > button.chip:active { transform: translateY(0) scale(.995); }
+
+/* A quiet lead dot, the same weight as the old chip's tag, so every source row reads as one thing. */
+.wsource-list button.chip:not(.chip-special)::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ffffff26;
+  transition: background-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+
+.wsource-list button.chip.active:not(.chip-special)::before {
+  background: #669df1;
+  box-shadow: 0 0 0 3px #669df126;
+}
+
+/* The specials keep their order and their tag, in their own group under the broadcasters. */
+.wsource-list .special-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  padding-top: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 14px;
   border-top: 1px solid #ffffff0f;
 }
 
-@media (max-width: 1200px) { .watch-sec #links .special-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .watch-sec #links .special-row { grid-template-columns: minmax(0, 1fr); } }
-
-.watch-sec #links .special-head {
-  grid-column: 1 / -1;
+.wsource-list .special-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 2px;
+  margin: 0 0 2px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--rr-fg-3);
+  text-transform: none;
 }
 
-.watch-sec #links .special-row button.chip {
-  min-height: 48px;
-  border-radius: 10px;
-  background: var(--rr-ink-850);
-  box-shadow: var(--rr-ring);
+/* ONBD / DATA / FEED, kept: it sits where the broadcasters' dot sits. */
+.wsource-list .special-row button.chip::before {
+  content: 'ONBD';
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 20px;
+  margin: 0;
+  border: 0;
+  border-radius: 5px;
+  font-size: .5rem;
+  letter-spacing: .06em;
+  line-height: 1;
+  color: var(--team);
+  background: #ffffff0f;
+  transition: background-color .2s var(--ease), color .2s var(--ease);
 }
 
-.watch-sec #links .special-row button.chip.is-down { opacity: .5; }
+.wsource-list .special-row button.chip.chip-data::before { content: 'DATA'; color: #669df1; background: #669df11f; }
+.wsource-list .special-row button.chip.chip-feed::before { content: 'FEED'; }
 
-/* ── the info rail ── */
-.watch-side { position: sticky; top: 72px; display: grid; gap: 14px; }
+.wsource-list .special-row button.chip.is-down { opacity: .5; }
+.wsource-list .special-row button.chip.is-down:hover { opacity: .75; }
+
+/* ── the rail ── */
+.watch-side {
+  position: sticky;
+  top: 72px;
+  display: grid;
+  gap: 14px;
+  /* Down one head row plus one gap: "Now playing" lines up with the top of the stream window,
+     whatever the head's line box measures. */
+  margin-top: calc(36px + 18px);
+}
 
 .side-card {
   display: grid;
   gap: 6px;
+  animation: fadeUp .45s var(--ease) backwards;
   padding: 16px;
   border-radius: 20px;
   background: var(--rr-ink-850);
   box-shadow: var(--rr-ring);
   color: var(--rr-fg);
   text-decoration: none;
+  transition: background-color .2s var(--ease), transform .2s var(--ease);
 }
 
 .side-h { margin: 0; font-size: 12px; font-weight: 650; color: var(--rr-fg-3); }
-.side-next { margin: 0; font: 650 15px 'Inter', system-ui, sans-serif; color: #fff; }
 .side-sub { margin: 0; font: 500 11.5px 'JetBrains Mono', monospace; letter-spacing: .06em; color: var(--rr-fg-3); text-transform: uppercase; }
 
 .side-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-.side-list li { display: flex; gap: 8px; font-size: 13px; color: var(--rr-fg-2); }
+.side-list li {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--rr-fg-2);
+  animation: fadeUp .5s var(--ease) backwards;
+}
 .side-list li b { color: #fff; font-weight: 650; }
+.side-list li:nth-child(2) { animation-delay: .05s; }
+.side-list li:nth-child(3) { animation-delay: .1s; }
 
-.side-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: background-color .15s; }
-.side-link:hover { background: var(--rr-ink-800); }
+.side-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.side-link:hover { background: var(--rr-ink-800); transform: translateY(-1px); }
 .side-link b { display: block; color: #fff; font-size: 14px; }
 .side-link small { color: var(--rr-fg-3); font-size: 12px; }
-.side-link svg { width: 16px; height: 16px; color: var(--rr-fg-3); flex: none; }
+.side-link svg { width: 16px; height: 16px; color: var(--rr-fg-3); flex: none; transition: transform .2s var(--ease); }
+.side-link:hover svg { transform: translate(2px, -2px); }
 
-/* ── phones: one column, window edge to edge, rail below ── */
+/* ═══════════════ THEATER MODE ═══════════════ */
+
+/* The watch section becomes the whole screen: one dark room, the window in the middle of it and the
+   controls under the window. Everything else on the page steps out of the way. */
+body.theater { overflow: hidden; }
+
+body.theater .view.is-active > section:not(#watch),
+body.theater .nav,
+body.theater .ticker { display: none; }
+
+body.theater #watch {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: #0a0b0d;
+  animation: theaterIn .32s var(--ease);
+}
+
+@keyframes theaterIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+body.theater .wrap.watch-grid {
+  display: block;
+  width: 100%;
+  max-width: none;
+}
+
+body.theater .watch-side,
+body.theater .wsources,
+body.theater .watch-head,
+body.theater .radio-rc { display: none; }
+
+body.theater .watch-main { gap: 12px; align-items: center; }
+
+body.theater .wplayer {
+  width: min(calc(100vw - 24px), calc((100vh - 72px) * 16 / 9));
+  max-width: 100vw;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px #ffffff14, 0 40px 90px -40px #000;
+}
+
+body.theater .wplayer-bar { background: #0b0c0e; }
+
+body.theater .wplayer-actions {
+  justify-content: center;
+  width: min(calc(100vw - 24px), calc((100vh - 72px) * 16 / 9));
+  margin: 0 auto;
+}
+
+/* Escape is the way out, but a phone has no Escape key, so the toggle stays reachable. */
+body.theater #theaterBtn { background: #1c2b42; box-shadow: inset 0 0 0 2px #669df1; }
+
 @media (max-width: 1100px) {
   .wrap.watch-grid { grid-template-columns: minmax(0, 1fr); }
-  .watch-side { position: static; }
+  .watch-side { position: static; margin-top: 0; }
 }
 
 @media (max-width: 760px) {
   .watch-h1 { font-size: 22px; }
+  .watch-head { min-height: 30px; }
   .wplayer, .wplayer-stage { border-radius: 12px; }
   .wplayer-actions { gap: 10px; }
   .wplayer-actions-main { gap: 6px; }
   .watch-selects { flex: 1 1 100%; }
-  .watch-sec .btn { height: 34px; padding: 0 12px; font-size: 13px; }
   .wsources-head h2 { font-size: 18px; }
+  .wtabs { min-width: 0; width: 100%; }
+  .wtabs .chip { padding: 0 8px; }
+  body.theater .wplayer { width: 100vw; border-radius: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wplayer-dot i, .side-list li, .side-card, .wsource-list > button.chip,
+  .wsource-list .special-row button.chip { animation: none; }
+  .wtabs::before { transition: none; }
 }
