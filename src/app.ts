@@ -722,9 +722,23 @@ function resolveLink(link: StreamLink, key = sessionKey()): string {
   return link.url ? (link.provider === 'custom' ? link.url : stampSession(link.url, key)) : '';
 }
 
+/* Race Control pastes whatever the provider shows ("embdlol.st/?q=f1", no scheme and all). */
+function customLink(raw: string): string {
+  const u = raw.trim();
+  return u ? (/^https?:\/\//i.test(u) ? u : 'https://' + u.replace(/^\/+/, '')) : '';
+}
+
+const isCustom = (i = currentSource) => sources[i]?.links[0]?.provider === 'custom';
+
 function linkPool(index: number): string[] {
   const source = sources[index];
   if (!source) return [];
+  /* A pasted link is the feed; the catalogue below must not overwrite it. */
+  const custom = source.links.find((l) => l.provider === 'custom' && l.url);
+  if (custom) {
+    const url = customLink(custom.url!);
+    return url ? [url] : [];
+  }
   if (source.gated) {
     const url = resolveLink({ provider: 'embdlol', quality: 0, url: fourKUrl });
     return url ? [url] : [];
@@ -1366,12 +1380,9 @@ function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
   const sourceIndex = order[idx];
   const pool = linkPool(sourceIndex);
   if (linkIdx >= pool.length) {
-    /* An EMB chip with no catalogue channel has no link anywhere; jumping to another provider on
-       its behalf looked like the wrong chip had been clicked. Say so instead. */
-    /* A chip with nothing upstream says so; jumping to another provider on its behalf looked like
-       the wrong chip had been clicked. */
+    /* A chip with nothing upstream says so instead of silently playing another provider. */
     if (!idx && sources[sourceIndex].gated) return showNoStream({ title: '4K is not upstream', text: 'embdlol is not publishing a 4K channel for this race. It appears a few hours before lights out — the UHD chip will come back on its own, nothing to reload.' });
-    if (!idx && (sources[sourceIndex].embdlol || sources[sourceIndex].weelo)) return showNoStream({ title: 'No link upstream', text: 'This feed has no channel upstream right now.' });
+    if (!idx && !isCustom(sourceIndex) && (sources[sourceIndex].embdlol || sources[sourceIndex].weelo)) return showNoStream({ title: 'No link upstream', text: 'This feed has no channel upstream right now.' });
     attemptSource(token, order, idx + 1, startedAt, 0);
     return;
   }
@@ -1548,8 +1559,8 @@ function load() {
     });
     return;
   }
-  /* An EMB chip clicked before the catalogue answered would look empty: wait, then reload. */
-  if (!cataloguesReady && sources[currentSource]?.embdlol) {
+  /* An EMB chip waits for the catalogue; a pasted link never waits for anything. */
+  if (!cataloguesReady && sources[currentSource]?.embdlol && !isCustom()) {
     setLoaderText('Loading channels…');
     return void loadCatalogues().then(() => token === playerLoadToken && load());
   }

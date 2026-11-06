@@ -5133,25 +5133,49 @@ body.view-swapping {
    up); the badge is the only thing that marks it, so the frame is never dimmed into a grey box. */
 .mvx-tile.is-off iframe { opacity: .9; }
 
+/* Their tile chrome: a strip across the top with the feed name on the left and three round glass
+   tools on the right (sound, big, remove). It floats over the video and never takes layout space. */
 .mvx-tile-bar {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  top: 0;
+  z-index: 2;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, .88));
-  opacity: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  background: none;
+  pointer-events: none;
   transition: opacity .18s ease;
 }
 
+.mvx-tile-bar > * { pointer-events: auto; }
+
+/* Always on screen, the way theirs is: a live grid is read at a glance, not by hovering each box. */
 .mvx-tile:hover .mvx-tile-bar,
 .mvx-tile:focus-within .mvx-tile-bar { opacity: 1; }
 
+/* A tile small enough for the grid keeps its chrome on screen, as theirs does. */
+.mvx-tile.is-small .mvx-tile-name { max-width: 40%; }
+
+/* A phone tile is ~110px wide: the name would cover the picture, so the tools stand alone. */
+@media (max-width: 760px) {
+  .mvx-tile-name { display: none; }
+  .mvx-tile-bar { padding: 4px; gap: 4px; justify-content: flex-end; }
+  .mvx-tool { width: 26px; height: 26px; }
+  .mvx-tool svg { width: 14px; height: 14px; }
+  .mvx-tools { gap: 3px; }
+}
+
 .mvx-tile-name {
   flex: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #0000008c;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5168,6 +5192,32 @@ body.view-swapping {
   text-transform: uppercase;
   color: #ffb020;
 }
+
+.mvx-tools { display: flex; gap: 6px; flex: none; }
+
+.mvx-tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #0000008c;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #ffffffd9;
+  cursor: pointer;
+  transition: background-color .2s var(--ease), color .2s var(--ease), transform .2s var(--rr-spring);
+}
+
+.mvx-tool svg { width: 16px; height: 16px; }
+.mvx-tool:hover { color: #fff; background: #000c; transform: scale(1.06); }
+.mvx-tool.is-on { color: #fff; background: var(--rr-brand, #e10600); }
+
+/* Small tiles shrink their tools the way theirs do. */
+.mvx-tile.is-small .mvx-tool { width: 28px; height: 28px; }
+.mvx-tile.is-small .mvx-tools { gap: 4px; }
 
 .mvx-tile-btn {
   display: inline-grid;
@@ -5379,25 +5429,49 @@ body.view-swapping {
    up); the badge is the only thing that marks it, so the frame is never dimmed into a grey box. */
 .mvx-tile.is-off iframe { opacity: .9; }
 
+/* Their tile chrome: a strip across the top with the feed name on the left and three round glass
+   tools on the right (sound, big, remove). It floats over the video and never takes layout space. */
 .mvx-tile-bar {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  top: 0;
+  z-index: 2;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, .88));
-  opacity: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  background: none;
+  pointer-events: none;
   transition: opacity .18s ease;
 }
 
+.mvx-tile-bar > * { pointer-events: auto; }
+
+/* Always on screen, the way theirs is: a live grid is read at a glance, not by hovering each box. */
 .mvx-tile:hover .mvx-tile-bar,
 .mvx-tile:focus-within .mvx-tile-bar { opacity: 1; }
 
+/* A tile small enough for the grid keeps its chrome on screen, as theirs does. */
+.mvx-tile.is-small .mvx-tile-name { max-width: 40%; }
+
+/* A phone tile is ~110px wide: the name would cover the picture, so the tools stand alone. */
+@media (max-width: 760px) {
+  .mvx-tile-name { display: none; }
+  .mvx-tile-bar { padding: 4px; gap: 4px; justify-content: flex-end; }
+  .mvx-tool { width: 26px; height: 26px; }
+  .mvx-tool svg { width: 14px; height: 14px; }
+  .mvx-tools { gap: 3px; }
+}
+
 .mvx-tile-name {
   flex: 1;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #0000008c;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5414,6 +5488,32 @@ body.view-swapping {
   text-transform: uppercase;
   color: #ffb020;
 }
+
+.mvx-tools { display: flex; gap: 6px; flex: none; }
+
+.mvx-tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #0000008c;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #ffffffd9;
+  cursor: pointer;
+  transition: background-color .2s var(--ease), color .2s var(--ease), transform .2s var(--rr-spring);
+}
+
+.mvx-tool svg { width: 16px; height: 16px; }
+.mvx-tool:hover { color: #fff; background: #000c; transform: scale(1.06); }
+.mvx-tool.is-on { color: #fff; background: var(--rr-brand, #e10600); }
+
+/* Small tiles shrink their tools the way theirs do. */
+.mvx-tile.is-small .mvx-tool { width: 28px; height: 28px; }
+.mvx-tile.is-small .mvx-tools { gap: 4px; }
 
 .mvx-tile-btn {
   display: inline-grid;

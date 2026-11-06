@@ -151,23 +151,48 @@ export function init(ctx: any) {
     });
   }
 
+  /* Sound is a message to the player already running in the tile, never a new document. Swapping an
+     iframe's src threw the player away and restarted the feed, which is why every mute re-buffered
+     the whole grid. weelo's player accepts the standard mute commands, so the tile keeps playing
+     and only its audio changes. */
   function paintAudio() {
     for (const [id, f] of frames) {
-      const wanted = id === audio ? tileUrl(id, false) : tileUrl(id, true);
-      /* Reloading a tile re-mints nothing (the weelo address is static), so this is cheap. */
-      if (f.dataset.state !== (id === audio ? 'on' : 'off')) {
-        f.dataset.state = id === audio ? 'on' : 'off';
-        f.src = wanted;
-      }
+      const on = id === audio;
+      try {
+        f.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: on ? 'unMute' : 'mute', args: [] }), '*');
+        f.contentWindow?.postMessage(JSON.stringify({ method: on ? 'unMute' : 'mute', value: true }), '*');
+      } catch { /* a cross-origin frame that refuses the message keeps its current audio */ }
+      f.dataset.state = on ? 'on' : 'off';
       const btn = f.parentElement?.querySelector<HTMLElement>('[data-mvx-audio]');
       if (btn) {
-        const on = id === audio;
         btn.innerHTML = icon(on ? 'volume' : 'muted');
         btn.classList.toggle('is-on', on);
         btn.setAttribute('aria-pressed', String(on));
         btn.title = on ? 'Sound on' : 'Listen to this feed';
       }
     }
+  }
+
+  /* One feed holds the sound; taking it away from another tile must never touch its document. */
+  function setAudio(id: string) {
+    if (audio === id) return;
+    audio = id;
+    paintAudio();
+    paintMain();
+    if (mode === 'focus') relayout();
+  }
+
+  /* "Big" lifts one box to the focus layout without rebuilding any tile. */
+  function makeBig(id: string) {
+    ids = [id, ...ids.filter((x) => x !== id)];
+    setAudio(id);
+    mode = 'focus';
+    panel.querySelectorAll<HTMLElement>('[data-mvx-mode]').forEach((o) => {
+      const on = o.dataset.mvxMode === 'focus';
+      o.classList.toggle('is-on', on);
+      o.setAttribute('aria-pressed', String(on));
+    });
+    draw();
   }
 
   function createTile(id: string): HTMLElement {
@@ -191,28 +216,39 @@ export function init(ctx: any) {
     f.dataset.stream = id;
     f.loading = 'lazy';
 
+    /* Their tile chrome, top right: a round glass tool for sound, one to take the box big and one
+       to drop it. The label moved to the top left, where their handle sits. */
     const bar = document.createElement('div');
     bar.className = 'mvx-tile-bar';
-    bar.innerHTML = `<span class="mvx-tile-name">${stream.label}</span><span class="mvx-off-msg">${stream.live ? '' : 'off air'}</span>`;
-    const sound = document.createElement('button');
-    sound.type = 'button';
-    sound.className = 'mvx-tile-btn';
-    sound.dataset.mvxAudio = '';
-    sound.innerHTML = icon('muted');
-    sound.onclick = () => { audio = id; paintAudio(); paintMain(); };
-    const main = document.createElement('button');
-    main.type = 'button';
-    main.className = 'mvx-tile-btn';
-    main.title = 'Make this the main tile';
-    main.innerHTML = icon('expand');
-    main.onclick = () => { audio = id; paintAudio(); paintMain(); if (mode === 'focus') relayout(); };
-    const drop = document.createElement('button');
-    drop.type = 'button';
-    drop.className = 'mvx-tile-btn';
-    drop.title = 'Remove from the grid';
-    drop.innerHTML = icon('close');
-    drop.onclick = () => remove(id);
-    bar.append(sound, main, drop);
+    const name = document.createElement('span');
+    name.className = 'mvx-tile-name';
+    /* The badge is its own element so the label stays the label and "off air" is still a state. */
+    name.textContent = stream.label;
+    if (!stream.live) {
+      const off = document.createElement('b');
+      off.className = 'mvx-off-msg';
+      off.textContent = 'off air';
+      name.append(' · ', off);
+    }
+    const tools = document.createElement('span');
+    tools.className = 'mvx-tools';
+    const tool = (label: string, markup: string, act: () => void, attr?: string) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mvx-tool';
+      b.title = label;
+      b.setAttribute('aria-label', label);
+      if (attr) b.dataset.mvxAudio = '';
+      b.innerHTML = markup;
+      b.onclick = act;
+      return b;
+    };
+    const sound = tool('Listen to this feed', icon('muted'), () => setAudio(id), 'audio');
+    sound.setAttribute('aria-pressed', 'false');
+    const big = tool('Make this the main tile', icon('expand'), () => makeBig(id));
+    const drop = tool('Remove from the grid', icon('close'), () => remove(id));
+    tools.append(sound, big, drop);
+    bar.append(name, tools);
     tile.append(f, bar);
     frames.set(id, f);
     return tile;
@@ -252,6 +288,7 @@ export function init(ctx: any) {
     if (ids.includes(id) || ids.length >= MAX_TILES) return;
     ids.push(id);
     if (!audio) audio = id;
+    /* Only the new tile is built: draw() appends it and leaves every existing frame alone. */
     draw();
     if (!ids.length) library(true);
   }
@@ -260,10 +297,7 @@ export function init(ctx: any) {
     const at = ids.indexOf(id);
     if (at < 0) return;
     ids.splice(at, 1);
-    if (audio === id) {
-      audio = ids[0] || null;
-      paintAudio();
-    }
+    if (audio === id) audio = ids[0] || null;
     draw();
     if (!ids.length) library(true);
   }

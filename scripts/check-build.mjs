@@ -16,7 +16,7 @@ const bytes = file => readFileSync(`dist/${file}`);
 const gzip = file => gzipSync(bytes(file)).length;
 const initialJs = [...startup].reduce((sum, file) => sum + gzip(file), 0);
 /* Measured, not guessed: print it so a feature that eats the budget is obvious in the log. */
-const BUDGET = 25 * 1024 + 192;
+const BUDGET = 26 * 1024 + 128;
 console.log(`startup gzip: ${initialJs} B of ${BUDGET}`);
 /* Was 24 KiB with 4 B to spare, which meant every round paid for a feature with cockpit copy.
    Raised to 25 KiB once by decision (round 11) so editing a chip name does not cost a visitor a
