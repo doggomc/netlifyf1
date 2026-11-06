@@ -273,11 +273,17 @@ export function init(ctx: any) {
       const existing = tilesEl.querySelector(`[data-feed="${CSS.escape(id)}"]`);
       if (!existing) tilesEl.appendChild(createTile(id));
     }
-    /* Keep DOM order equal to selection order so the layout and the bar agree. */
-    ids.forEach((id) => {
-      const tile = tilesEl.querySelector(`[data-feed="${CSS.escape(id)}"]`);
-      if (tile) tilesEl.appendChild(tile);
-    });
+    /* Keep DOM order equal to selection order so the layout and the bar agree — but only when the
+       order actually changed. Re-appending an unchanged tile moves its node, and moving a node that
+       holds an <iframe> reloads that document in every browser: that was the whole grid restarting
+       every 15 seconds. */
+    const current = [...tilesEl.children].map((c) => (c as HTMLElement).dataset.feed).join('|');
+    if (current !== ids.join('|')) {
+      ids.forEach((id) => {
+        const tile = tilesEl.querySelector(`[data-feed="${CSS.escape(id)}"]`);
+        if (tile) tilesEl.appendChild(tile);
+      });
+    }
     /* No tiles means no stage at all: a black 16:9 box with nothing in it reads as a dead player,
        which is the one thing this page must never show. The picker takes the space instead. */
     stageWrap.hidden = ids.length === 0;
@@ -404,6 +410,8 @@ export function init(ctx: any) {
   /* Closing the panel any other way (Escape, the app's own close) must also unpress the button, so
      the button's state is derived from the panel rather than tracked twice. */
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && open) show(false); });
+  /* The button toggles the panel; the panel never reads its own hidden flag back as state. */
+  toggled?.addEventListener('click', () => show(!open));
   panel.querySelector('[data-mvx-open-lib]')!.addEventListener('click', () => library(true));
   panel.querySelector('[data-mvx-lib-close]')!.addEventListener('click', () => library(false));
   panel.querySelector('[data-mvx-full]')!.addEventListener('click', () => {
@@ -456,10 +464,13 @@ export function init(ctx: any) {
       const badge = tile?.querySelector('.mvx-off-msg');
       if (badge) badge.textContent = live ? '' : 'off air';
     }
-    draw();
-    if (!ids.length && ids.length === 0) library(true);
+    /* The badge and the ordering are pure DOM state: no frame is rebuilt here, and nothing is
+       re-appended unless a feed really went away. */
+    relayout();
+    if (!ids.length) library(true);
   };
-  setInterval(sync, 15000);
+  /* Slow, and only ever a class swap: weelo changes state on the scale of minutes, not seconds. */
+  setInterval(sync, 60000);
   setTimeout(sync, 6000);
 
   /* Testing hook. weelo decides when its feeds exist, not us, so the grid can be driven with a

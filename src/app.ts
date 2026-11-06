@@ -1141,11 +1141,11 @@ function openMultiViewer() {
   void (multiviewer ??= import('./features/multiviewer').then((m) => m.init(featureContext))).then((m) => m?.show(true));
 }
 
-/* The same button closes the grid it opened. Once the chunk is loaded it is asked to toggle; the
-   chunk decides whether there is anything to grid (Race Control can turn every weelo feed off). */
+/* The first click loads the chunk and opens the grid; from then on the module's own listener owns
+   the button (two listeners meant open-then-close on the very click that opened it, which read as
+   the page jumping twice and made the address bar look like a redirect). */
 $('mvToggle')?.addEventListener('click', () => {
-  if (multiviewer) void multiviewer.then((m) => m?.toggle());
-  else openMultiViewer();
+  if (!multiviewer) openMultiViewer();
 });
 
 /* Theater mode: the window fills the viewport, the rail and sources step aside. Escape puts it back. */
