@@ -728,6 +728,7 @@ function customLink(raw: string): string {
   return u ? (/^https?:\/\//i.test(u) ? u : 'https://' + u.replace(/^\/+/, '')) : '';
 }
 
+/* A pasted link plays as given: no 4K prompt, no waiting on a catalogue. */
 const isCustom = (i = currentSource) => sources[i]?.links[0]?.provider === 'custom';
 
 function linkPool(index: number): string[] {
@@ -1103,7 +1104,7 @@ function renderButtons() {
     b.onclick = async () => {
       if (specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
       /* The 4K chip asks once whether they want session alerts before playing. */
-      if (s.gated) return chooseFourK();
+      if (s.gated && !isCustom(i)) return chooseFourK();
       currentSource = i;
       renderButtons();
       updateHeader();
