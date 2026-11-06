@@ -340,8 +340,23 @@ export function init(ctx: any) {
 
   /* The player is parked, not destroyed: its frame keeps its address and comes back untouched when
      the grid closes. It is hidden because the grid covers it, not because it stopped playing. */
+  /* Hiding the player is not enough — a hidden iframe keeps decoding and keeps its sound on, which
+     is exactly what "the stream continues in the background" was. park() and unpark() cover it:
+     the frame goes to about:blank (silence, no decoder) and the same address is put back when the
+     grid closes, so nothing has to be re-picked. */
+  let parkedSrc = '';
+
   function park(on: boolean) {
-    document.getElementById('player')?.classList.toggle('is-parked', on);
+    const p = document.getElementById('player');
+    p?.classList.toggle('is-parked', on);
+    const frame = p?.querySelector<HTMLIFrameElement>('.wplayer-stage > iframe');
+    if (on) {
+      parkedSrc = frame?.src || '';
+      if (frame) frame.src = 'about:blank';
+    } else if (parkedSrc && frame) {
+      frame.src = parkedSrc;
+      parkedSrc = '';
+    }
   }
 
   const available = () => (ctx.sources || []).some((s: any) => s.weelo && !s.hidden);
