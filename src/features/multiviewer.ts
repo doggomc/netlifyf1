@@ -6,7 +6,7 @@
 
    Loaded lazily: a visitor who never presses the button downloads none of this. */
 
-export interface WeeloStream { id: string; label: string; live: boolean; }
+export interface WeeloStream { id: string; label: string; live: boolean; pasted?: string; }
 
 /* Nine boxes: the grid is 3x3 at the ceiling, the layout picks the best rectangle below that. */
 export const MAX_TILES = 9;
@@ -17,8 +17,10 @@ const ALLOW = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
 
 /* Address for one tile. autoplay is always on; mute follows the audio routing, because a grid of
    nine unmuted feeds is noise, not coverage. */
-export function tileUrl(id: string, muted: boolean): string {
-  return `${PLAYER}${id}&autoplay=1&mute=${muted ? 1 : 0}`;
+export function tileUrl(id: string, muted: boolean, base = ''): string {
+  /* A feed Race Control pasted a link for plays that link, not the id we shipped. */
+  const url = base || `${PLAYER}${id}`;
+  return `${url}${url.includes('?') ? '&' : '?'}autoplay=1&mute=${muted ? 1 : 0}`;
 }
 
 /* Column/row count for N tiles inside a WxH box, keeping each tile as close to 16:9 as it can.
@@ -120,7 +122,10 @@ export function init(ctx: any) {
      labelled "off air" and still mount, so nothing has to be re-added by hand. */
   const streams = (): WeeloStream[] => (ctx.sources || [])
     .filter((s: any) => s.weelo && !s.hidden)
-    .map((s: any) => ({ id: s.weelo, label: s.label, live: !ctx.isSpecialDown(s) }));
+    .map((s: any) => {
+      const pasted = s.links?.[0]?.provider === 'custom' ? String(s.links[0].url || '') : '';
+      return { id: s.weelo, label: s.label, live: pasted ? true : !ctx.isSpecialDown(s), pasted };
+    });
 
 
 
@@ -174,7 +179,7 @@ export function init(ctx: any) {
       /* If a provider ignores the message, the address itself carries the mute flag. Only the two
          frames whose state changed are re-addressed, and only on an explicit audio change. */
       if (remount && f.dataset.state !== want) {
-        const next = tileUrl(id, !on);
+        const next = tileUrl(id, !on, byId(id)?.pasted);
         if (next !== f.src) f.src = next;
       }
       f.dataset.state = want;
@@ -221,7 +226,7 @@ export function init(ctx: any) {
        says it is dark so a still frame is never mistaken for a broken one. */
     if (!stream.live) tile.classList.add('is-off');
     const f = document.createElement('iframe');
-    f.src = tileUrl(id, id !== audio);
+    f.src = tileUrl(id, id !== audio, stream.pasted);
     f.dataset.state = id === audio ? 'on' : 'off';
     f.allow = ALLOW;
     f.setAttribute('allow', ALLOW);

@@ -3,9 +3,9 @@
   "baselineStartupJsGzipBytes": 56093,
   "startupJsReductionPercent": 53.6,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 26012,
+  "startupJsGzipBytes": 26045,
   "startupJsFiles": [
-    "bundles/index-D_A_vggu.js",
+    "bundles/index-o8XQQu43.js",
     "bundles/interaction-guard-4Vwlk-Z6.js",
     "bundles/dom-C3mHM79r.js",
     "bundles/site-config-BLjp_KD-.js"
@@ -13,7 +13,7 @@
   "initialCssGzipBytes": 18137,
   "lazyFeatures": {
     "championship": {
-      "gzipBytes": 4758
+      "gzipBytes": 4759
     },
     "results": {
       "gzipBytes": 4796
@@ -28,7 +28,7 @@
       "gzipBytes": 3602
     },
     "multiviewer": {
-      "gzipBytes": 4068
+      "gzipBytes": 4161
     }
   }
 }

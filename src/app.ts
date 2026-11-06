@@ -467,6 +467,7 @@ interface StreamSource {
   /* Race Control's own view of the chip: the shipped name and pool, and the live state. */
   base?: { label: string; links: StreamLink[] };
   hidden?: boolean;
+  custom?: boolean;             // Race Control pasted an address: play it as given, never judge it
 }
 
 /* Minimum vertical resolution we will ever put on screen. */
@@ -738,9 +739,11 @@ function linkPool(index: number): string[] {
   const source = sources[index];
   if (!source) return [];
   /* A pasted link is the feed; the catalogue below must not overwrite it. */
-  const custom = source.links.find((l) => l.provider === 'custom' && l.url);
-  if (custom) {
-    const url = customLink(custom.url!);
+  const custom = source.links[0]?.provider === 'custom';
+  source.custom = custom;
+  const pasted = source.links.find((l) => l.provider === 'custom' && l.url);
+  if (pasted) {
+    const url = customLink(pasted.url!);
     return url ? [url] : [];
   }
   if (source.gated) {
@@ -759,7 +762,10 @@ function linkPool(index: number): string[] {
 
   /* A weelo special has exactly one address, and only publishes it when weelo says it can play.
      'soon' still plays: it means the feed is about to come up, and the provider page waits for it. */
-  if (source.weelo) return specialDown(source) ? [] : [stampSession(`https://weellz.live/beta?stream=${source.weelo}`, key)];
+  /* A weelo chip's address is built from its weelo id; a custom link on it (linkPool returns above)
+     always wins. The stamp is skipped for a pasted address for the same reason as everywhere else:
+     someone else's URL is opened exactly as typed. */
+  if (source.weelo) return source.custom ? [] : specialDown(source) ? [] : [stampSession(`https://weellz.live/beta?stream=${source.weelo}`, key)];
 
   if (source.embdlol) {
     /* embdlol publishes exactly the channels that exist right now, so the picker takes the id for
@@ -1057,6 +1063,7 @@ const inTab = (s: StreamSource, tab = sourceTab) => tab === 'all' || (s.lang || 
 /* weelo's event feed names the live ids for the current race; its status map is a stale cache that
    says 'dark' for everything. The event feed wins when it knows the id. */
 const specialState = (s: StreamSource) => {
+  if (s.custom) return 'live';
   const known = s.weelo ? catalogues.weeloEvents[s.weelo] : undefined;
   if (known) return known.live ? 'live' : 'offline';
   return (s.weelo && catalogues.weelo[s.weelo]) || '';
@@ -1105,7 +1112,7 @@ function renderButtons() {
     }
     b.textContent = s.label;
     b.onclick = async () => {
-      if (specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
+      if (!s.custom && specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
       /* The 4K chip asks once whether they want session alerts before playing. */
       if (s.gated && !isCustom(i)) return chooseFourK();
       currentSource = i;

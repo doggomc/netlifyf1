@@ -5,4 +5,6 @@ export interface StreamSource {
   special?: 'onboard' | 'data' | 'feed'; lang?: 'en' | 'other'; gated?: boolean;
   base?: { label: string; links: StreamLink[] };
   hidden?: boolean;
+  /* Race Control pasted an address for this chip; it is played exactly as given. */
+  custom?: boolean;
 }
