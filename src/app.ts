@@ -1151,8 +1151,21 @@ $('mvToggle')?.addEventListener('click', () => {
 /* Theater mode: the window fills the viewport, the rail and sources step aside. Escape puts it back. */
 const theaterBtn = $('theaterBtn');
 const sourcesBtn = $('sourcesToggle');
+/* Theater hides the nav, and the nav is where the connection count lives. The count comes with it
+   into the action row so the pit wall still shows how many people are watching. */
+const theaterOnline = $('theaterOnline');
+const theaterOnlineCount = $('theaterOnlineCount');
+let onlineMirror = 0;
+const mirrorOnline = () => {
+  const src = document.getElementById('viewerCount');
+  if (src && theaterOnlineCount && theaterOnlineCount.textContent !== src.textContent) theaterOnlineCount.textContent = src.textContent || '—';
+};
+
 const setTheater = (on: boolean) => {
   document.body.classList.toggle('theater', on);
+  if (theaterOnline) theaterOnline.hidden = !on;
+  window.clearInterval(onlineMirror);
+  if (on) { mirrorOnline(); onlineMirror = window.setInterval(mirrorOnline, 5000); }
   if (theaterBtn) theaterBtn.ariaPressed = String(on);
   /* The sources switch only exists in theater; leaving theater always brings the rail back. */
   if (sourcesBtn) sourcesBtn.hidden = !on;
@@ -2619,6 +2632,16 @@ export const featureContext = {
   renderButtons,
   isSpecialDown: specialDown,
   buildUrl,
+  /* Leaving the grid asks for the top stream again: the source row can change while the grid is
+     up, and the player must come back on whatever it points at now. */
+  reloadTop: (index: number) => {
+    const at = index >= 0 && sources[index] && sourceEnabled(sources[index]) ? index : sources.findIndex((s) => sourceEnabled(s));
+    if (at < 0) return;
+    currentSource = at;
+    renderButtons();
+    updateHeader();
+    load();
+  },
   BACKEND_API,
 };
 export type FeatureContext = typeof featureContext;

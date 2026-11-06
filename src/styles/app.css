@@ -5195,6 +5195,28 @@ body.view-swapping {
 
 .mvx-tools { display: flex; gap: 6px; flex: none; }
 
+/* The beta line sits above the stage, in the bar's own language: one quiet row, never over a feed. */
+.theater-online { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+.theater-online[hidden] { display: none; }
+.theater-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
+.theater-online b { font-weight: 700; }
+
+.mvx-beta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0 2px;
+  font: 500 11.5px 'JetBrains Mono', monospace;
+  letter-spacing: .02em;
+  color: var(--rr-fg-3, #96999e);
+}
+
+.mvx-beta b:first-of-type { color: #f87168; }
+.mvx-beta .mvx-online { display: inline-flex; align-items: center; gap: 5px; margin-right: 2px; color: var(--rr-fg-2, #a9abaf); }
+.mvx-beta .mvx-online b { color: var(--rr-fg, #cecfd2); font-weight: 700; }
+.mvx-beta .mvx-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
+
 .mvx-tool {
   display: grid;
   place-items: center;
@@ -5490,6 +5512,28 @@ body.view-swapping {
 }
 
 .mvx-tools { display: flex; gap: 6px; flex: none; }
+
+/* The beta line sits above the stage, in the bar's own language: one quiet row, never over a feed. */
+.theater-online { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+.theater-online[hidden] { display: none; }
+.theater-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
+.theater-online b { font-weight: 700; }
+
+.mvx-beta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0 2px;
+  font: 500 11.5px 'JetBrains Mono', monospace;
+  letter-spacing: .02em;
+  color: var(--rr-fg-3, #96999e);
+}
+
+.mvx-beta b:first-of-type { color: #f87168; }
+.mvx-beta .mvx-online { display: inline-flex; align-items: center; gap: 5px; margin-right: 2px; color: var(--rr-fg-2, #a9abaf); }
+.mvx-beta .mvx-online b { color: var(--rr-fg, #cecfd2); font-weight: 700; }
+.mvx-beta .mvx-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
 
 .mvx-tool {
   display: grid;

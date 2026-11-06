@@ -79,6 +79,7 @@ export function init(ctx: any) {
         <button type="button" class="mvx-btn mvx-close" data-mvx-close title="Leave grid">${icon('close')}</button>
       </div>
     </div>
+    <p class="mvx-beta" role="note"><span class="mvx-online"><i aria-hidden="true"></i><b data-mvx-online>—</b> online</span> <b>BETA</b> Multi-viewer is in beta — it needs a strong connection and may lag or drop a feed. Built for the pit wall, not for a phone on a train.</p>
     <div class="mvx-stage"><div class="mvx-tiles" data-mvx-tiles></div>
       <aside class="mvx-lib" data-mvx-lib hidden>
         <div class="mvx-lib-head">
@@ -159,14 +160,24 @@ export function init(ctx: any) {
      iframe's src threw the player away and restarted the feed, which is why every mute re-buffered
      the whole grid. weelo's player accepts the standard mute commands, so the tile keeps playing
      and only its audio changes. */
-  function paintAudio() {
+  function paintAudio(remount = false) {
     for (const [id, f] of frames) {
       const on = id === audio;
+      /* weelo's page listens for both shapes of command, so send both: the mute state is the one
+         thing the tool promises, and a quiet click on it is the bug that was reported. */
       try {
         f.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: on ? 'unMute' : 'mute', args: [] }), '*');
         f.contentWindow?.postMessage(JSON.stringify({ method: on ? 'unMute' : 'mute', value: true }), '*');
+        f.contentWindow?.postMessage(JSON.stringify({ type: 'freef1-audio', muted: !on }), '*');
       } catch { /* a cross-origin frame that refuses the message keeps its current audio */ }
-      f.dataset.state = on ? 'on' : 'off';
+      const want = id === audio ? 'on' : 'off';
+      /* If a provider ignores the message, the address itself carries the mute flag. Only the two
+         frames whose state changed are re-addressed, and only on an explicit audio change. */
+      if (remount && f.dataset.state !== want) {
+        const next = tileUrl(id, !on);
+        if (next !== f.src) f.src = next;
+      }
+      f.dataset.state = want;
       const btn = f.parentElement?.querySelector<HTMLElement>('[data-mvx-audio]');
       if (btn) {
         btn.innerHTML = icon(on ? 'volume' : 'muted');
@@ -181,7 +192,7 @@ export function init(ctx: any) {
   function setAudio(id: string) {
     if (audio === id) return;
     audio = id;
-    paintAudio();
+    paintAudio(true);
     paintMain();
     if (mode === 'focus') relayout();
   }
@@ -351,6 +362,7 @@ export function init(ctx: any) {
      the frame goes to about:blank (silence, no decoder) and the same address is put back when the
      grid closes, so nothing has to be re-picked. */
   let parkedSrc = '';
+  let savedSource = -1;
 
   function park(on: boolean) {
     const p = document.getElementById('player');
@@ -367,6 +379,14 @@ export function init(ctx: any) {
 
   const available = () => (ctx.sources || []).some((s: any) => s.weelo && !s.hidden);
 
+  /* The nav's connection count, carried into the grid: in theater the nav is gone, so the thing
+     people look at most would otherwise vanish with it. */
+  function mirrorCounter() {
+    const src = document.getElementById('viewerCount');
+    const out = panel.querySelector<HTMLElement>('[data-mvx-online]');
+    if (src && out && out.textContent !== src.textContent) out.textContent = src.textContent || '—';
+  }
+
   function show(on: boolean) {
     /* Nothing to grid when Race Control has turned every weelo feed off: stay closed rather than
        open an empty monitor. */
@@ -375,6 +395,7 @@ export function init(ctx: any) {
     panel.hidden = !on;
     document.documentElement.classList.toggle('has-mvx', on);
     if (on) {
+      savedSource = ctx.currentSource;
       const list = streams();
       if (!ids.length) {
         /* Open with the three headline feeds that weelo actually has on air. Nothing on air means
@@ -387,6 +408,7 @@ export function init(ctx: any) {
       panel.hidden = false;
       requestAnimationFrame(() => { draw(); if (!ids.length) library(true); });
       park(true);
+      mirrorCounter();
       markButton(true);
       btnUrl?.(true);
     } else {
@@ -399,6 +421,9 @@ export function init(ctx: any) {
       markButton(false);
       park(false);
       btnUrl?.(false);
+      /* Leaving the grid puts the top stream back on the player, even if the source row was changed
+         while the grid was up. */
+      ctx.reloadTop?.(savedSource);
     }
   }
 
@@ -471,6 +496,7 @@ export function init(ctx: any) {
   };
   /* Slow, and only ever a class swap: weelo changes state on the scale of minutes, not seconds. */
   setInterval(sync, 60000);
+  setInterval(mirrorCounter, 5000);
   setTimeout(sync, 6000);
 
   /* Testing hook. weelo decides when its feeds exist, not us, so the grid can be driven with a
