@@ -5109,24 +5109,17 @@ body.view-swapping {
 .mvx-tile-btn svg { width: 12px; height: 12px; }
 .mvx-tile-btn.is-on { border-color: var(--accent, #e10600); background: var(--accent, #e10600); }
 
-.mvx-tile.is-off,
-.mvx-off {
-  display: grid;
-  place-items: center;
-  gap: 4px;
-  text-align: center;
-}
+/* A tile weelo reports dark still mounts weelo's player (it is what comes back when the feed comes
+   up); the badge is the only thing that marks it, so the frame is never dimmed into an unreadable
+   grey box. */
+.mvx-tile.is-off iframe { opacity: .85; }
 
-.mvx-tile.is-off { background: repeating-linear-gradient(45deg, #0b0b0c, #0b0b0c 10px, #101012 10px, #101012 20px); }
-
-.mvx-off-name {
-  font: 700 .62rem 'JetBrains Mono', monospace;
+.mvx-off-msg {
+  font: 700 .55rem 'JetBrains Mono', monospace;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #ffb020;
 }
-
-.mvx-off-msg { font: 500 .56rem 'JetBrains Mono', monospace; color: var(--dim); }
 
 .mvx-lib {
   position: absolute;

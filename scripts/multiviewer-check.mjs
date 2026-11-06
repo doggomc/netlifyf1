@@ -58,6 +58,7 @@ const state = (page) => page.evaluate(() => ({
     left: parseFloat(t.style.left) || 0, top: parseFloat(t.style.top) || 0,
     w: parseFloat(t.style.width) || 0, h: parseFloat(t.style.height) || 0,
   })),
+  badges: [...document.querySelectorAll('.mvx-tile .mvx-off-msg')].map((e) => e.textContent.trim()).filter(Boolean),
   mainTiles: [...document.querySelectorAll('.mvx-tile.is-main')].map((t) => t.querySelector('.mvx-tile-name')?.textContent.trim()),
   url: location.search,
 }));
@@ -91,6 +92,7 @@ const state = (page) => page.evaluate(() => ({
   const s = await state(page);
   check('?mv=1 opens the grid on load', s.open, JSON.stringify({ open: s.open }));
   check('the grid opens with three tiles', s.tiles === 3, String(s.tiles));
+  check('and opens on Sky Sports (weelo), Drivers Track, Data Channel', s.labels.slice(0, 3).join('|') === 'Sky Sports (weelo)|Drivers Track|Data Channel', s.labels.join(' | '));
   check('the main player is parked with the multiview note', s.parked, String(s.parked));
   check('every tile is a weelo address', s.frames.length > 0 && s.frames.every((u) => u.startsWith('https://weellz.live/beta?stream=')), s.frames.join(' | '));
   check('the first tile is Sky Sports (weelo)', s.labels[0] === 'Sky Sports (weelo)', s.labels.join(' | '));
@@ -199,21 +201,52 @@ const state = (page) => page.evaluate(() => ({
   check('no page errors in the exit pass', errors.length === 0, errors.join(' | '));
 }
 
-/* ── 6. nothing on air: no black grid, and the picker says why ──
-   Forced dark (?mvtest=dark), not "whatever weelo happens to be doing at 11am": an assertion that
-   passes only because the provider is down is not a test of this page. */
+/* ── 6. weelo dark: the feeds are still there, mounted, and marked ──
+   The tile is weelo's own player (it is what comes back when the feed comes up), so "dark" must not
+   mean "absent" — that was the bug behind "Add feed doesn't work". */
 {
   const { page, errors } = await open('?mv=1&mvtest=dark');
   await page.waitForTimeout(1200);
   const s = await state(page);
-  check('with weelo dark, no tile is drawn', s.tiles === 0, String(s.tiles));
-  check('the empty stage is not shown at all', s.stageHidden === true, String(s.stageHidden));
-  check('the picker opens instead of a black box', s.library, String(s.library));
-  check('every feed is listed as off air', s.rows.length === 9 && s.rows.every((r) => r.includes('off air')), s.rows.join(' | '));
-  check('nothing is unmuted or playing', s.frames.length === 0, s.frames.join(' | '));
+  check('with weelo dark the grid still opens', s.open, String(s.open));
+  check('and still mounts three tiles', s.tiles === 3, String(s.tiles));
+  check('every dark tile is marked off air', s.off === 3 && s.badges.length === 3, JSON.stringify({ off: s.off, badges: s.badges }));
+  check('a dark tile is still weelo\'s own player', s.frames.every((u) => u.startsWith('https://weellz.live/beta?stream=')), s.frames.join(' | '));
+  check('the stage is drawn (a mounted player, not an empty box)', s.stageHidden === false, String(s.stageHidden));
+
+  await page.evaluate(() => document.querySelector('[data-mvx-open-lib]').click());
+  await page.waitForTimeout(500);
+  const rows = await page.evaluate(() => [...document.querySelectorAll('.mvx-lib-row')].map((r) => ({ text: r.textContent.trim(), disabled: r.disabled })));
+  check('every feed is still addable while dark', rows.every((r) => !r.disabled), JSON.stringify(rows));
+  check('every row says whether it is in the grid or off air', rows.every((r) => /in grid|off air/.test(r.text)), rows.map((r) => r.text).join(' | '));
   await page.screenshot({ path: '/tmp/mv-check-dark.png' });
   await page.close();
   check('no page errors in the dark pass', errors.length === 0, errors.join(' | '));
+}
+
+/* ── 6b. Add feed opens (it used to toggle itself shut) and adds ── */
+{
+  const { page, errors } = await open('?mv=1&mvtest=dark');
+  await page.evaluate(() => document.querySelector('[data-mvx-open-lib]').click());
+  await page.waitForTimeout(500);
+  check('Add feed opens the drawer', await page.evaluate(() => !document.querySelector('[data-mvx-lib]').hidden), 'drawer closed after clicking Add feed');
+  const added = await page.evaluate(() => {
+    const row = [...document.querySelectorAll('.mvx-lib-row')].find((r) => !r.disabled && !r.classList.contains('is-in'));
+    if (!row) return null;
+    const name = row.textContent.trim();
+    row.click();
+    return name;
+  });
+  await page.waitForTimeout(900);
+  const s = await state(page);
+  check('clicking a row adds that feed', Boolean(added) && s.tiles === 4, `${added} -> ${s.tiles} tiles`);
+  check('the count badge follows', s.count === '4', String(s.count));
+  check('the drawer stays open while adding', await page.evaluate(() => !document.querySelector('[data-mvx-lib]').hidden), 'drawer closed after adding');
+  await page.evaluate(() => document.querySelectorAll('.mvx-lib-row.is-in')[0]?.click());
+  await page.waitForTimeout(700);
+  check('clicking an in-grid row removes it', (await state(page)).tiles === 3, String((await state(page)).tiles));
+  await page.close();
+  check('no page errors in the add-feed pass', errors.length === 0, errors.join(' | '));
 }
 
 /* ── 7. phone: the button row and the grid fit ── */

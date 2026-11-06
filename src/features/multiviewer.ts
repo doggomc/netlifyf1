@@ -168,15 +168,10 @@ export function init(ctx: any) {
     tile.className = 'mvx-tile';
     tile.dataset.feed = id;
     if (!stream) return tile;
-    if (!stream.live) {
-      tile.classList.add('is-off');
-      tile.innerHTML = `<div class="mvx-off"><span class="mvx-off-name">${stream.label}</span><span class="mvx-off-msg">off air on weelo</span></div>`;
-      const bar = document.createElement('div');
-      bar.className = 'mvx-tile-bar';
-      bar.innerHTML = `<span class="mvx-tile-name">${stream.label}</span>`;
-      tile.appendChild(bar);
-      return tile;
-    }
+    /* Dark feeds are mounted, not skipped: weelo's own player is the thing that comes back when the
+       feed comes up, and a tile that refused to exist read as "Add feed does not work". The badge
+       says it is dark so a still frame is never mistaken for a broken one. */
+    if (!stream.live) tile.classList.add('is-off');
     const f = document.createElement('iframe');
     f.src = tileUrl(id, id !== audio);
     f.dataset.state = id === audio ? 'on' : 'off';
@@ -190,7 +185,7 @@ export function init(ctx: any) {
 
     const bar = document.createElement('div');
     bar.className = 'mvx-tile-bar';
-    bar.innerHTML = `<span class="mvx-tile-name">${stream.label}</span>`;
+    bar.innerHTML = `<span class="mvx-tile-name">${stream.label}</span><span class="mvx-off-msg">${stream.live ? '' : 'off air'}</span>`;
     const sound = document.createElement('button');
     sound.type = 'button';
     sound.className = 'mvx-tile-btn';
@@ -282,8 +277,8 @@ export function init(ctx: any) {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'mvx-lib-row' + (inGrid ? ' is-in' : '');
-      row.disabled = !inGrid && (full || !s.live);
-      row.innerHTML = `<span class="mvx-lib-name">${s.label}</span><span class="mvx-lib-state">${inGrid ? 'in grid' : s.live ? 'add' : 'off air'}</span>`;
+      row.disabled = !inGrid && full;
+      row.innerHTML = `<span class="mvx-lib-name">${s.label}</span><span class="mvx-lib-state">${inGrid ? 'in grid' : s.live ? 'add' : 'add · off air'}</span>`;
       row.onclick = () => (inGrid ? remove(s.id) : add(s.id));
       return row;
     }));
@@ -326,7 +321,7 @@ export function init(ctx: any) {
         /* Open with the three headline feeds that weelo actually has on air. Nothing on air means
            no tiles at all and the picker open: an empty grid is honest, a grid of black frames is
            the 'connected but black' failure we do not ship. */
-        ids = list.filter((s) => s.live).slice(0, 3).map((s) => s.id);
+        ids = list.slice(0, 3).map((s) => s.id);
         audio = ids[0] || null;
       }
       ids = ids.filter((id) => byId(id));
@@ -353,7 +348,7 @@ export function init(ctx: any) {
   ro.observe(stageEl);
 
   panel.querySelector('[data-mvx-close]')!.addEventListener('click', () => show(false));
-  panel.querySelector('[data-mvx-open-lib]')!.addEventListener('click', () => library());
+  panel.querySelector('[data-mvx-open-lib]')!.addEventListener('click', () => library(true));
   panel.querySelector('[data-mvx-lib-close]')!.addEventListener('click', () => library(false));
   panel.querySelector('[data-mvx-full]')!.addEventListener('click', () => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -392,7 +387,16 @@ export function init(ctx: any) {
      dropped instead of being kept as a black frame. */
   const sync = () => {
     if (!open) return;
-    for (const id of [...ids]) if (byId(id)?.live === false) remove(id);
+    for (const id of [...ids]) if (!byId(id)) remove(id);
+    /* weelo's state map arrives after the tiles do, so the badge is refreshed rather than decided
+       once: a feed that comes up loses it, a feed that goes dark gains it, and neither is unmounted. */
+    for (const id of ids) {
+      const tile = tilesEl.querySelector(`[data-feed="${CSS.escape(id)}"]`);
+      const live = byId(id)?.live !== false;
+      tile?.classList.toggle('is-off', !live);
+      const badge = tile?.querySelector('.mvx-off-msg');
+      if (badge) badge.textContent = live ? '' : 'off air';
+    }
     draw();
     if (!ids.length && ids.length === 0) library(true);
   };
