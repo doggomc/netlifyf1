@@ -5,7 +5,7 @@
   "baselineAppCssGzipBytes": 18115,
   "startupJsGzipBytes": 25622,
   "startupJsFiles": [
-    "bundles/index-BIaLAZVU.js",
+    "bundles/index-ChRR3jMa.js",
     "bundles/interaction-guard-4Vwlk-Z6.js",
     "bundles/dom-C3mHM79r.js",
     "bundles/site-config-BLjp_KD-.js"
@@ -28,7 +28,7 @@
       "gzipBytes": 3602
     },
     "multiviewer": {
-      "gzipBytes": 3380
+      "gzipBytes": 3462
     }
   }
 }

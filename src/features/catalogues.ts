@@ -189,12 +189,28 @@ async function fetchWeeloEvents(deps: CatalogueDeps): Promise<Record<string, { l
   if (!response.ok) throw new Error(`weelo events ${response.status}`);
   const json = await response.json();
   const out: Record<string, { label: string; lang: string; live: boolean }> = {};
+  /* An event is live only inside one of its own sessions (a session's streams exist before and
+     after it, which is why the window is padded rather than exact). The feed carries no per-event
+     'live' flag — assuming one made every feed on the page look playable while weelo's own state
+     map said 'dark', and clicking one opened a player that could only say STREAM IS OFFLINE. */
+  const now = Date.now();
+  const PAD_MS = 45 * 60 * 1000;
+  const liveNow = (event: any) => {
+    if (typeof event?.live === 'boolean') return event.live;
+    const sessions = Array.isArray(event?.sessions) ? event.sessions : [];
+    return sessions.some((session: any) => {
+      const start = Date.parse(String(session?.startsAt || ''));
+      const end = Date.parse(String(session?.endsAt || '')) || start + 2 * 60 * 60 * 1000;
+      return Number.isFinite(start) && now >= start - PAD_MS && now <= end + PAD_MS;
+    });
+  };
   for (const event of Array.isArray(json?.events) ? json.events : []) {
     if (!/^f1-/.test(String(event?.id || ''))) continue;
+    const live = liveNow(event);
     for (const stream of Array.isArray(event.streams) ? event.streams : []) {
       const id = String(stream?.url || '').split('stream=')[1]?.split('&')[0];
       if (!id || out[id]) continue;
-      out[id] = { label: String(stream.label || ''), lang: String(stream.language || ''), live: Boolean(event.live ?? true) };
+      out[id] = { label: String(stream.label || ''), lang: String(stream.language || ''), live };
     }
   }
   return out;

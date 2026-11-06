@@ -24,6 +24,7 @@ export function tileUrl(id: string, muted: boolean): string {
 /* Column/row count for N tiles inside a WxH box, keeping each tile as close to 16:9 as it can.
    This is the same trade rerace makes: grow the column count while the tiles get bigger. */
 export function layout(count: number, width: number, height: number) {
+  if (count < 1) return [];
   const fit = (a: number, b: number) => (a / b > 16 / 9 ? { w: b * (16 / 9), h: b } : { w: a, h: a * (9 / 16) });
   let best: { cols: number; rows: number; t: { w: number; h: number } } | null = null;
   for (let cols = 1; cols <= count; cols++) {
@@ -381,6 +382,18 @@ export function init(ctx: any) {
   }
   let btnUrl: ((on: boolean) => void) | null = null;
   wireToggle();
+
+  /* weelo's state arrives after the grid can be asked to open (a ?mv=1 link fires before the first
+     catalogue), so the tiles are re-checked against it: a tile that turns out to be off air is
+     dropped instead of being kept as a black frame. */
+  const sync = () => {
+    if (!open) return;
+    for (const id of [...ids]) if (byId(id)?.live === false) remove(id);
+    draw();
+    if (!ids.length && ids.length === 0) library(true);
+  };
+  setInterval(sync, 15000);
+  setTimeout(sync, 6000);
 
   const api = { show, isOpen: () => open, picked: () => [...ids], add, remove, wireToggle };
   ctx.multiViewer = api;
