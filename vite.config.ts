@@ -266,7 +266,15 @@ export default defineConfig({
     cssCodeSplit: true,
     rollupOptions: {
       input: {
+        /* Separate pages, separate stylesheets: the public pages load layout.css
+           and a few hundred bytes of shell, the cockpit loads the player runtime. */
         index: resolve(ROOT, 'index.html'),
+        cockpit: resolve(ROOT, 'cockpit.html'),
+        schedule: resolve(ROOT, 'schedule.html'),
+        standings: resolve(ROOT, 'standings.html'),
+        drivers: resolve(ROOT, 'drivers.html'),
+        teams: resolve(ROOT, 'teams.html'),
+        liveTiming: resolve(ROOT, 'live-timing.html'),
         help: resolve(ROOT, 'help.html'),
         maintenance: resolve(ROOT, 'maintenance.html'),
         notFound: resolve(ROOT, '404.html'),

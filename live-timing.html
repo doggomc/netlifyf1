@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f11">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Gaps, sectors and tyre compounds as they happen during a session.">
+<link rel="canonical" href="https://freef1.netlify.app/live-timing.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FreeF1 Live">
+<meta property="og:title" content="Live timing — FreeF1">
+<meta property="og:url" content="https://freef1.netlify.app/live-timing.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<title>Live timing — FreeF1</title>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
+<link rel="stylesheet" href="/fonts.css">
+<link rel="stylesheet" href="/src/styles/layout.css">
+</head>
+<body data-page="live-timing">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<nav class="nav" aria-label="Primary">
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="FreeF1 home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
+      <span class="brand-text">FreeF1</span>
+    </a>
+    <button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation" aria-controls="navLinks" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="navLinks">
+      <a href="/">Home</a>
+      <a href="/cockpit.html">Cockpit</a>
+      <a href="/schedule.html">Schedule</a>
+      <a href="/standings.html">Standings</a>
+      <a href="/live-timing.html">Live timing</a>
+      <a href="/drivers.html">Drivers</a>
+      <a href="/teams.html">Teams</a>
+    </div>
+    <div class="nav-right">
+      <div class="pill live" id="liveBadge"><span class="dot" aria-hidden="true"></span><span id="liveText">Live</span></div>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="wrap page-head rise">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Live timing</span></nav>
+    <span class="eyebrow"><span class="swatch" aria-hidden="true"></span>2026 season</span>
+    <h1 class="page-title">Live timing</h1>
+    <p class="page-lede">Gaps, sectors and tyre compounds as they happen. Nothing is simulated: when no session is running, the last completed one is shown.</p>
+  </div>
+
+  <section class="wrap section" aria-label="Live timing">
+    <div class="card card-pad inset-hl" aria-busy="true">
+      <div class="table-wrap">
+        <table class="tbl" id="timingTable">
+          <thead><tr><th class="t-pos">Pos</th><th>Driver</th><th class="t-team">Team</th><th class="t-num">Gap</th><th class="t-num">Last lap</th><th class="t-num">Tyre</th></tr></thead>
+          <tbody id="timingBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pending" style="margin-top:18px">
+      <h2>Timing feed arrives in the next part</h2>
+      <p>The page, table and live clock are in place. The row feed is wired up together with the drivers part, so nothing here shows invented numbers.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
+          <span class="brand-text">FreeF1</span>
+        </div>
+        <p style="margin-top:10px;max-width:34ch;font-size:12.5px;color:var(--fg-4)">An independent, ad-free race weekend companion. Not affiliated with Formula 1.</p>
+      </div>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/">Home</a>
+        <a href="/cockpit.html">Cockpit</a>
+        <a href="/schedule.html">Schedule</a>
+        <a href="/standings.html">Standings</a>
+        <a href="/live-timing.html">Live timing</a>
+        <a href="/drivers.html">Drivers</a>
+        <a href="/teams.html">Teams</a>
+        <a href="/help.html">Help</a>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> FreeF1 · Streams are provided by third parties.</span>
+      <span>Season data from Jolpica · <a href="/help.html">Support</a></span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="/src/pages/live-timing.ts"></script>
+</body>
+</html>

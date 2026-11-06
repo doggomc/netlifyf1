@@ -1,31 +1,35 @@
 {
   "baselineCommit": "1256feb269db136d0f458589eed2d906321b1f94",
   "baselineStartupJsGzipBytes": 56093,
-  "startupJsReductionPercent": 53.5,
+  "startupJsReductionPercent": 90.5,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 26058,
+  "startupJsGzipBytes": 5355,
   "startupJsFiles": [
-    "bundles/index-Xfg1xqel.js",
-    "bundles/interaction-guard-4Vwlk-Z6.js",
-    "bundles/dom-C3mHM79r.js",
-    "bundles/site-config-BLjp_KD-.js"
+    "bundles/index-CoCj1Eer.js",
+    "bundles/modulepreload-polyfill-B5Qt9EMX.js",
+    "bundles/shell-5i6MdIFe.js",
+    "bundles/weekend-BsRIvu0m.js",
+    "bundles/schedule-v6Kvk26p.js",
+    "bundles/config-vragTe2p.js"
   ],
-  "initialCssGzipBytes": 18137,
+  "initialCssGzipBytes": 4364,
+  "cockpitJsGzipBytes": 22177,
+  "cockpitCssGzipBytes": 18271,
   "lazyFeatures": {
     "championship": {
-      "gzipBytes": 4758
+      "gzipBytes": 4838
     },
     "results": {
-      "gzipBytes": 4796
+      "gzipBytes": 4797
     },
     "race-times": {
-      "gzipBytes": 1471
+      "gzipBytes": 1472
     },
     "radio": {
-      "gzipBytes": 4952
+      "gzipBytes": 4953
     },
     "diagnostics": {
-      "gzipBytes": 3602
+      "gzipBytes": 3603
     },
     "multiviewer": {
       "gzipBytes": 4169

@@ -4,6 +4,10 @@ import assert from 'node:assert/strict';
 
 const manifest = JSON.parse(readFileSync('dist/.vite/manifest.json', 'utf8'));
 const root = manifest['index.html'];
+/* The cockpit is its own document now. Its bundle is not part of the startup
+   budget — a visitor reading the schedule must not pay for a video player. */
+const cockpit = manifest['cockpit.html'];
+assert(cockpit, 'cockpit.html must be a build entry');
 const startup = new Set();
 function collect(key) {
   const entry = manifest[key];
@@ -25,13 +29,26 @@ console.log(`startup gzip: ${initialJs} B of ${BUDGET}`);
    hard gate: raise it consciously, not casually. Round 33b adds 128 B for theater mode — one toggle,
    one Escape handler, one aria-pressed write; the mode itself is CSS. */
 assert(initialJs < BUDGET, `Startup JS exceeds ${BUDGET} B gzip budget: ${initialJs}`);
+/* Every page except the cockpit is a thin shell. If a page bundle climbs past this,
+   markup has been pasted into a page that should be composing from data. */
+const SHELL_BUDGET = 6 * 1024;
+for (const page of ['schedule.html', 'standings.html', 'drivers.html', 'teams.html', 'live-timing.html']) {
+  const entry = manifest[page];
+  assert(entry, `missing entry ${page}`);
+  const pageJs = [entry.file, ...(entry.imports || []).map(key => manifest[key]?.file).filter(Boolean)]
+    .filter(file => file.endsWith('.js'));
+  const size = pageJs.reduce((sum, file) => sum + gzip(file), 0);
+  assert(size < SHELL_BUDGET, `${page} ships ${size} B gzip — over the ${SHELL_BUDGET} B shell budget`);
+}
+
 const optional = ['championship', 'results', 'race-times', 'radio', 'diagnostics', 'multiviewer'];
 for (const feature of optional) {
   const entry = manifest[`src/features/${feature}.ts`];
   assert(entry?.isDynamicEntry, `${feature} must stay lazy`);
   assert(!startup.has(entry.file), `${feature} leaked into the startup bundle`);
 }
-for (const page of ['index.html', 'help.html', 'maintenance.html', '404.html', 'beertjie.html']) {
+const PAGES = ['index.html', 'cockpit.html', 'schedule.html', 'standings.html', 'drivers.html', 'teams.html', 'live-timing.html', 'help.html', 'maintenance.html', '404.html', 'beertjie.html'];
+for (const page of PAGES) {
   const html = readFileSync(`dist/${page}`, 'utf8');
   assert(!html.includes('/src/'), `Unbuilt source reference in ${page}`);
   for (const match of html.matchAll(/(?:src|href)="(\/[^"?#]+)(?:\?[^"#]*)?"/g)) {
@@ -42,6 +59,8 @@ for (const page of ['index.html', 'help.html', 'maintenance.html', '404.html', '
 const headers = readFileSync('dist/_headers', 'utf8');
 assert(headers.includes('/bundles/*\n  Cache-Control: public, max-age=31536000, immutable'));
 assert(headers.includes('https://f1admin.onrender.com'));
+const redirectLines = readFileSync('dist/_redirects', 'utf8').split('\n').map(line => line.trim());
+assert(redirectLines.some(line => line === '/cockpit          /cockpit.html   301' || /^\/cockpit \/cockpit\.html 301$/.test(line)), 'the /cockpit short URL must keep resolving');
 assert(existsSync('dist/_redirects') && existsSync('dist/.well-known/discord'));
 const redirects = readFileSync('dist/_redirects', 'utf8');
 assert(/\/info\s+\/index.html\s+200/.test(redirects));
@@ -55,6 +74,8 @@ const report = {
   startupJsGzipBytes: initialJs,
   startupJsFiles: [...startup],
   initialCssGzipBytes: (root.css || []).reduce((sum, file) => sum + gzip(file), 0),
+  cockpitJsGzipBytes: gzip(cockpit.file),
+  cockpitCssGzipBytes: (cockpit.css || []).reduce((sum, file) => sum + gzip(file), 0),
   lazyFeatures: Object.fromEntries(optional.map(name => [name, { gzipBytes: gzip(manifest[`src/features/${name}.ts`].file) }])),
 };
 writeFileSync('performance.json', JSON.stringify(report, null, 2) + '\n');

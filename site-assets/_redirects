@@ -11,4 +11,17 @@
 /discord/   /index.html   200
 /replays    /index.html   200
 /replays/   /index.html   200
+# The cockpit is its own page; keep the short URL working for old links.
+/cockpit          /cockpit.html   301
+/cockpit/         /cockpit.html   301
+/schedule         /schedule.html   301
+/schedule/        /schedule.html   301
+/standings        /standings.html   301
+/standings/       /standings.html   301
+/drivers          /drivers.html   301
+/drivers/         /drivers.html   301
+/teams            /teams.html   301
+/teams/           /teams.html   301
+/live-timing      /live-timing.html   301
+/live-timing/     /live-timing.html   301
 # Everything else that doesn't exist falls through to /404.html (Netlify default).

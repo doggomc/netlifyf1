@@ -80,7 +80,10 @@ const BLOCKED_COPY_TEXT = IS_IOS ? BLOCKED_COPY_IOS : BLOCKED_COPY;
 const PUBLIC_NEWS_ENABLED = false;
 // Replays are parked while the embedded players are unreliable; the code stays for when they return.
 const PUBLIC_REPLAYS_ENABLED = false;
-const VIEWS = { home: 'viewHome', ...(PUBLIC_NEWS_ENABLED ? { news: 'viewNews' } : {}), ...(PUBLIC_REPLAYS_ENABLED ? { replays: 'viewReplays' } : {}), info: 'viewInfo', discord: 'viewDiscord' };
+/* The cockpit is its own document now. 'cockpit' is a real route with no in-page
+   view element: registering it stops the router treating /cockpit.html as home. */
+const VIEWS = { home: 'viewHome', cockpit: '', ...(PUBLIC_NEWS_ENABLED ? { news: 'viewNews' } : {}), ...(PUBLIC_REPLAYS_ENABLED ? { replays: 'viewReplays' } : {}), info: 'viewInfo', discord: 'viewDiscord' };
+const ROUTES = ['home', 'cockpit', 'info', 'discord', ...(PUBLIC_NEWS_ENABLED ? ['news'] : []), ...(PUBLIC_REPLAYS_ENABLED ? ['replays'] : [])];
 const VIEW_TITLES = { ...(PUBLIC_NEWS_ENABLED ? { news: 'News - FreeF1' } : {}), ...(PUBLIC_REPLAYS_ENABLED ? { replays: 'Race Replays - FreeF1' } : {}), info: 'Terms, Privacy & FAQ - FreeF1', discord: 'Discord - FreeF1' };
 const VIEW_SWAP_MS = reduceMotion ? 0 : 260;
 
@@ -2041,8 +2044,8 @@ paintScroll();
 let viewSwapTimer = null;
 
 function routeFromPath(path) {
-  const seg = (path || '/').replace(/^\/+|\/+$/g, '').toLowerCase();
-  return seg in VIEWS ? seg : 'home';
+  const seg = (path || '/').replace(/^\/+|\/+$/g, '').replace(/\.html$/i, '').toLowerCase();
+  return ROUTES.includes(seg) ? seg : 'home';
 }
 
 function revealNow(root: HTMLElement) {
@@ -2069,6 +2072,12 @@ function syncDocumentMeta(route) {
 }
 
 function showView(route, { push = true, scroll = true } = {}) {
+  /* A route without an in-page view (the cockpit) is a page load, not a swap. */
+  if (route === 'cockpit' || !VIEWS[route]) {
+    setActiveNav(route);
+    document.body.dataset.view = route;
+    return;
+  }
   const next = $(VIEWS[route]);
   const prev = $(VIEWS[activeView]);
   if (!next) return;
@@ -2134,9 +2143,15 @@ addEventListener('popstate', () => showView(routeFromPath(location.pathname), { 
 
 (function initView() {
   const route = routeFromPath(location.pathname);
-  /* A parked view (/replays) or any unknown path resolves to home; drop the dead URL too. */
-  const stray = route === 'home' && location.pathname.replace(/\/+$/, '') !== '';
+  /* A parked view (/replays) or any unknown path resolves to home; drop the dead URL too.
+     /cockpit.html is its own document, so it keeps its URL. */
+  const stray = route === 'home' && location.pathname.replace(/\/+$/, '') !== '' && !/\/cockpit\.html$/i.test(location.pathname);
   history.replaceState({ view: route }, '', stray ? '/' : location.pathname + location.search + location.hash);
+  if (route === 'cockpit') {
+    setActiveNav('cockpit');
+    document.body.dataset.view = 'cockpit';
+    return;
+  }
   if (route === 'home') {
     setActiveNav('home');
     syncDocumentMeta('home');
