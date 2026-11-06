@@ -880,7 +880,7 @@ function updateHeader() {
   const src = sources[currentSource] || { id: "none", label: "-" };
   if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
   /* The session line under the player: the same facts the hero carries, where the video is. */
-  if (sourceLabel) sourceLabel.textContent = src.label.toUpperCase();
+  if (sourceLabel) sourceLabel.textContent = src.label;
   /* The watch head reads off the same values the hero already uses. */
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
@@ -1132,13 +1132,24 @@ $('mvToggle')?.addEventListener('click', () => {
 
 /* Theater mode: the window fills the viewport, the rail and sources step aside. Escape puts it back. */
 const theaterBtn = $('theaterBtn');
+const sourcesBtn = $('sourcesToggle');
 const setTheater = (on: boolean) => {
   document.body.classList.toggle('theater', on);
   if (theaterBtn) theaterBtn.ariaPressed = String(on);
-  /* The window is fixed to the viewport top, so the page has to meet it there. */
-  if (on) $('watch')?.scrollIntoView();
+  /* The sources switch only exists in theater; leaving theater always brings the rail back. */
+  if (sourcesBtn) sourcesBtn.hidden = !on;
+  if (!on) {
+    document.body.classList.remove('theater-no-sources');
+    if (sourcesBtn) sourcesBtn.ariaPressed = 'true';
+  }
 };
 if (theaterBtn) theaterBtn.onclick = () => setTheater(!document.body.classList.contains('theater'));
+
+/* Hide the sources in theater and the window takes the whole width back. */
+if (sourcesBtn) sourcesBtn.onclick = () => {
+  const off = document.body.classList.toggle('theater-no-sources');
+  sourcesBtn.ariaPressed = String(!off);
+};
 document.onkeydown = () => setTheater(false);
 /* A ?mv=1 address opens the grid once the first config has landed. */
 setTimeout(() => location.search.includes('mv=1') && openMultiViewer(), 900);
