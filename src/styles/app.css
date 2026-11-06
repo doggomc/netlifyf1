@@ -4973,33 +4973,51 @@ body.view-swapping {
   color: #fff;
 }
 
+/* The grid IS the cock  pit window while it is up: it covers the player exactly, so activating the
+   multi-viewer changes what the window shows instead of adding a panel underneath it. */
 .mvx {
-  margin: 14px 0 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: #07070a;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  background: #050507;
+  border-radius: inherit;
   overflow: hidden;
-  position: relative;
+  animation: mvx-in .32s cubic-bezier(.22, 1, .36, 1) both;
 }
 
+.mvx[hidden] { display: none; }
+
+@keyframes mvx-in {
+  from { opacity: 0; transform: scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The toolbar is its own strip so it never sits on top of a feed. */
 .mvx-bar {
+  position: relative;
+  z-index: 6;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 6px;
+  background: rgba(10, 10, 13, .86);
+  backdrop-filter: blur(14px) saturate(140%);
 }
 
 .mvx-title {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font: 700 .62rem 'JetBrains Mono', monospace;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 7px;
 }
 
 .mvx-count {
@@ -5009,8 +5027,8 @@ body.view-swapping {
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: var(--line);
-  color: var(--fg);
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
   font-size: .58rem;
 }
 
@@ -5020,30 +5038,29 @@ body.view-swapping {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 9px;
-  border: 1px solid var(--line);
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, .16);
   border-radius: 4px;
   background: transparent;
-  color: var(--muted);
-  font: 700 .6rem 'JetBrains Mono', monospace;
+  color: #d7d7dc;
+  font: 700 .58rem 'JetBrains Mono', monospace;
   letter-spacing: .08em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: color .15s, border-color .15s, background .15s;
+  transition: color .18s, border-color .18s, background .18s, transform .18s;
 }
 
-.mvx-btn svg { width: 14px; height: 14px; }
-.mvx-btn:hover, .mvx-btn.is-on { color: var(--fg); border-color: var(--accent); }
-.mvx-btn.is-on { background: rgba(255, 255, 255, .05); }
+.mvx-btn svg { width: 13px; height: 13px; }
+.mvx-btn:hover { color: #fff; border-color: rgba(255, 255, 255, .45); transform: translateY(-1px); }
+.mvx-btn.is-on { color: #fff; border-color: var(--accent, #e10600); background: rgba(225, 6, 0, .18); }
 .mvx-add span, .mvx-modes span { display: inline; }
-.mvx-close { color: var(--dim); }
 
 .mvx-stage {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #000;
+  flex: 1;
+  min-height: 0;
+  background: #050507;
 }
 
 .mvx-tiles { position: absolute; inset: 0; }
@@ -5052,8 +5069,17 @@ body.view-swapping {
   position: absolute;
   background: #000;
   overflow: hidden;
-  border-radius: 3px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07);
+  transition: left .34s cubic-bezier(.22, 1, .36, 1), top .34s cubic-bezier(.22, 1, .36, 1),
+              width .34s cubic-bezier(.22, 1, .36, 1), height .34s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .2s ease;
+  animation: mvx-tile-in .3s ease both;
+}
+
+@keyframes mvx-tile-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .mvx-tile.is-main { box-shadow: 0 0 0 2px var(--accent, #e10600); }
@@ -5065,6 +5091,10 @@ body.view-swapping {
   display: block;
 }
 
+/* A tile weelo reports dark still mounts weelo's player (it is what comes back when the feed comes
+   up); the badge is the only thing that marks it, so the frame is never dimmed into a grey box. */
+.mvx-tile.is-off iframe { opacity: .9; }
+
 .mvx-tile-bar {
   position: absolute;
   left: 0;
@@ -5074,9 +5104,9 @@ body.view-swapping {
   align-items: center;
   gap: 6px;
   padding: 4px 6px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, .85));
+  background: linear-gradient(transparent, rgba(0, 0, 0, .88));
   opacity: 0;
-  transition: opacity .15s;
+  transition: opacity .18s ease;
 }
 
 .mvx-tile:hover .mvx-tile-bar,
@@ -5094,6 +5124,13 @@ body.view-swapping {
   color: #fff;
 }
 
+.mvx-off-msg {
+  font: 700 .55rem 'JetBrains Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #ffb020;
+}
+
 .mvx-tile-btn {
   display: inline-grid;
   place-items: center;
@@ -5104,35 +5141,34 @@ body.view-swapping {
   background: rgba(0, 0, 0, .45);
   color: #fff;
   cursor: pointer;
+  transition: background .15s, border-color .15s;
 }
 
 .mvx-tile-btn svg { width: 12px; height: 12px; }
+.mvx-tile-btn:hover { border-color: #fff; }
 .mvx-tile-btn.is-on { border-color: var(--accent, #e10600); background: var(--accent, #e10600); }
 
-/* A tile weelo reports dark still mounts weelo's player (it is what comes back when the feed comes
-   up); the badge is the only thing that marks it, so the frame is never dimmed into an unreadable
-   grey box. */
-.mvx-tile.is-off iframe { opacity: .85; }
-
-.mvx-off-msg {
-  font: 700 .55rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #ffb020;
-}
-
+/* The feed drawer slides in over the grid from the right. */
 .mvx-lib {
   position: absolute;
-  top: 41px;
+  top: 0;
   right: 0;
   bottom: 0;
-  width: min(320px, 100%);
+  width: min(300px, 100%);
   display: flex;
   flex-direction: column;
-  background: rgba(8, 8, 11, .97);
-  border-left: 1px solid var(--line);
-  backdrop-filter: blur(6px);
-  z-index: 3;
+  background: rgba(8, 8, 11, .96);
+  border-left: 1px solid rgba(255, 255, 255, .1);
+  backdrop-filter: blur(10px);
+  z-index: 5;
+  animation: mvx-lib-in .26s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.mvx-lib[hidden] { display: none; }
+
+@keyframes mvx-lib-in {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
 }
 
 .mvx-lib-head {
@@ -5140,19 +5176,19 @@ body.view-swapping {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--line);
-  font: 700 .64rem 'JetBrains Mono', monospace;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  font: 700 .62rem 'JetBrains Mono', monospace;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--fg);
+  color: #fff;
 }
 
 .mvx-lib-note {
   margin: 0;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
   color: var(--dim);
-  font-size: .72rem;
+  font-size: .7rem;
   line-height: 1.45;
 }
 
@@ -5165,13 +5201,260 @@ body.view-swapping {
   border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, .05);
   background: transparent;
-  color: var(--fg);
-  font-size: .78rem;
+  color: #e8e8ec;
+  font-size: .76rem;
   text-align: left;
   cursor: pointer;
+  transition: background .15s, padding-left .15s;
 }
 
-.mvx-lib-row:hover:not(:disabled) { background: rgba(255, 255, 255, .05); }
+.mvx-lib-row:hover:not(:disabled) { background: rgba(255, 255, 255, .06); padding-left: 15px; }
+.mvx-lib-row:disabled { color: var(--dim); cursor: not-allowed; }
+.mvx-lib-row.is-in { color: var(--accent, #e10600); }
+
+.mvx-lib-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mvx-lib-state {
+  font: 700 .55rem 'JetBrains Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mvx {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  background: #050507;
+  border-radius: inherit;
+  overflow: hidden;
+  animation: mvx-in .32s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.mvx[hidden] { display: none; }
+
+@keyframes mvx-in {
+  from { opacity: 0; transform: scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The toolbar is its own strip so it never sits on top of a feed. */
+.mvx-bar {
+  position: relative;
+  z-index: 6;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 6px;
+  background: rgba(10, 10, 13, .86);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+.mvx-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font: 700 .62rem 'JetBrains Mono', monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mvx-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  font-size: .58rem;
+}
+
+.mvx-modes { display: flex; gap: 4px; }
+
+.mvx-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 4px;
+  background: transparent;
+  color: #d7d7dc;
+  font: 700 .58rem 'JetBrains Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .18s, border-color .18s, background .18s, transform .18s;
+}
+
+.mvx-btn svg { width: 13px; height: 13px; }
+.mvx-btn:hover { color: #fff; border-color: rgba(255, 255, 255, .45); transform: translateY(-1px); }
+.mvx-btn.is-on { color: #fff; border-color: var(--accent, #e10600); background: rgba(225, 6, 0, .18); }
+.mvx-add span, .mvx-modes span { display: inline; }
+
+.mvx-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #050507;
+}
+
+.mvx-tiles { position: absolute; inset: 0; }
+
+.mvx-tile {
+  position: absolute;
+  background: #000;
+  overflow: hidden;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07);
+  transition: left .34s cubic-bezier(.22, 1, .36, 1), top .34s cubic-bezier(.22, 1, .36, 1),
+              width .34s cubic-bezier(.22, 1, .36, 1), height .34s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .2s ease;
+  animation: mvx-tile-in .3s ease both;
+}
+
+@keyframes mvx-tile-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mvx-tile.is-main { box-shadow: 0 0 0 2px var(--accent, #e10600); }
+
+.mvx-tile iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* A tile weelo reports dark still mounts weelo's player (it is what comes back when the feed comes
+   up); the badge is the only thing that marks it, so the frame is never dimmed into a grey box. */
+.mvx-tile.is-off iframe { opacity: .9; }
+
+.mvx-tile-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .88));
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+
+.mvx-tile:hover .mvx-tile-bar,
+.mvx-tile:focus-within .mvx-tile-bar { opacity: 1; }
+
+.mvx-tile-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 700 .56rem 'JetBrains Mono', monospace;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.mvx-off-msg {
+  font: 700 .55rem 'JetBrains Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #ffb020;
+}
+
+.mvx-tile-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, .45);
+  color: #fff;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.mvx-tile-btn svg { width: 12px; height: 12px; }
+.mvx-tile-btn:hover { border-color: #fff; }
+.mvx-tile-btn.is-on { border-color: var(--accent, #e10600); background: var(--accent, #e10600); }
+
+/* The feed drawer slides in over the grid from the right. */
+.mvx-lib {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(300px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 8, 11, .96);
+  border-left: 1px solid rgba(255, 255, 255, .1);
+  backdrop-filter: blur(10px);
+  z-index: 5;
+  animation: mvx-lib-in .26s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.mvx-lib[hidden] { display: none; }
+
+@keyframes mvx-lib-in {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.mvx-lib-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  font: 700 .62rem 'JetBrains Mono', monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.mvx-lib-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  color: var(--dim);
+  font-size: .7rem;
+  line-height: 1.45;
+}
+
+.mvx-lib-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .05);
+  background: transparent;
+  color: #e8e8ec;
+  font-size: .76rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s, padding-left .15s;
+}
+
+.mvx-lib-row:hover:not(:disabled) { background: rgba(255, 255, 255, .06); padding-left: 15px; }
 .mvx-lib-row:disabled { color: var(--dim); cursor: not-allowed; }
 .mvx-lib-row.is-in { color: var(--accent, #e10600); }
 
@@ -5185,21 +5468,10 @@ body.view-swapping {
 }
 
 /* The player keeps its place while the grid is up, so nothing on the page jumps. */
+/* The grid covers the window while it is up, so the player underneath is hidden but not removed:
+   leaving the grid puts the same stream back with no reload. */
 .player.is-parked > iframe,
 .player.is-parked > video { visibility: hidden; }
-
-.player-parked {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font: 700 .95rem 'Archivo', sans-serif;
-  font-style: italic;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-  color: var(--muted);
-  background: #07070a;
-}
 
 @media (max-width: 760px) {
   .mvx-stage { aspect-ratio: auto; height: 62vh; }

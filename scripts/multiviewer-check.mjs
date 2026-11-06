@@ -52,7 +52,13 @@ const state = (page) => page.evaluate(() => ({
   stageHidden: document.querySelector('.mvx-stage')?.hidden,
   library: !document.querySelector('[data-mvx-lib]')?.hidden,
   rows: [...document.querySelectorAll('.mvx-lib-row')].map((r) => r.textContent.trim()),
-  parked: Boolean(document.querySelector('.player-parked')),
+  parked: document.getElementById('player')?.classList.contains('is-parked'),
+  insidePlayer: Boolean(document.getElementById('player')?.contains(document.getElementById('multiViewer'))),
+  coversPlayer: (() => {
+    const pl = document.getElementById('player')?.getBoundingClientRect();
+    const pn = document.getElementById('multiViewer')?.getBoundingClientRect();
+    return pl && pn ? Math.abs(pl.width - pn.width) < 2 && Math.abs(pl.height - pn.height) < 2 : false;
+  })(),
   count: document.querySelector('[data-mvx-count]')?.textContent,
   boxes: [...document.querySelectorAll('.mvx-tile')].map((t) => ({
     left: parseFloat(t.style.left) || 0, top: parseFloat(t.style.top) || 0,
@@ -93,12 +99,18 @@ const state = (page) => page.evaluate(() => ({
   check('?mv=1 opens the grid on load', s.open, JSON.stringify({ open: s.open }));
   check('the grid opens with three tiles', s.tiles === 3, String(s.tiles));
   check('and opens on Sky Sports (weelo), Drivers Track, Data Channel', s.labels.slice(0, 3).join('|') === 'Sky Sports (weelo)|Drivers Track|Data Channel', s.labels.join(' | '));
-  check('the main player is parked with the multiview note', s.parked, String(s.parked));
+  check('the grid IS the cockpit window: it covers the player exactly', s.coversPlayer && s.insidePlayer, JSON.stringify({ covers: s.coversPlayer, inside: s.insidePlayer }));
+  check('the player underneath is hidden but not removed', s.parked, String(s.parked));
   check('every tile is a weelo address', s.frames.length > 0 && s.frames.every((u) => u.startsWith('https://weellz.live/beta?stream=')), s.frames.join(' | '));
   check('the first tile is Sky Sports (weelo)', s.labels[0] === 'Sky Sports (weelo)', s.labels.join(' | '));
   check('then Drivers Track and Data Channel', s.labels.slice(1, 3).join('|') === 'Drivers Track|Data Channel', s.labels.join(' | '));
   check('the tile count badge agrees with the tiles', s.count === String(s.tiles), `${s.count} vs ${s.tiles}`);
   check('the address never advertises a non-weelo feed', !/taifood|embdlol|strmfree|cdnlivetv/.test(s.frames.join(' ')), s.frames.join(' | '));
+  const bars = await page.evaluate(() => {
+    const bar = document.querySelector('.mvx-bar').getBoundingClientRect();
+    return [...document.querySelectorAll('.mvx-tile')].every((t) => t.getBoundingClientRect().top >= bar.bottom - 1);
+  });
+  check('the toolbar never covers a feed', bars, 'a tile sat under the toolbar');
   await page.screenshot({ path: '/tmp/mv-check-open.png' });
   await page.close();
   check('no page errors when the grid opens', errors.length === 0, errors.join(' | '));
@@ -179,13 +191,19 @@ const state = (page) => page.evaluate(() => ({
   await page.waitForTimeout(800);
   const after = await page.evaluate(() => ({
     open: !document.querySelector('#multiViewer')?.hidden,
-    parked: Boolean(document.querySelector('.player-parked')),
+    parked: document.getElementById('player')?.classList.contains('is-parked'),
+  insidePlayer: Boolean(document.getElementById('player')?.contains(document.getElementById('multiViewer'))),
+  coversPlayer: (() => {
+    const pl = document.getElementById('player')?.getBoundingClientRect();
+    const pn = document.getElementById('multiViewer')?.getBoundingClientRect();
+    return pl && pn ? Math.abs(pl.width - pn.width) < 2 && Math.abs(pl.height - pn.height) < 2 : false;
+  })(),
     frames: document.querySelectorAll('#multiViewer iframe').length,
     mv: new URLSearchParams(location.search).get('mv'),
     pressed: document.getElementById('mvToggle')?.getAttribute('aria-pressed'),
   }));
   check('closing the grid hides it', !after.open && after.frames === 0, JSON.stringify(after));
-  check('the player comes back unparked', !after.parked, String(after.parked));
+  check('the player window comes back, unparked, without a reload', !after.parked, String(after.parked));
   check('mv leaves the address when the grid closes', after.mv === null, String(after.mv));
   check('the button is no longer marked pressed', after.pressed === 'false', String(after.pressed));
 

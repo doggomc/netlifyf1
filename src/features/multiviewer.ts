@@ -77,16 +77,21 @@ export function init(ctx: any) {
       <button type="button" class="mvx-btn" data-mvx-full title="Full screen">${icon('expand')}</button>
       <button type="button" class="mvx-btn mvx-close" data-mvx-close title="Leave grid">${icon('close')}</button>
     </div>
-    <div class="mvx-stage"><div class="mvx-tiles" data-mvx-tiles></div></div>
-    <aside class="mvx-lib" data-mvx-lib hidden>
-      <div class="mvx-lib-head">
-        <b>Add a feed</b>
-        <button type="button" class="mvx-btn" data-mvx-lib-close title="Close">${icon('close')}</button>
-      </div>
-      <p class="mvx-lib-note" data-mvx-note></p>
-      <div data-mvx-list></div>
-    </aside>`;
-  stage.after(panel);
+    <div class="mvx-stage"><div class="mvx-tiles" data-mvx-tiles></div>
+      <aside class="mvx-lib" data-mvx-lib hidden>
+        <div class="mvx-lib-head">
+          <b>Add a feed</b>
+          <button type="button" class="mvx-btn" data-mvx-lib-close title="Close">${icon('close')}</button>
+        </div>
+        <p class="mvx-lib-note" data-mvx-note></p>
+        <div data-mvx-list></div>
+      </aside>
+    </div>
+`;
+  /* Inside the player window, not under it: activating the multi-viewer IS the cockpit window
+     changing what it shows, which is the point of it. The player's own frame stays mounted
+     underneath, so leaving the grid puts the same stream back without a reload. */
+  stage.appendChild(panel);
 
   const tilesEl = panel.querySelector<HTMLElement>('[data-mvx-tiles]')!;
   const stageWrap = panel.querySelector<HTMLElement>('.mvx-stage')!;
@@ -128,6 +133,7 @@ export function init(ctx: any) {
       }
       return;
     }
+    /* The stage's inner height is the panel minus its toolbar; the toolbar floats over the tiles. */
     const boxes = layout(ids.length, w, h);
     ids.forEach((id, i) => {
       const tile = frames.get(id)?.parentElement;
@@ -136,7 +142,7 @@ export function init(ctx: any) {
       tile.style.display = '';
       tile.style.position = 'absolute';
       tile.style.left = `${b.x}px`;
-      tile.style.top = `${b.y}px`;
+      tile.style.top = `${b.y + 0}px`;
       tile.style.width = `${b.w}px`;
       tile.style.height = `${b.h}px`;
       tile.classList.toggle('is-main', id === audio);
@@ -292,18 +298,10 @@ export function init(ctx: any) {
     b?.setAttribute('aria-pressed', String(on));
   }
 
-  /* The player is parked, not destroyed: its frame keeps its address and comes back untouched. */
+  /* The player is parked, not destroyed: its frame keeps its address and comes back untouched when
+     the grid closes. It is hidden because the grid covers it, not because it stopped playing. */
   function park(on: boolean) {
-    const player = document.getElementById('player');
-    if (!player) return;
-    player.classList.toggle('is-parked', on);
-    const note = player.querySelector<HTMLElement>('.player-parked');
-    if (on && !note) {
-      const n = document.createElement('div');
-      n.className = 'player-parked';
-      n.textContent = 'Playing in multiview';
-      player.appendChild(n);
-    } else if (!on && note) note.remove();
+    document.getElementById('player')?.classList.toggle('is-parked', on);
   }
 
   const available = () => (ctx.sources || []).some((s: any) => s.weelo && !s.hidden);
