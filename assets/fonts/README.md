@@ -1,7 +1,7 @@
 # Self-hosted typefaces
 
-`Inter`, `Archivo` and `JetBrains Mono`, latin + latin-ext subsets of the
-variable builds. Served from this origin, declared in `/fonts.css`, preloaded
+`Geist`, `Zen Dots`, `Inter`, `Archivo` and `JetBrains Mono`, latin +
+latin-ext subsets of the variable builds. Served from this origin, declared in `/fonts.css`, preloaded
 by `index.html`.
 
 Why self-hosted: a `fonts.googleapis.com` stylesheet makes every visitor
@@ -17,6 +17,9 @@ it forces an extra host into the Content-Security-Policy. Both are gone now —
 | `Archivo-latin-ext.woff2` | Archivo | latin-ext | extended Latin headings |
 | `JetBrainsMono-latin.woff2` | JetBrains Mono | latin | `.eyebrow`, `.mono`, timing figures |
 | `JetBrainsMono-latin-ext.woff2` | JetBrains Mono | latin-ext | extended Latin mono |
+| `Geist-latin.woff2` | Geist | latin | rerace theme: body, headings, controls |
+| `Geist-latin-ext.woff2` | Geist | latin-ext | extended Latin body copy |
+| `ZenDots-latin.woff2` | Zen Dots | latin | the FreeF1 wordmark |
 
 Each file is a **variable** font, so one file per family per subset serves every
 weight the stylesheets request (400–950) — no synthetic bold, no per-weight

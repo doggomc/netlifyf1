@@ -1,0 +1,1436 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   FreeF1 · RERACE THEME
+   A single layer that repaints the site in the language the watch cockpit
+   already speaks (see the --rr-* tokens in app.css): near-black ink, quiet
+   surfaces, hairline rings, 8/16px radii, Geist type and one red accent.
+   Every rule here is a skin. No class name, id or DOM hook is added or
+   removed, so all behaviour in src/ keeps working untouched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ink scale */
+  --ink: #0e0f11;
+  --ink-2: #0a0b0d;
+  --ink-3: #18191d;
+  --ink-4: #212227;
+  /* surfaces */
+  --surface: #18191d;
+  --surface-2: #212227;
+  --surface-3: #26272c;
+  /* hairlines */
+  --line: #ffffff12;
+  --line-2: #ffffff24;
+  /* type */
+  --text: #ffffff;
+  --muted: #a9abaf;
+  --dim: #8b8e94;
+  /* radii */
+  --r: 16px;
+  --r-sm: 10px;
+  --r-xs: 8px;
+  /* motion */
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --ease-sharp: cubic-bezier(.65, 0, .35, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  /* depth: rings, not blurs */
+  --shadow: 0 1px 0 #ffffff08 inset, 0 18px 40px -28px #000;
+  --ring: 0 0 0 1px #ffffff0f;
+  --ring-hover: 0 0 0 1px #ffffff1f;
+  --focus: #8fb8f6;
+  --maxw: 1280px;
+  /* rerace aliases, so the watch cockpit and the rest of the page agree */
+  --rr-brand: #e10600;
+  --rr-ink-950: #0e0f11;
+  --rr-ink-900: #0a0b0d;
+  --rr-ink-850: #18191d;
+  --rr-ink-800: #212227;
+  --rr-fg: #cecfd2;
+  --rr-fg-2: #a9abaf;
+  --rr-fg-3: #96999e;
+  --rr-ring: 0 0 0 1px #ffffff0f;
+}
+
+/* ── base ───────────────────────────────────────────────────────────────── */
+
+body {
+  background: var(--ink);
+  color: var(--rr-fg);
+  font-family: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+
+/* The old atmosphere (film grain, scanlines, vignette, speed canvas) is gone:
+   rerace is a flat, quiet surface and every one of those layers cost a
+   compositing pass on scroll. */
+.grain,
+.scanlines,
+.vignette,
+#speedCanvas {
+  display: none !important;
+}
+
+::selection {
+  background: #1c2b42;
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ink-2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2c2d33;
+  border-radius: 999px;
+  border: 2px solid var(--ink-2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3d3f45;
+}
+
+.progress {
+  height: 2px;
+  background: var(--rr-brand);
+  box-shadow: none;
+}
+
+.skip-link {
+  background: var(--rr-brand);
+  border-radius: var(--r-xs);
+  font: 600 13px 'Geist', 'Inter', sans-serif;
+}
+
+/* ── type ───────────────────────────────────────────────────────────────── */
+
+.mono,
+.pill,
+.wplayer-path,
+.foot-credits,
+.discord-url,
+.stat-num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.display {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  font-style: normal;
+  text-transform: none;
+  letter-spacing: -.035em;
+  line-height: 1.02;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--rr-fg-3);
+}
+
+.eyebrow::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--rr-brand);
+  box-shadow: 0 0 0 3px #e1060022;
+}
+
+/* One heading voice for the whole page. The old cockpit set headings in italic
+   Archivo with wide tracking; rerace sets them in a plain grotesque, upright and
+   tight, so every heading starts from this rule and only size differs. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 650;
+  letter-spacing: -.02em;
+  text-transform: none;
+}
+
+.sec {
+  padding: clamp(56px, 8vh, 96px) 0;
+}
+
+.sec-head {
+  margin-bottom: 26px;
+  align-items: flex-end;
+}
+
+.sec-head h2,
+.watch-head h2,
+.panel-head h2,
+.sheet-head h2 {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 680;
+  text-transform: none;
+  letter-spacing: -.03em;
+  line-height: 1.06;
+  font-size: clamp(1.6rem, 3.6vw, 2.4rem);
+  color: #fff;
+}
+
+.sec-head h2 .accent,
+.watch-head h2 .accent {
+  color: var(--rr-brand);
+}
+
+.rule {
+  display: none;
+}
+
+.state {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+  padding: 32px 16px;
+}
+
+/* ── nav ────────────────────────────────────────────────────────────────── */
+
+.nav {
+  height: 56px;
+  padding: 0 clamp(14px, 3vw, 28px);
+  gap: 12px;
+  border-bottom: 1px solid transparent;
+  transition: background-color .2s var(--ease), border-color .2s var(--ease);
+}
+
+.nav::before {
+  background: #0e0f11e0;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.nav.stuck {
+  border-bottom-color: #ffffff0f;
+}
+
+.brand {
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--rr-brand);
+  box-shadow: inset 0 0 0 1px #ffffff1f, 0 1px 2px #0008;
+  overflow: hidden;
+}
+
+.brand-mark::after {
+  display: none;
+}
+
+.brand-mark svg {
+  width: 18px;
+  height: 18px;
+}
+
+.brand-text b {
+  font-family: 'Zen Dots', 'Geist', sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  letter-spacing: .01em;
+  text-transform: none;
+  color: #fff;
+}
+
+.nav-links {
+  gap: 2px;
+}
+
+.nav-links a {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-2);
+  padding: 7px 11px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-xs);
+  transition: background-color .16s var(--ease), color .16s var(--ease), transform .16s var(--ease);
+}
+
+.nav-links a::after {
+  display: none;
+}
+
+.nav-links a:hover {
+  color: #fff;
+  background: #ffffff0f;
+}
+
+.nav-links a:active {
+  transform: scale(.97);
+}
+
+.nav-links a.current {
+  color: #fff;
+  background: #ffffff14;
+  box-shadow: inset 0 0 0 1px #ffffff14;
+}
+
+.pill {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: #ffffff0d;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+  color: var(--rr-fg-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  transition: background-color .16s var(--ease), color .16s var(--ease), transform .16s var(--ease);
+}
+
+.pill:hover {
+  background: #ffffff17;
+  color: #fff;
+  border-color: transparent;
+  transform: none;
+}
+
+.pill.live {
+  gap: 6px;
+  background: #f871681f;
+  box-shadow: inset 0 0 0 1px #f8716833;
+  color: #fd9891;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.pill.live .dot {
+  width: 6px;
+  height: 6px;
+  background: #f87168;
+}
+
+.pill.viewer-count {
+  background: #ffffff0d;
+}
+
+.pill.viewer-count[data-state="live"] .viewer-count-dot {
+  background: #b3df72;
+  box-shadow: 0 0 0 3px #b3df7222;
+}
+
+.viewer-count-label {
+  color: var(--rr-fg-3);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.nav-toggle span {
+  background: #fff;
+  border-radius: 999px;
+}
+
+/* ── buttons ────────────────────────────────────────────────────────────── */
+
+.btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px #ffffff12;
+  color: #fff;
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: background-color .16s var(--ease), box-shadow .16s var(--ease),
+    color .16s var(--ease), transform .12s var(--ease);
+}
+
+.btn::before,
+.btn::after {
+  display: none;
+}
+
+.btn:hover {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px #ffffff1f, 0 2px 8px -2px #000;
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: scale(.975) translateY(0);
+  background: #2a2b30;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  transform: none;
+}
+
+.btn.primary {
+  background: var(--rr-brand);
+  box-shadow: inset 0 0 0 1px #ffffff1f;
+  color: #fff;
+}
+
+.btn.primary:hover {
+  background: #f22a24;
+  box-shadow: inset 0 0 0 1px #ffffff29, 0 4px 14px -6px #e1060080;
+}
+
+.btn.primary:active {
+  background: #c90500;
+}
+
+.btn.sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  gap: 6px;
+}
+
+.btn[aria-pressed="true"] {
+  background: #1c2b42;
+  color: #fff;
+  box-shadow: inset 0 0 0 1.5px #669df1;
+}
+
+.btn[aria-pressed="true"]:hover {
+  background: #22344f;
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: .45;
+  transform: none;
+}
+
+/* ── hero ───────────────────────────────────────────────────────────────── */
+
+.hero {
+  min-height: min(80svh, 780px);
+  align-items: center;
+}
+
+.hero-flag {
+  display: none;
+}
+
+.hero-layer {
+  inset: 0;
+}
+
+.hero-layer img {
+  filter: saturate(1.05) contrast(1.02) brightness(.62);
+}
+
+.hero::before {
+  background: linear-gradient(180deg, #0e0f11cc 0%, #0e0f1166 32%, #0e0f11d9 78%, var(--ink) 100%);
+}
+
+.hero::after {
+  background: linear-gradient(94deg, #0e0f11e6 0%, #0e0f1173 44%, transparent 76%);
+}
+
+.hero-inner {
+  padding: 96px clamp(16px, 3vw, 32px) 56px;
+  max-width: var(--maxw);
+}
+
+.hero h1 {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: -.04em;
+  font-size: clamp(2.4rem, 6.4vw, 4.6rem);
+  line-height: 1.02;
+  margin: 14px 0 0;
+  color: #fff;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--rr-brand);
+  -webkit-text-stroke: 0;
+}
+
+.hero-sub {
+  max-width: 560px;
+  margin-top: 16px;
+  color: var(--rr-fg-2);
+  font-size: clamp(.92rem, 1.4vw, 1rem);
+  line-height: 1.6;
+}
+
+.hero-meta {
+  margin-top: 22px;
+  gap: 8px;
+}
+
+/* The countdown is a status chip, not a warning: quiet surface, white figure. */
+.pill.next {
+  background: #ffffff0d;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill.next:hover {
+  background: #ffffff17;
+}
+
+.hero-cta {
+  margin-top: 26px;
+  gap: 10px;
+}
+
+.hero .btn,
+.btn.hero-btn {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--r-xs);
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  gap: 8px;
+}
+
+.btn.hero-btn::before,
+.btn.hero-btn::after {
+  display: none;
+}
+
+.btn.hero-btn {
+  background: var(--surface-2);
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff1f;
+  color: #fff;
+}
+
+.btn.hero-btn:hover {
+  background: var(--surface-3);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px #ffffff29, 0 4px 14px -8px #000;
+  transform: translateY(-1px);
+}
+
+.btn.hero-btn.primary {
+  background: var(--rr-brand);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px #ffffff29;
+  color: #fff;
+}
+
+.btn.hero-btn.primary:hover {
+  background: #f22a24;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px #ffffff33, 0 6px 18px -8px #e1060099;
+}
+
+.scroll-hint {
+  display: none;
+}
+
+/* ── ticker ─────────────────────────────────────────────────────────────── */
+
+.ticker {
+  height: 38px;
+  background: var(--ink-2);
+  border-top: 1px solid #ffffff0a;
+  border-bottom: 1px solid #ffffff0a;
+}
+
+.ticker span {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--rr-fg-3);
+}
+
+.ticker span::before {
+  background: var(--rr-brand);
+}
+
+/* ── cards and lists ────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r);
+  box-shadow: var(--ring);
+  transition: box-shadow .2s var(--ease), background-color .2s var(--ease);
+}
+
+.card::before {
+  display: none;
+}
+
+.card:hover {
+  box-shadow: var(--ring-hover);
+}
+
+/* section-level reveal stays, just quieter and quicker */
+.rv {
+  transform: translateY(18px);
+  transition: opacity .55s var(--ease), transform .55s var(--ease);
+}
+
+/* driver grid */
+.dcard {
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--ring);
+  transition: box-shadow .2s var(--ease), transform .2s var(--ease), background-color .2s var(--ease);
+}
+
+.dcard::before {
+  border-radius: var(--r);
+}
+
+.dcard:hover {
+  background: var(--surface-2);
+  box-shadow: var(--ring-hover);
+  transform: translateY(-2px);
+}
+
+.dcard:active {
+  transform: scale(.99);
+}
+
+.dcard:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.dcard .dname {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 650;
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+  text-transform: none;
+}
+
+.dcard .dname small {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+}
+
+.dcard .dteam {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+}
+
+.dcard .dpts {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+
+.dnum {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: -.02em;
+}
+
+.dpos,
+.fbadge {
+  border-radius: var(--r-xs);
+}
+
+/* standings */
+.rows {
+  gap: 2px;
+}
+
+.row,
+.rrow {
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  box-shadow: none;
+  transition: background-color .16s var(--ease), transform .16s var(--ease), box-shadow .16s var(--ease);
+}
+
+.row {
+  padding: 11px 14px;
+}
+
+.row:hover,
+.rrow:hover {
+  background: #ffffff0a;
+  border-color: transparent;
+  transform: none;
+  box-shadow: none;
+}
+
+.row::before,
+.rrow::before {
+  display: none;
+}
+
+.row.p1 {
+  background: linear-gradient(90deg, #e106001f, #e1060000 55%);
+  box-shadow: inset 0 0 0 1px #e1060033;
+}
+
+.row .pos,
+.rrow .pos {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rr-fg-3);
+}
+
+.row.p1 .pos {
+  color: #fd9891;
+}
+
+.row .who b,
+.who b {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: -.005em;
+}
+
+.who small {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+}
+
+.row .pts,
+.pts {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #fff;
+}
+
+.pts small {
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  color: var(--rr-fg-3);
+}
+
+.rrow .rtime {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* tabs, segments, chips */
+.tabs {
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--r-xs);
+  background: #ffffff0a;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+}
+
+.tab {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 13px;
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-weight: 550;
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+  transition: background-color .16s var(--ease), color .16s var(--ease), transform .12s var(--ease);
+}
+
+.tab:hover {
+  color: #fff;
+  background: #ffffff0f;
+  border-color: transparent;
+}
+
+.tab.active {
+  background: #ffffff1a;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+}
+
+.tab:active {
+  transform: scale(.97);
+}
+
+.seg {
+  border-radius: var(--r-xs);
+  background: #ffffff0a;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+  padding: 3px;
+}
+
+.seg-btn {
+  border-radius: 6px;
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 12.5px;
+  transition: background-color .16s var(--ease), color .16s var(--ease);
+}
+
+.seg-btn.active {
+  background: #ffffff1a;
+  color: #fff;
+  box-shadow: none;
+}
+
+.chip {
+  border-radius: var(--r-xs);
+  background: #ffffff0a;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: background-color .16s var(--ease), color .16s var(--ease), transform .12s var(--ease);
+}
+
+.chip:hover {
+  background: #ffffff14;
+  color: #fff;
+  transform: none;
+}
+
+.chip.active {
+  background: #1c2b42;
+  color: #fff;
+  box-shadow: inset 0 0 0 1.5px #669df1;
+}
+
+/* selects */
+select {
+  border-radius: var(--r-xs);
+  background-color: var(--surface-2);
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff12;
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 13px;
+  transition: box-shadow .16s var(--ease), background-color .16s var(--ease);
+}
+
+select:hover {
+  background-color: var(--surface-3);
+  box-shadow: inset 0 0 0 1px #ffffff1f;
+}
+
+select:focus {
+  box-shadow: inset 0 0 0 1px var(--focus), 0 0 0 3px #8fb8f626;
+}
+
+.select-trigger {
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff12;
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 13px;
+  transition: box-shadow .16s var(--ease), background-color .16s var(--ease);
+}
+
+.select-trigger:hover {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px #ffffff1f;
+}
+
+.select-trigger:focus-visible,
+.select-trigger[aria-expanded="true"] {
+  box-shadow: inset 0 0 0 1px var(--focus), 0 0 0 3px #8fb8f626;
+}
+
+.select-menu {
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 0;
+  box-shadow: 0 0 0 1px #ffffff1f, 0 12px 28px -8px #000c;
+}
+
+.select-option {
+  border-radius: 6px;
+  font-family: 'Geist', 'Inter', sans-serif;
+  transition: background-color .12s var(--ease), color .12s var(--ease);
+}
+
+.select-option:hover,
+.select-option:focus-visible {
+  background: #ffffff12;
+}
+
+.select-option[aria-selected="true"] {
+  background: #1c2b42;
+  color: #fff;
+}
+
+.sel label {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+}
+
+/* watch rails + sources keep the new radii */
+.wsources,
+.side-card {
+  border-radius: var(--r);
+}
+
+.wplayer {
+  border-radius: var(--r);
+}
+
+/* ── news, race times, replays ──────────────────────────────────────────── */
+
+.news-item,
+.race-time-item,
+.rt-row {
+  border: 0;
+  border-radius: var(--r-sm);
+  transition: background-color .16s var(--ease), transform .16s var(--ease);
+}
+
+.news-item:hover,
+.rt-row:hover {
+  background: #ffffff0a;
+  transform: none;
+}
+
+.news-tag,
+.news-date,
+.news-meta {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--rr-fg-3);
+}
+
+.news-item h3,
+.news-item:first-child h3 {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 620;
+  letter-spacing: -.015em;
+  text-transform: none;
+}
+
+.rt-time {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: .02em;
+}
+
+.rt-name {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.rt-day,
+.rt-mon,
+.rt-date {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  letter-spacing: .02em;
+}
+
+.lc-copy h3 {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 650;
+  font-size: 15px;
+  letter-spacing: -.015em;
+  text-transform: none;
+}
+
+.lc-copy p,
+.race-times-note,
+.rp-sub,
+.news-item p,
+.dp-bio,
+.dp-note {
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+}
+
+.rp-rows .rp-row {
+  border: 0;
+  border-radius: var(--r-sm);
+  transition: background-color .16s var(--ease);
+}
+
+.rp-rows .rp-row:hover,
+.rp-rows .rp-row.is-active {
+  background: #ffffff0d;
+  transform: none;
+}
+
+.rp-play,
+.rp-frame,
+.rp-stage {
+  border-radius: var(--r-sm);
+}
+
+.rp-title {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 620;
+  letter-spacing: -.015em;
+  text-transform: none;
+}
+
+.rp-note {
+  color: var(--dim);
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── modals ─────────────────────────────────────────────────────────────── */
+
+.modal {
+  background: #05050699;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.sheet {
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r);
+  box-shadow: 0 0 0 1px #ffffff14, 0 32px 64px -24px #000e;
+}
+
+.sheet::before {
+  display: none;
+}
+
+.sheet-head {
+  border-bottom: 1px solid #ffffff0f;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+.sheet-head h2 {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+
+.x {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-xs);
+  background: #ffffff0d;
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+  color: var(--rr-fg-2);
+  font-size: 18px;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  transition: background-color .16s var(--ease), color .16s var(--ease), transform .12s var(--ease);
+}
+
+.x:hover {
+  background: #ffffff1a;
+  color: #fff;
+  transform: none;
+}
+
+.x:active {
+  transform: scale(.94);
+}
+
+/* accordions and long-form panels */
+.acc-item {
+  border-radius: var(--r-sm);
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+  background: #ffffff05;
+  transition: background-color .16s var(--ease), box-shadow .16s var(--ease);
+}
+
+.acc-item:hover {
+  background: #ffffff0a;
+  box-shadow: inset 0 0 0 1px #ffffff12;
+}
+
+.acc-item.active {
+  background: #ffffff0d;
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+}
+
+.acc-q {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 13.5px;
+}
+
+.acc-a-in p,
+.acc-a-in li {
+  color: var(--rr-fg-2);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.stamp {
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+  font-size: 12px;
+}
+
+/* team picker + driver profile */
+.tcard,
+.dp-card,
+.dp-tile {
+  border-radius: var(--r-sm);
+}
+
+.tcard {
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff0f;
+  background: #ffffff05;
+  transition: background-color .16s var(--ease), box-shadow .16s var(--ease), transform .16s var(--ease);
+}
+
+.tcard:hover {
+  background: #ffffff0f;
+  box-shadow: inset 0 0 0 1px #ffffff1f;
+  transform: translateY(-2px);
+}
+
+.tcard.on {
+  box-shadow: inset 0 0 0 1.5px var(--tc, var(--rr-brand));
+}
+
+.tname {
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.dp-name {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  text-transform: none;
+}
+
+.dp-name small {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.dp-eyebrow {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .1em;
+  color: var(--rr-fg-3);
+}
+
+.dp-tile {
+  background: #ffffff08;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+}
+
+.dp-tile b {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  letter-spacing: -.01em;
+}
+
+#liveryColorHex {
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff12;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.lc-swatch {
+  border-radius: 7px;
+}
+
+/* ── footer ─────────────────────────────────────────────────────────────── */
+
+footer {
+  background: var(--ink);
+  border-top: 1px solid #ffffff0f;
+}
+
+.checker {
+  display: none;
+}
+
+.foot-grid h4 {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--rr-fg-3);
+}
+
+.foot-links a,
+.foot-links button {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-2);
+  border-radius: 6px;
+  transition: color .16s var(--ease), background-color .16s var(--ease);
+}
+
+.foot-links a:hover,
+.foot-links button:hover {
+  color: #fff;
+  background: #ffffff0f;
+}
+
+.foot-note,
+.foot-copy,
+.foot-credits {
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-3);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.foot-bar .credit {
+  color: #fff;
+}
+
+.foot-diagnostics {
+  border-radius: var(--r-xs);
+  background: #ffffff0d;
+  border: 0;
+  box-shadow: inset 0 0 0 1px #ffffff0a;
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-2);
+  transition: background-color .16s var(--ease), color .16s var(--ease);
+}
+
+.foot-diagnostics:hover:not(:disabled) {
+  background: #ffffff1a;
+  color: #fff;
+}
+
+.back-home {
+  border-radius: var(--r-xs);
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rr-fg-2);
+  transition: color .16s var(--ease), background-color .16s var(--ease);
+}
+
+.back-home:hover {
+  color: #fff;
+}
+
+/* Every italic in the old cockpit was a stylistic signature. rerace has none,
+   so this one line retires the look everywhere it survived (fallback art,
+   numbers, sheet titles, the discord lockup) without hunting each selector. */
+.display,
+.nostream h3,
+.dfall,
+.dnum,
+.shot-num,
+.shot-name,
+.pos,
+.pts,
+.rp-event,
+.rp-session,
+.tbadge,
+.dp-fall,
+.dp-tile b,
+.panel-head h2,
+.discord-brand b,
+.discord-title,
+.stage-override-pill,
+.fbadge,
+.dpos,
+.rp-count,
+.rp-play,
+.wplayer-live {
+  font-style: normal !important;
+}
+
+/* discord view */
+.discord-card {
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--ring);
+}
+
+.discord-title {
+  font-family: 'Geist', 'Inter', sans-serif;
+  font-style: normal;
+  font-weight: 680;
+  letter-spacing: -.02em;
+  text-transform: none;
+  color: #fff;
+}
+
+.discord-brand b {
+  font-family: 'Zen Dots', 'Geist', sans-serif;
+  font-weight: 400;
+  letter-spacing: .01em;
+}
+
+.discord-card {
+  background: var(--surface);
+  border: 0;
+  box-shadow: var(--ring);
+}
+
+.discord-join {
+  border-radius: var(--r-xs);
+  font-family: 'Geist', 'Inter', sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
+  height: 40px;
+}
+
+.discord-url {
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--rr-fg-3);
+}
+
+.discord-text {
+  font-family: 'Geist', 'Inter', sans-serif;
+  color: var(--rr-fg-2);
+  letter-spacing: 0;
+}
+
+/* ── focus ──────────────────────────────────────────────────────────────── */
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ── motion ─────────────────────────────────────────────────────────────── */
+
+@media (hover: none) {
+  .btn:hover,
+  .card:hover,
+  .dcard:hover,
+  .row:hover,
+  .tcard:hover,
+  .chip:hover,
+  .pill:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+
+  .rv {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .nav {
+    height: 54px;
+  }
+
+  .hero {
+    min-height: min(78svh, 620px);
+  }
+
+  .hero h1 {
+    font-size: clamp(2.1rem, 9vw, 3rem);
+  }
+
+  .sec-head h2,
+  .watch-head h2 {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+  }
+}
