@@ -5,7 +5,7 @@ const cfg = JSON.parse(readFileSync(new URL('../tmp-livecfg.json', import.meta.u
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1440, height: 1000 } });
 await p.addInitScript((c) => localStorage.setItem('freef1_site_config_v2', JSON.stringify({ savedAt: Date.now(), config: c })), cfg);
-await p.goto('http://127.0.0.1:4173/#watch', { waitUntil: 'domcontentloaded' });
+await p.goto('https://freef1.netlify.app/#watch', { waitUntil: 'domcontentloaded' });
 await p.waitForTimeout(6000);
 const wanted = Object.entries(cfg.sources.overrides);
 for (const [id, o] of wanted) {

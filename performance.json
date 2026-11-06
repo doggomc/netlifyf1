@@ -1,16 +1,16 @@
 {
   "baselineCommit": "1256feb269db136d0f458589eed2d906321b1f94",
   "baselineStartupJsGzipBytes": 56093,
-  "startupJsReductionPercent": 53.9,
+  "startupJsReductionPercent": 53.8,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 25885,
+  "startupJsGzipBytes": 25897,
   "startupJsFiles": [
-    "bundles/index-NzdnGamQ.js",
+    "bundles/index-DAjn8hDP.js",
     "bundles/interaction-guard-4Vwlk-Z6.js",
     "bundles/dom-C3mHM79r.js",
     "bundles/site-config-BLjp_KD-.js"
   ],
-  "initialCssGzipBytes": 17995,
+  "initialCssGzipBytes": 17999,
   "lazyFeatures": {
     "championship": {
       "gzipBytes": 4758
@@ -28,7 +28,7 @@
       "gzipBytes": 3602
     },
     "multiviewer": {
-      "gzipBytes": 3706
+      "gzipBytes": 3684
     }
   }
 }

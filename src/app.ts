@@ -690,6 +690,9 @@ const eventSelect = $("eventSelect");
 const sessionSelect = $("sessionSelect");
 const linksEl = $("links");
 const playerEl = $("player");
+/* The frame belongs inside the stage: appended to the card it rendered at the browser's default
+   300x150 in the corner (the "very small window"). All mounting goes through this one element. */
+const stageBox = playerEl?.querySelector(".wplayer-stage");
 const loaderEl = $("loader");
 const noStreamEl = $("noStream");
 const badgeEl = $("badge");
@@ -1456,7 +1459,7 @@ function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
     else advance();
   }, NAV_TIMEOUT_MS);
 
-  playerEl?.appendChild(f);
+  stageBox?.appendChild(f);
   setStreamOnScreen(true);
 }
 
@@ -1536,7 +1539,7 @@ function load() {
         showNoStream({ text: BLOCKED_COPY });
       }, NAV_TIMEOUT_MS);
     }
-    playerEl?.appendChild(f);
+    stageBox?.appendChild(f);
     setStreamOnScreen(true);
     return;
   }

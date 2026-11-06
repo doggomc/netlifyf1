@@ -113,8 +113,12 @@ export function init(ctx: any) {
      stream list carries the other sports on the same host, and a grid that can open a basketball
      feed under an F1 label is exactly the wrong-sport failure we do not ship. A dark F1 feed stays
      listed (it says "off air") instead of mounting a player that could only show black. */
+  /* Every weelo feed Race Control has left enabled is offered, whether it is up or not: an onboard
+     that is dark this minute is the feed you want two minutes later, and hiding it just meant the
+     grid could never hold more than the couple of feeds that happened to be live. Dark ones are
+     labelled "off air" and still mount, so nothing has to be re-added by hand. */
   const streams = (): WeeloStream[] => (ctx.sources || [])
-    .filter((s: any) => s.weelo && !s.hidden && (!s.lang || s.lang === 'en' || s.special))
+    .filter((s: any) => s.weelo && !s.hidden)
     .map((s: any) => ({ id: s.weelo, label: s.label, live: !ctx.isSpecialDown(s) }));
 
 
