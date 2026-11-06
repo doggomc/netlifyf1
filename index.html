@@ -111,7 +111,8 @@
     <div class="watch-main">
 
       <div class="watch-head">
-        <p class="watch-h1">Formula 1</p>
+        <span class="eyebrow">Broadcast Control</span>
+        <h2 class="watch-h1">The <span class="accent">Cockpit</span></h2>
       </div>
 
       <div class="wplayer" id="player">
@@ -138,7 +139,6 @@
         <div class="wplayer-actions-main" id="stageActions">
           <button class="btn sm" id="mvToggle" type="button" title="Watch several weelo feeds at once" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Multiview</span></button>
           <button class="btn sm" id="theaterBtn" type="button" title="Fill the window with the stream" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg><span>Theater</span></button>
-          <button class="btn sm" id="championshipBtn">Championship</button>
           <button class="btn sm" id="sessionsBtn">Session Results</button>
           <button class="btn sm" id="teamSelectBtn">Team Livery</button>
           <button class="btn sm" id="raceTimesBtn">Race Times</button>
@@ -197,13 +197,12 @@
     <aside class="watch-side" aria-label="Session info">
       <div class="side-card">
         <p class="side-h">Now playing</p>
-        <p class="side-sub" id="sourceLabel">SOURCE · F1TV</p>
-        <p class="side-sub" id="sideClock">--:--</p>
+        <p class="side-now" id="sourceLabel">F1TV</p>
       </div>
-      <div class="side-card">
-        <p class="side-h">Championship</p>
-        <ol class="side-list" id="watchStandings"><li>Loading…</li></ol>
-      </div>
+      <button class="side-card side-link" id="standingsBtn" type="button">
+        <span><b>Championship</b><small>Standings and points</small></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </button>
       <a class="side-card side-link" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener">
         <span><b>Live chat on Discord</b><small>Stream status and race chat</small></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>

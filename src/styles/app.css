@@ -216,6 +216,7 @@ img {
                           A non-1 opacity mid-transition also forms a stacking context, so
                           the reveal is force-settled while a stream is on screen.   ✓ */
 #watch {
+  scroll-margin-top: 30px;
   z-index: auto;
   content-visibility: visible;
   contain: none;
@@ -5547,9 +5548,9 @@ body.view-swapping {
 
 .watch-main { min-width: 0; display: grid; gap: 18px; }
 
-/* The one line above the window. It is exactly one row tall, and the rail is pulled up by that row
-   plus the gap so "Now playing" is level with the top of the player. */
-.watch-head { display: flex; align-items: center; min-height: 36px; }
+/* The head above the window: the eyebrow over the title, as the page always had it. Its measured
+   height is what the rail is offset by, so "Now playing" stays level with the top of the player. */
+.watch-head { display: grid; gap: 2px; min-height: 44px; align-content: center; }
 
 .watch-h1 {
   margin: 0;
@@ -5732,7 +5733,7 @@ body.view-swapping {
 .wsources-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .wsources-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
 
-.wsource-list { display: grid; gap: 8px; }
+.wsource-list { display: grid; gap: 2px; }
 
 /* Every source row enters on its own beat, so a tab switch reads as the list rebuilding rather than
    three rows swapping labels. */
@@ -5753,10 +5754,10 @@ body.view-swapping {
   width: 100%;
   min-height: 46px;
   height: auto;
-  padding: 8px 16px;
+  padding: 7px 10px;
   border: 0;
-  border-radius: 999px;
-  background: #ceced912;
+  border-radius: 8px;
+  background: transparent;
   color: var(--rr-fg);
   font: 600 13.5px 'Inter', system-ui, sans-serif;
   letter-spacing: 0;
@@ -5770,7 +5771,7 @@ body.view-swapping {
 
 .wsource-list > button.chip:hover,
 .wsource-list .special-row button.chip:hover {
-  background: #ffffff1f;
+  background: #ffffff12;
   color: #fff;
   border-color: transparent;
   transform: translateY(-1px);
@@ -5778,9 +5779,9 @@ body.view-swapping {
 
 .wsource-list > button.chip.active,
 .wsource-list .special-row button.chip.active {
-  background: #1c2b42;
+  background: #ffffff14;
   color: #fff;
-  box-shadow: inset 0 0 0 2px #669df1;
+  box-shadow: inset 2px 0 0 #e10600;
 }
 
 .wsource-list > button.chip:active { transform: translateY(0) scale(.995); }
@@ -5805,9 +5806,9 @@ body.view-swapping {
 .wsource-list .special-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  margin-top: 6px;
-  padding-top: 14px;
+  gap: 2px;
+  margin-top: 4px;
+  padding-top: 10px;
   border-top: 1px solid #ffffff0f;
 }
 
@@ -5854,9 +5855,8 @@ body.view-swapping {
   top: 72px;
   display: grid;
   gap: 14px;
-  /* Down one head row plus one gap: "Now playing" lines up with the top of the stream window,
-     whatever the head's line box measures. */
-  margin-top: calc(36px + 18px);
+  /* Down one head row plus one gap: "Now playing" lines up with the top of the stream window. */
+  margin-top: calc(49px + 18px);
 }
 
 .side-card {
@@ -5864,6 +5864,14 @@ body.view-swapping {
   gap: 6px;
   animation: fadeUp .45s var(--ease) backwards;
   padding: 16px;
+  /* A button in the rail is a card, not a control: the UA border and chrome are stripped. */
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  width: auto;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
   border-radius: 20px;
   background: var(--rr-ink-850);
   box-shadow: var(--rr-ring);
@@ -5874,6 +5882,7 @@ body.view-swapping {
 
 .side-h { margin: 0; font-size: 12px; font-weight: 650; color: var(--rr-fg-3); }
 .side-sub { margin: 0; font: 500 11.5px 'JetBrains Mono', monospace; letter-spacing: .06em; color: var(--rr-fg-3); text-transform: uppercase; }
+.side-now { margin: 0; font: 650 15px 'Inter', system-ui, sans-serif; color: #fff; }
 
 .side-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .side-list li {
@@ -5974,6 +5983,12 @@ body.theater .wplayer-actions {
 body.theater .watch-selects { flex: none; width: 420px; max-width: 100%; }
 
 body.theater .wplayer-actions-main { max-width: 100%; width: 100%; justify-content: center; }
+
+/* Theater is for watching: Championship, results, livery, race times and radio stay on the page. */
+body.theater #sessionsBtn,
+body.theater #teamSelectBtn,
+body.theater #raceTimesBtn,
+body.theater #radioRcBtn { display: none; }
 
 /* Every source stays, in a rail pinned to the right edge of the theater. It is out of the flow, so
    a long list can never push the window or the controls off the screen. */
@@ -6095,3 +6110,76 @@ body.theater #theaterBtn { background: #1c2b42; box-shadow: inset 0 0 0 2px #669
 .btn.hero-btn.primary::before { background: #fff; }
 
 .btn.hero-btn.primary:hover { color: var(--ink); background: var(--team); }
+
+/* ── The grid toolbar, in rerace's language ──
+   38px white-on-glass pill buttons, a 999px segmented control for Grid/Focus whose chosen half goes
+   solid white, and a white "Add" that is the one action on the bar with a fill. */
+.mvx-bar { align-items: center; gap: 8px; }
+
+.mvx-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.mvx-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff14;
+  color: #fff;
+  font: 600 13px 'Inter', system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: background-color .2s var(--ease), transform .2s var(--rr-spring);
+}
+
+.mvx-btn svg { width: 16px; height: 16px; }
+.mvx-btn:hover { background: #ffffff26; color: #fff; border-color: transparent; transform: translateY(-1px); }
+.mvx-btn:active { transform: scale(.96); }
+
+.mvx-add {
+  background: #fff;
+  color: #000;
+  padding: 0 14px;
+  font-weight: 650;
+}
+
+.mvx-add:hover { background: #e8e8ea; color: #000; }
+
+.mvx-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #ffffff14;
+}
+
+.mvx-seg button {
+  height: 32px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--rr-fg-2, #a9abaf);
+  font: 600 13px 'Inter', system-ui, sans-serif;
+  transition: background-color .2s var(--ease), color .2s var(--ease);
+}
+
+.mvx-seg button:hover { color: #fff; }
+.mvx-seg button[aria-pressed="true"] { background: #fff; color: #000; }
+.mvx-seg button svg { width: 15px; height: 15px; }
+
+.mvx-modes { display: none; }
+
+@media (max-width: 760px) {
+  .mvx-btn { min-width: 34px; height: 34px; }
+  .mvx-seg button { padding: 0 10px; }
+  .mvx-seg span, .mvx-add span { display: none; }
+}

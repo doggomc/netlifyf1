@@ -69,13 +69,15 @@ export function init(ctx: any) {
   panel.innerHTML = `
     <div class="mvx-bar">
       <span class="mvx-title">Multi-viewer <b class="mvx-count" data-mvx-count>0</b></span>
-      <div class="mvx-modes" role="group" aria-label="Layout">
-        <button type="button" class="mvx-btn is-on" data-mvx-mode="grid" title="Grid">${icon('grid')}<span>Grid</span></button>
-        <button type="button" class="mvx-btn" data-mvx-mode="focus" title="Focus the main tile">${icon('expand')}<span>Focus</span></button>
+      <div class="mvx-seg" role="group" aria-label="Layout">
+        <button type="button" aria-pressed="true" data-mvx-mode="grid" title="Grid">${icon('grid')}<span>Grid</span></button>
+        <button type="button" aria-pressed="false" data-mvx-mode="focus" title="Focus the main tile">${icon('expand')}<span>Focus</span></button>
       </div>
-      <button type="button" class="mvx-btn mvx-add" data-mvx-open-lib>${icon('plus')}<span>Add feed</span></button>
-      <button type="button" class="mvx-btn" data-mvx-full title="Full screen">${icon('expand')}</button>
-      <button type="button" class="mvx-btn mvx-close" data-mvx-close title="Leave grid">${icon('close')}</button>
+      <div class="mvx-actions">
+        <button type="button" class="mvx-btn mvx-add" data-mvx-open-lib>${icon('plus')}<span>Add</span></button>
+        <button type="button" class="mvx-btn" data-mvx-full title="Full screen">${icon('expand')}</button>
+        <button type="button" class="mvx-btn mvx-close" data-mvx-close title="Leave grid">${icon('close')}</button>
+      </div>
     </div>
     <div class="mvx-stage"><div class="mvx-tiles" data-mvx-tiles></div>
       <aside class="mvx-lib" data-mvx-lib hidden>
@@ -346,6 +348,9 @@ export function init(ctx: any) {
   ro.observe(stageEl);
 
   panel.querySelector('[data-mvx-close]')!.addEventListener('click', () => show(false));
+  /* Closing the panel any other way (Escape, the app's own close) must also unpress the button, so
+     the button's state is derived from the panel rather than tracked twice. */
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && open) show(false); });
   panel.querySelector('[data-mvx-open-lib]')!.addEventListener('click', () => library(true));
   panel.querySelector('[data-mvx-lib-close]')!.addEventListener('click', () => library(false));
   panel.querySelector('[data-mvx-full]')!.addEventListener('click', () => {
@@ -355,7 +360,10 @@ export function init(ctx: any) {
   panel.querySelectorAll<HTMLElement>('[data-mvx-mode]').forEach((b) => {
     b.addEventListener('click', () => {
       mode = b.dataset.mvxMode === 'focus' ? 'focus' : 'grid';
-      panel.querySelectorAll('[data-mvx-mode]').forEach((o) => o.classList.toggle('is-on', o === b));
+      panel.querySelectorAll('[data-mvx-mode]').forEach((o) => {
+        o.classList.toggle('is-on', o === b);
+        o.setAttribute('aria-pressed', String(o === b));
+      });
       relayout();
     });
   });
@@ -409,7 +417,7 @@ export function init(ctx: any) {
     const forced = () => testMode === 'live';
     ctx.isSpecialDown = () => !forced();
   }
-  const api = { show, isOpen: () => open, picked: () => [...ids], add, remove, wireToggle };
+  const api = { show, toggle: () => show(!open), isOpen: () => open, picked: () => [...ids], add, remove, wireToggle };
   ctx.multiViewer = api;
   return api;
 }

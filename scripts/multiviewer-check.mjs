@@ -283,7 +283,9 @@ const state = (page) => page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
       btnHeight: Math.round(btn.getBoundingClientRect().height),
       btnWidth: Math.round(btn.getBoundingClientRect().width),
-      rowHeight: Math.round(document.querySelector('#championshipBtn').getBoundingClientRect().height),
+      /* Championship moved out of the action row into the info rail, so the row's own height is
+         measured from whichever control is beside Multiview. */
+      rowHeight: Math.round((document.querySelector('#sessionsBtn') || document.querySelector('#stageActions .btn')).getBoundingClientRect().height),
       barOverflow: bar.scrollWidth > bar.clientWidth + 1,
       tiles: tiles.length,
       inStage: tiles.every((t) => t.width > 60 && t.height > 30),

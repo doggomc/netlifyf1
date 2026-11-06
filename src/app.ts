@@ -1123,7 +1123,12 @@ function openMultiViewer() {
   void (multiviewer ??= import('./features/multiviewer').then((m) => m.init(featureContext))).then((m) => m?.show(true));
 }
 
-$('mvToggle')?.addEventListener('click', openMultiViewer);
+/* The same button closes the grid it opened. Once the chunk is loaded it is asked to toggle; the
+   chunk decides whether there is anything to grid (Race Control can turn every weelo feed off). */
+$('mvToggle')?.addEventListener('click', () => {
+  if (multiviewer) void multiviewer.then((m) => m?.toggle());
+  else openMultiViewer();
+});
 
 /* Theater mode: the window fills the viewport, the rail and sources step aside. Escape puts it back. */
 const theaterBtn = $('theaterBtn');
@@ -2620,7 +2625,8 @@ try { if (JSON.parse(store.get(RADIO_RC_STORE_KEY) || '{}').open) onIdle(() => l
 lazyButton('copyDiagnosticsBtn', () => import('./features/diagnostics').then(m => m.init(featureContext)));
 if (!liteMotion) onIdle(() => import('./features/canvas').then(m => m.init(featureContext)));
 
-$("championshipBtn")?.addEventListener("click", () => {
+/* Championship sits in the rail, not beside the stream window. */
+$("standingsBtn")?.addEventListener("click", () => {
   void loadChampionship().catch(() => {});
   $("standings")?.scrollIntoView({ behavior: reduceMotion ? 'instant' : 'smooth' });
 });
