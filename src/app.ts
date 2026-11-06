@@ -1062,8 +1062,13 @@ const inTab = (s: StreamSource, tab = sourceTab) => tab === 'all' || (s.lang || 
 /* weelo says 'online' or 'soon' for a feed worth opening; 'offline' and 'dark' are not. */
 /* weelo's event feed names the live ids for the current race; its status map is a stale cache that
    says 'dark' for everything. The event feed wins when it knows the id. */
+const isPasted = (s: StreamSource) => s?.links?.[0]?.provider === 'custom';
+
 const specialState = (s: StreamSource) => {
-  if (s.custom) return 'live';
+  /* Derived from the links themselves, not from a flag set later: the chips are drawn before any
+     pool is built, so a cached flag was still false when the row was painted and every pasted weelo
+     chip came out marked dark. */
+  if (isPasted(s)) return 'live';
   const known = s.weelo ? catalogues.weeloEvents[s.weelo] : undefined;
   if (known) return known.live ? 'live' : 'offline';
   return (s.weelo && catalogues.weelo[s.weelo]) || '';
@@ -1112,9 +1117,9 @@ function renderButtons() {
     }
     b.textContent = s.label;
     b.onclick = async () => {
-      if (!s.custom && specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
+      if (!isPasted(s) && specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
       /* The 4K chip asks once whether they want session alerts before playing. */
-      if (s.gated && !isCustom(i)) return chooseFourK();
+      if (s.gated && !isPasted(s) && !isCustom(i)) return chooseFourK();
       currentSource = i;
       renderButtons();
       updateHeader();

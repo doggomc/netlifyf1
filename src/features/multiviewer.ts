@@ -121,7 +121,8 @@ export function init(ctx: any) {
      grid could never hold more than the couple of feeds that happened to be live. Dark ones are
      labelled "off air" and still mount, so nothing has to be re-added by hand. */
   const streams = (): WeeloStream[] => (ctx.sources || [])
-    .filter((s: any) => s.weelo && !s.hidden)
+    /* A pasted link outlives Race Control's weelo switches: it is an address someone chose. */
+    .filter((s: any) => s.weelo && (!s.hidden || s.links?.[0]?.provider === 'custom'))
     .map((s: any) => {
       const pasted = s.links?.[0]?.provider === 'custom' ? String(s.links[0].url || '') : '';
       return { id: s.weelo, label: s.label, live: pasted ? true : !ctx.isSpecialDown(s), pasted };
