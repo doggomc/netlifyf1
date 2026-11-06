@@ -879,6 +879,7 @@ function updateHeader() {
   normalizeCurrentSource();
   const src = sources[currentSource] || { id: "none", label: "-" };
   if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
+  /* The session line under the player: the same facts the hero carries, where the video is. */
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
