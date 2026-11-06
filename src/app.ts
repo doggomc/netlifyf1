@@ -881,6 +881,7 @@ function updateHeader() {
   if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
   /* The session line under the player: the same facts the hero carries, where the video is. */
   if (sourceLabel) sourceLabel.textContent = "SOURCE · " + src.label.toUpperCase();
+  /* The watch head reads off the same values the hero already uses. */
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
 }
 

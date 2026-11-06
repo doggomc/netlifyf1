@@ -467,7 +467,8 @@ if (false) {
     await page.setViewportSize({ width, height });
     await page.waitForTimeout(1800);
     const fit = await page.evaluate(() => {
-      const card = document.querySelector('#links').closest('.card').getBoundingClientRect();
+      /* The sources live in their own band on the watch page, not inside a card. */
+      const card = (document.querySelector('#links').closest('.card') || document.querySelector('.wsources') || document.querySelector('#links').parentElement).getBoundingClientRect();
       const row = document.querySelector('#links .special-row');
       const chips = [...document.querySelectorAll('#links .special-row .chip')];
       return {

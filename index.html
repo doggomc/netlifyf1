@@ -106,95 +106,110 @@
 </div>
 
 <!-- ══ WATCH ══ -->
-<section class="sec" id="watch">
-  <div class="wrap">
-    <div class="sec-head rv">
-      <div>
-        <span class="eyebrow">Broadcast Control</span>
-        <h2>The <span class="accent">Cockpit</span></h2>
-        <div class="rule" style="width:120px"></div>
-      </div>
-      <div class="pill mono" id="sourceLabel">SOURCE · F1TV</div>
-    </div>
+<section class="sec watch-sec" id="watch">
+  <div class="wrap wrap-wide watch-grid">
+    <div class="watch-main">
 
-    <div class="stage rv d2">
-      <div class="stage-bar">
-        <div class="tl"><i></i><i></i><i></i></div>
-        <div class="label" id="stageLabel">freef1://live/hungary/qualifying</div>
-        <div class="stage-override-pill inactive" id="overridePill">Stream Override · No Current Live Sessions</div>
-      </div>
-      <div class="player" id="player">
-        <div class="overlay" id="loader"><div class="spinner"></div><span class="lt" id="loaderText">Establishing feed…</span></div>
-        <div class="nostream" id="noStream">
-          <h3 id="noStreamTitle">Not on air yet</h3>
-          <p id="noStreamText">You are early. Live video starts shortly before the session begins.</p>
-          <div class="ns-actions" id="nsActions" hidden>
-            <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
-            <button class="btn sm" id="nsNextBtn" type="button">Try next feed</button>
-            <button class="btn sm" id="nsStayBtn" type="button" hidden>Stay on this page</button>
+      <header class="watch-hero">
+        <p class="watch-kicker">Formula 1<span class="watch-round" id="watchRound">Round 20</span></p>
+        <h1 class="watch-h1" id="watchTitle">Formula 1 live stream</h1>
+        <p class="watch-sub" id="watchSub">Live timing, every source, one window.</p>
+      </header>
+
+      <div class="wplayer" id="player">
+        <div class="wplayer-bar">
+          <span class="wplayer-dot" aria-hidden="true"><i></i></span>
+          <span class="wplayer-path" id="stageLabel">freef1://live</span>
+          <span class="wplayer-live" id="overridePill">Stream Override · No Current Live Sessions</span>
+        </div>
+        <div class="wplayer-stage">
+          <div class="overlay" id="loader"><div class="spinner"></div><span class="lt" id="loaderText">Establishing feed…</span></div>
+          <div class="nostream" id="noStream">
+            <h3 id="noStreamTitle">Not on air yet</h3>
+            <p id="noStreamText">You are early. Live video starts shortly before the session begins.</p>
+            <div class="ns-actions" id="nsActions" hidden>
+              <button class="btn sm" id="nsRetryBtn" type="button">Retry</button>
+              <button class="btn sm" id="nsNextBtn" type="button">Try next feed</button>
+              <button class="btn sm" id="nsStayBtn" type="button" hidden>Stay on this page</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="stage-actions rv d3">
-      <button class="btn sm" id="mvToggle" type="button" title="Watch several weelo feeds at once" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Multiview</span></button>
-      <button class="btn sm" id="championshipBtn">Championship</button>
-      <button class="btn sm" id="sessionsBtn">Session Results</button>
-      <button class="btn sm" id="teamSelectBtn">Team Livery</button>
-      <button class="btn sm" id="raceTimesBtn">Race Times</button>
-      <button class="btn sm" id="radioRcBtn" aria-expanded="false" aria-controls="radioRc">Radio &amp; Race Control</button>
-    </div>
-
-    <div class="deck rv d1">
-      <div class="card deck-box">
-        <h3>Session Selector</h3>
-        <div class="selects">
+      <div class="wplayer-actions">
+        <div class="wplayer-actions-main" id="stageActions">
+          <button class="btn sm" id="mvToggle" type="button" title="Watch several weelo feeds at once" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Multiview</span></button>
+          <button class="btn sm" id="championshipBtn">Championship</button>
+          <button class="btn sm" id="sessionsBtn">Session Results</button>
+          <button class="btn sm" id="teamSelectBtn">Team Livery</button>
+          <button class="btn sm" id="raceTimesBtn">Race Times</button>
+          <button class="btn sm" id="radioRcBtn" aria-expanded="false" aria-controls="radioRc">Radio &amp; Race Control</button>
+        </div>
+        <div class="selects watch-selects">
           <div class="sel"><label for="eventSelect">Grand Prix</label><select id="eventSelect"></select></div>
           <div class="sel"><label for="sessionSelect">Session</label><select id="sessionSelect"></select></div>
         </div>
       </div>
-      <div class="card deck-box">
-        <h3>Feed Sources</h3>
-        <div class="chips tabs" id="feedTabs" role="tablist" aria-label="Feed language"></div>
+
+      <section class="wsources" aria-labelledby="wSourcesHead">
+        <div class="wsources-head">
+          <h2 id="wSourcesHead">Stream sources</h2>
+          <div class="chips tabs" id="feedTabs" role="tablist" aria-label="Feed language"></div>
+        </div>
         <div class="chips" id="links"></div>
+      </section>
+
+      <div class="radio-rc" id="radioRc" hidden>
+        <div class="card radio-rc-card">
+          <div class="radio-rc-head">
+            <div>
+              <span class="eyebrow">Pit Wall</span>
+              <h3>Team Radio <span class="accent">&amp;</span> Race Control</h3>
+            </div>
+            <div class="radio-rc-status mono" id="radioRcStatus">Loading sessions…</div>
+            <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </div>
+          <div class="selects radio-rc-selects">
+            <div class="sel"><label for="radioRcEvent">Grand Prix</label><select id="radioRcEvent"><option>Loading…</option></select></div>
+            <div class="sel"><label for="radioRcSession">Session</label><select id="radioRcSession"><option>-</option></select></div>
+          </div>
+          <div class="radio-rc-grid">
+            <section class="radio-rc-col" aria-labelledby="radioRcRadioTitle">
+              <div class="radio-rc-col-head"><h4 id="radioRcRadioTitle">Team Radio</h4><span class="mono" id="radioRcRadioCount"></span></div>
+              <div class="radio-rc-player" id="radioRcPlayer" hidden>
+                <span class="radio-rc-player-code" id="radioRcPlayerCode">-</span>
+                <div class="radio-rc-player-meta"><b id="radioRcPlayerName">-</b><span class="mono" id="radioRcPlayerTime">-</span></div>
+                <span class="radio-rc-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+              </div>
+              <audio id="radioRcAudio" preload="none"></audio>
+              <ul class="radio-rc-list" id="radioRcRadioList"><li class="radio-rc-empty">Select a session</li></ul>
+            </section>
+            <section class="radio-rc-col" aria-labelledby="radioRcRcTitle">
+              <div class="radio-rc-col-head"><h4 id="radioRcRcTitle">Race Control</h4><span class="mono" id="radioRcRcCount"></span></div>
+              <ul class="radio-rc-list rc" id="radioRcRcList"><li class="radio-rc-empty">Select a session</li></ul>
+            </section>
+          </div>
+          <div class="radio-rc-foot mono">Timing data via <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a> (unofficial). Radio audio is served by Formula 1's live-timing CDN. Times shown in your local time.</div>
+        </div>
       </div>
+
     </div>
 
-    <!-- ══ RADIO & RACE CONTROL (OpenF1) ══ -->
-    <div class="radio-rc" id="radioRc" hidden>
-      <div class="card radio-rc-card">
-        <div class="radio-rc-head">
-          <div>
-            <span class="eyebrow">Pit Wall</span>
-            <h3>Team Radio <span class="accent">&amp;</span> Race Control</h3>
-          </div>
-          <div class="radio-rc-status mono" id="radioRcStatus">Loading sessions…</div>
-          <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="selects radio-rc-selects">
-          <div class="sel"><label for="radioRcEvent">Grand Prix</label><select id="radioRcEvent"><option>Loading…</option></select></div>
-          <div class="sel"><label for="radioRcSession">Session</label><select id="radioRcSession"><option>-</option></select></div>
-        </div>
-        <div class="radio-rc-grid">
-          <section class="radio-rc-col" aria-labelledby="radioRcRadioTitle">
-            <div class="radio-rc-col-head"><h4 id="radioRcRadioTitle">Team Radio</h4><span class="mono" id="radioRcRadioCount"></span></div>
-            <div class="radio-rc-player" id="radioRcPlayer" hidden>
-              <span class="radio-rc-player-code" id="radioRcPlayerCode">-</span>
-              <div class="radio-rc-player-meta"><b id="radioRcPlayerName">-</b><span class="mono" id="radioRcPlayerTime">-</span></div>
-              <span class="radio-rc-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-            </div>
-            <audio id="radioRcAudio" preload="none"></audio>
-            <ul class="radio-rc-list" id="radioRcRadioList"><li class="radio-rc-empty">Select a session</li></ul>
-          </section>
-          <section class="radio-rc-col" aria-labelledby="radioRcRcTitle">
-            <div class="radio-rc-col-head"><h4 id="radioRcRcTitle">Race Control</h4><span class="mono" id="radioRcRcCount"></span></div>
-            <ul class="radio-rc-list rc" id="radioRcRcList"><li class="radio-rc-empty">Select a session</li></ul>
-          </section>
-        </div>
-        <div class="radio-rc-foot mono">Timing data via <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a> (unofficial). Radio audio is served by Formula 1's live-timing CDN. Times shown in your local time.</div>
+    <aside class="watch-side" aria-label="Session info">
+      <div class="side-card">
+        <p class="side-h">Now playing</p>
+        <p class="side-sub" id="sourceLabel">SOURCE · F1TV</p>
+        <p class="side-sub" id="sideClock">--:--</p>
       </div>
-    </div>
+      <div class="side-card">
+        <p class="side-h">Championship</p>
+        <ol class="side-list" id="watchStandings"><li>Loading…</li></ol>
+      </div>
+      <a class="side-card side-link" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener">
+        <span><b>Live chat on Discord</b><small>Stream status and race chat</small></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </a>
+    </aside>
   </div>
 </section>
 

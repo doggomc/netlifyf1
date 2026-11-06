@@ -74,7 +74,8 @@ const state = (page) => page.evaluate(() => ({
   const { page, errors } = await open('');
   const info = await page.evaluate(() => {
     const btn = document.getElementById('mvToggle');
-    const row = document.querySelector('.stage-actions');
+    /* The action row keeps its id on the rebuilt watch page. */
+    const row = document.getElementById('stageActions') || document.querySelector('.stage-actions');
     const btns = [...row.querySelectorAll('.btn')].filter((b) => b.offsetParent !== null);
     const box = btn.getBoundingClientRect();
     return {

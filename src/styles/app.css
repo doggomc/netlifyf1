@@ -5513,3 +5513,372 @@ body.view-swapping {
   .mvx-modes span, .mvx-add span { display: none; }
   .mvx-lib { width: 100%; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════
+   THE COCKPIT, REBUILT ON A RERACE-STYLE WATCH LAYOUT
+   Their measurements, taken from the live watch page: a 16:9 window with a 16px
+   radius and a hairline ring, a main column beside a 340px info rail, a broadcast
+   group over an onboard face row over a data group, 36px pill buttons that lift on
+   press, and #e10600 as the only accent. Our sources, session data and controls.
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --rr-brand: #e10600;
+  --rr-ink-950: #0e0f11;
+  --rr-ink-900: #0a0b0d;
+  --rr-ink-850: #18191d;
+  --rr-ink-800: #212227;
+  --rr-fg: #cecfd2;
+  --rr-fg-2: #a9abaf;
+  --rr-fg-3: #96999e;
+  --rr-ring: 0 0 0 1px #ffffff0a;
+  --rr-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+.watch-sec { padding-top: 8px; }
+
+.wrap.watch-grid {
+  max-width: 1600px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 26px;
+  align-items: start;
+}
+
+.watch-main { min-width: 0; display: grid; gap: 18px; }
+
+/* ── the page head, like theirs: kicker, headline, one line of facts ── */
+.watch-hero { display: grid; gap: 8px; }
+
+.watch-kicker {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--rr-fg-3);
+  text-transform: uppercase;
+}
+
+.watch-round {
+  padding: 0 8px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #ffffff0d;
+  color: var(--rr-fg-2);
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.watch-h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: #fff;
+}
+
+.watch-sub { margin: 0; font-size: 14px; color: var(--rr-fg-3); }
+
+/* ── the window: 16:9, 16px radius, hairline ring, nothing else ── */
+.wplayer {
+  position: relative;
+  border-radius: 16px;
+  background: #000;
+  box-shadow: var(--rr-ring);
+  overflow: hidden;
+}
+
+.wplayer-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--rr-ink-900);
+  border-bottom: 1px solid #ffffff0a;
+}
+
+.wplayer-dot { display: inline-flex; align-items: center; }
+.wplayer-dot i {
+  width: 8px; height: 8px; border-radius: 999px;
+  background: var(--rr-brand);
+  box-shadow: 0 0 0 3px #e1060022;
+}
+
+.wplayer-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 11.5px 'JetBrains Mono', monospace;
+  letter-spacing: .04em;
+  color: #7c7f85;
+  text-transform: uppercase;
+}
+
+.wplayer-live {
+  flex: none;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #ffffff0d;
+  color: var(--rr-fg-3);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wplayer-live.active { background: #f8716824; color: #fd9891; }
+
+.wplayer-stage { position: relative; aspect-ratio: 16 / 9; background: #000; }
+
+.wplayer-stage iframe,
+.wplayer-stage video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ── the action row: 36px pills, one line, equal, under the window ── */
+.wplayer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wplayer-actions-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
+
+.watch-selects { display: flex; gap: 8px; flex: 0 1 420px; min-width: 260px; }
+.watch-selects .sel { flex: 1; min-width: 0; }
+
+.watch-sec .btn {
+  border-radius: 999px;
+  height: 36px;
+  padding: 0 14px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  background: #ceced912;
+  border: 0;
+  color: var(--rr-fg);
+  box-shadow: none;
+  transition: background-color .15s, color .15s, transform .15s;
+}
+
+.watch-sec .btn::before, .watch-sec .btn::after { display: none; }
+.watch-sec .btn:hover { background: #ffffff1f; color: #fff; }
+.watch-sec .btn:active { transform: translateY(1px); }
+.watch-sec .btn.primary { background: var(--rr-brand); color: #fff; }
+.watch-sec .btn.primary:hover { background: #ff2a22; }
+
+#mvToggle svg { width: 15px; height: 15px; }
+
+/* ── sources: broadcast group, onboard faces, then the rest ── */
+.wsources { display: grid; gap: 18px; }
+
+.wsources-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.wsources-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: #fff;
+}
+
+.watch-sec #feedTabs {
+  display: flex;
+  min-width: 240px;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #ffffff0a;
+}
+
+.watch-sec #feedTabs .chip {
+  flex: 1 1 0;
+  height: 30px;
+  padding: 0 16px;
+  text-align: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--rr-fg-3);
+  font: 600 13px 'Inter', system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: color .15s, background-color .15s;
+}
+
+.watch-sec #feedTabs .chip:hover { color: #fff; }
+.watch-sec #feedTabs .chip.active { background: #ffffff1f; color: #fff; }
+
+.watch-sec #links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1200px) { .watch-sec #links { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .watch-sec #links { grid-template-columns: minmax(0, 1fr); } }
+
+/* Broadcasters and the rest read as rows of cards; onboards read as a face row. */
+.watch-sec #links > button.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  height: auto;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--rr-ink-850);
+  box-shadow: var(--rr-ring);
+  color: #fff;
+  font: 600 13.5px 'Inter', system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  transition: background-color .15s, box-shadow .15s, transform .15s var(--rr-spring);
+}
+
+/* Every card leads with a mark, the way their cards lead with a channel logo or a driver face.
+   The specials keep their ONBD / DATA / FEED tag instead, which says more than a dot. */
+.watch-sec #links > button.chip:not(.chip-special)::before,
+.watch-sec #links .special-row button.chip::before {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #ffffff14;
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+}
+
+.watch-sec #links > button.chip:not(.chip-special)::before { content: ''; }
+
+/* The tag keeps its pill shape on the new cards, sized for a 26px mark. */
+.watch-sec #links .special-row button.chip::before {
+  content: 'ONBD';
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  margin: 0;
+  font-size: .5rem;
+  letter-spacing: .06em;
+  line-height: 1;
+  color: var(--team);
+  background: #e106001f;
+  vertical-align: 0;
+}
+
+.watch-sec #links .special-row button.chip.chip-data::before { content: 'DATA'; color: #669df1; background: #669df11f; }
+.watch-sec #links .special-row button.chip.chip-feed::before { content: 'FEED'; }
+
+.watch-sec #links > button.chip:hover { background: var(--rr-ink-800); transform: translateY(-1px); }
+.watch-sec #links > button.chip.active {
+  background: var(--sel-bg, #1c2b42);
+  box-shadow: inset 0 0 0 2px #669df1;
+  color: #fff;
+}
+
+.watch-sec #links .special-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #ffffff0f;
+}
+
+@media (max-width: 1200px) { .watch-sec #links .special-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .watch-sec #links .special-row { grid-template-columns: minmax(0, 1fr); } }
+
+.watch-sec #links .special-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--rr-fg-3);
+}
+
+.watch-sec #links .special-row button.chip {
+  min-height: 48px;
+  border-radius: 10px;
+  background: var(--rr-ink-850);
+  box-shadow: var(--rr-ring);
+}
+
+.watch-sec #links .special-row button.chip.is-down { opacity: .5; }
+
+/* ── the info rail ── */
+.watch-side { position: sticky; top: 72px; display: grid; gap: 14px; }
+
+.side-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--rr-ink-850);
+  box-shadow: var(--rr-ring);
+  color: var(--rr-fg);
+  text-decoration: none;
+}
+
+.side-h { margin: 0; font-size: 12px; font-weight: 650; color: var(--rr-fg-3); }
+.side-next { margin: 0; font: 650 15px 'Inter', system-ui, sans-serif; color: #fff; }
+.side-sub { margin: 0; font: 500 11.5px 'JetBrains Mono', monospace; letter-spacing: .06em; color: var(--rr-fg-3); text-transform: uppercase; }
+
+.side-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.side-list li { display: flex; gap: 8px; font-size: 13px; color: var(--rr-fg-2); }
+.side-list li b { color: #fff; font-weight: 650; }
+
+.side-link { display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: background-color .15s; }
+.side-link:hover { background: var(--rr-ink-800); }
+.side-link b { display: block; color: #fff; font-size: 14px; }
+.side-link small { color: var(--rr-fg-3); font-size: 12px; }
+.side-link svg { width: 16px; height: 16px; color: var(--rr-fg-3); flex: none; }
+
+/* ── phones: one column, window edge to edge, rail below ── */
+@media (max-width: 1100px) {
+  .wrap.watch-grid { grid-template-columns: minmax(0, 1fr); }
+  .watch-side { position: static; }
+}
+
+@media (max-width: 760px) {
+  .watch-h1 { font-size: 22px; }
+  .wplayer, .wplayer-stage { border-radius: 12px; }
+  .wplayer-actions { gap: 10px; }
+  .wplayer-actions-main { gap: 6px; }
+  .watch-selects { flex: 1 1 100%; }
+  .watch-sec .btn { height: 34px; padding: 0 12px; font-size: 13px; }
+  .wsources-head h2 { font-size: 18px; }
+}
