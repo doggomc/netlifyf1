@@ -522,22 +522,27 @@ let sourceTab = 'en';
    is an HLS master playlist) and /players/state.json says whether it is up. They are drawn in their
    own block, and one that is not on air says so instead of opening a dead frame. */
 /* label:stream id:kind — the id is the whole address, so it is written once. */
-/* [label, id, special, language]. Language comes from weelo's own event feed: 'Multi-audio' feeds
-   carry several commentaries, so they are not English-only and belong under Other. */
+/* [label, weelo id, special, language, chip id]. Language comes from weelo's own event feed:
+   'Multi-audio' feeds carry several commentaries, so they are not English-only and belong under
+   Other.
+   The chip id is written out, NOT derived from the stream id: those ids share their first eight
+   characters, so deriving one gave every onboard the same id ('weelo-ogcgpgbg') and none of them
+   was the id Race Control disables ('weelo-kimi'). A disable matched no chip and silently did
+   nothing. This list is the contract with f1admin's FEED_SOURCES — keep the ids identical. */
 const SPECIALS = [
-  ['Kimi Antonelli', 'peogcgpgbgchegaciclejgngjgacbeogehpgogfgmgmgjgjcacieee', 'onboard', 'en'],
-  ['Charles Leclerc', 'peogcgpgbgchegacicdeigbgchmgfgdhacmefgdgmgfgchdgjcacieee', 'onboard', 'en'],
-  ['Max Verstappen', 'peogcgpgbgchegacicnebgihacgffgchdhehbgahahfgogjcacieee', 'onboard', 'en'],
-  ['Drivers Track', 'gebdacefgfaciceechjgghfgchacefchbgdglgfgchjcacieee', 'onboard', 'en'],
-  ['Data Channel', 'gebdacefgfaciceebgehbgacdeigbgogogfgmgjcacieee', 'data', 'en'],
-  ['International Feed', 'jeogehfgchogbgehjgpgogbgmgacgefgfgegacicgebdjcacieee', 'feed', 'other'],
-  ['F1 TV (World)', 'gebdacefgfacieee', 'feed', 'other'],
-  ['Sky Sports (weelo)', 'dflgjhacdfahpgchehacbdacoekfacieee', 'feed', 'en'],
-  ['F1 TV (Shows)', 'gebdacefgfacicdfigpghhdhjcacieee', 'feed', 'en'],
+  ['Kimi Antonelli', 'peogcgpgbgchegaciclejgngjgacbeogehpgogfgmgmgjgjcacieee', 'onboard', 'en', 'weelo-kimi'],
+  ['Charles Leclerc', 'peogcgpgbgchegacicdeigbgchmgfgdhacmefgdgmgfgchdgjcacieee', 'onboard', 'en', 'weelo-charles'],
+  ['Max Verstappen', 'peogcgpgbgchegacicnebgihacgffgchdhehbgahahfgogjcacieee', 'onboard', 'en', 'weelo-max'],
+  ['Drivers Track', 'gebdacefgfaciceechjgghfgchacefchbgdglgfgchjcacieee', 'onboard', 'en', 'weelo-drivers'],
+  ['Data Channel', 'gebdacefgfaciceebgehbgacdeigbgogogfgmgjcacieee', 'data', 'en', 'weelo-data'],
+  ['International Feed', 'jeogehfgchogbgehjgpgogbgmgacgefgfgegacicgebdjcacieee', 'feed', 'other', 'weelo-intl'],
+  ['F1 TV (World)', 'gebdacefgfacieee', 'feed', 'other', 'weelo-f1tvworld'],
+  ['Sky Sports (weelo)', 'dflgjhacdfahpgchehacbdacoekfacieee', 'feed', 'en', 'weelo-skyweelo'],
+  ['F1 TV (Shows)', 'gebdacefgfacicdfigpghhdhjcacieee', 'feed', 'en', 'weelo-shows'],
 ] as const;
 
-const SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, special, lang]): StreamSource => ({
-  id: `weelo-${weelo.slice(2, 10)}`,
+const SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, special, lang, id]): StreamSource => ({
+  id,
   label,
   lang,
   special,
@@ -1034,28 +1039,22 @@ const specialState = (s: StreamSource) => {
 };
 const specialDown = (s: StreamSource) => /^(offline|dark)$/.test(specialState(s));
 
-/* The multi-viewer is switched off for now. Everything behind it (the lazy chunk, the picker, the
-   CSS) is still in the tree: flip this to true to bring the tab back. */
-const MULTIVIEWER_ENABLED = false;
-
 function renderTabBar() {
+  /* Language tabs only: the multi-viewer is a button beside the player, in its own lazy chunk. */
   const tabs = ['English', 'Other', 'All'];
-  if (MULTIVIEWER_ENABLED) tabs.push('Multi-viewer');
   $('feedTabs')?.replaceChildren(...tabs.map((label) => {
     const b = document.createElement('button');
     /* The state value is 'en', not the label: keying off the label made English filter as Other. */
-    const id = label === 'English' ? 'en' : label === 'Multi-viewer' ? 'mv' : label.toLowerCase();
+    const id = label === 'English' ? 'en' : label.toLowerCase();
     b.type = 'button';
     b.className = 'chip' + (id === sourceTab ? ' active' : '');
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(id === sourceTab));
     b.textContent = label;
-    /* Switching a tab redraws the row; the player is untouched. Multi-viewer opens the grid and
-       swaps the chip row for the weelo picker instead of filtering. */
+    /* Switching a tab redraws the row; the player is untouched. */
     b.onclick = () => {
       sourceTab = id;
-      if (id === 'mv' && MULTIVIEWER_ENABLED) openMultiViewer();
-      else closeMultiViewer(), renderButtons();
+      renderButtons();
     };
     return b;
   }));
@@ -1063,7 +1062,6 @@ function renderTabBar() {
 
 function renderButtons() {
   if (!linksEl) return;
-  if (!MULTIVIEWER_ENABLED && sourceTab === 'mv') sourceTab = 'en';
   linksEl.replaceChildren();
   normalizeCurrentSource();
   renderTabBar();
@@ -1111,12 +1109,14 @@ function renderButtons() {
 }
 
 let multiviewer: Promise<any> | undefined;
+/* Lazy: the grid, its button state and its own close control all live in one chunk, downloaded the
+   first time somebody opens the grid (or straight away for a ?mv=1 address). */
 function openMultiViewer() {
-  void (multiviewer ??= import('./features/multiviewer').then((m) => m.init(featureContext))).then((m) => m?.show?.(true));
+  void (multiviewer ??= import('./features/multiviewer').then((m) => m.init(featureContext))).then((m) => m?.show(true));
 }
-function closeMultiViewer() {
-  void multiviewer?.then((m) => m?.show?.(false));
-}
+$('mvToggle')?.addEventListener('click', openMultiViewer);
+/* A ?mv=1 address opens the grid once the first config has landed. */
+setTimeout(() => location.search.includes('mv=1') && openMultiViewer(), 900);
 
 let nsTimer = null;
 let nsPaused = false;
@@ -2509,7 +2509,6 @@ setupCustomSelects();
 updateClocks();
 updateOverridePill(streamOverride);
 bootstrapSiteConfig();
-
 // Background intervals
 window.setInterval(() => {
   if (!document.hidden) updateClocks();

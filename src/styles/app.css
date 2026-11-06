@@ -4918,118 +4918,281 @@ body.view-swapping {
   }
 }
 
-/* ═══ Multi-viewer ═══
-   Four boxes, always. One selection is one wide tile across the top row; two fill the top row; a
-   third and fourth fill the bottom. The grid ignores the tab's language filter on purpose: it is a
-   weelo-only monitor view. */
+/* A tile chip in the picker (kept for the tab's picker; the grid itself is drawn by .mvx). */
 .chip-mv.picked {
   color: #ff5a5f;
   border-color: rgba(255, 90, 95, .62);
   background: rgba(255, 90, 95, .12);
 }
 
-.chip-mv.is-down {
-  opacity: .45;
-  border-style: dotted;
+/* ═══════════════ MULTI-VIEWER (weelo feeds) ═══════════════ */
+
+/* One row of equal buttons: "next to each other and the same size", on every width. */
+@media (min-width: 761px) {
+  .stage-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
 }
 
-.mv {
+/* The button sits in .stage-actions, where every .btn is stretched: an inline SVG with only a
+   viewBox will happily grow, so it is pinned to icon size and the button keeps its row height. */
+#mvToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#mvToggle svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+#mvToggle.primary {
+  background: var(--accent, #e10600);
+  border-color: var(--accent, #e10600);
+  color: #fff;
+}
+
+.mvx {
   margin: 14px 0 0;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
-  background: var(--surface);
+  background: #07070a;
   overflow: hidden;
+  position: relative;
 }
 
-.mv[hidden] { display: none; }
-
-.mv-head {
+.mvx-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--line);
+  background: var(--surface);
 }
 
-.mv-title {
+.mvx-title {
   flex: 1;
   font: 700 .62rem 'JetBrains Mono', monospace;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
-.mv-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 2px;
-  aspect-ratio: 16 / 9;
+.mvx-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
   background: var(--line);
+  color: var(--fg);
+  font-size: .58rem;
 }
 
-/* One feed: wide, on the top row, with the bottom row left empty rather than stretched. */
-.mv-grid.mv-one { grid-template-rows: 1fr 1fr; }
-.mv-grid.mv-one .mv-tile:first-child { grid-column: 1 / -1; grid-row: 1; }
+.mvx-modes { display: flex; gap: 4px; }
 
-.mv-tile {
+.mvx-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: 700 .6rem 'JetBrains Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+
+.mvx-btn svg { width: 14px; height: 14px; }
+.mvx-btn:hover, .mvx-btn.is-on { color: var(--fg); border-color: var(--accent); }
+.mvx-btn.is-on { background: rgba(255, 255, 255, .05); }
+.mvx-add span, .mvx-modes span { display: inline; }
+.mvx-close { color: var(--dim); }
+
+.mvx-stage {
   position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   background: #000;
-  min-height: 0;
-  overflow: hidden;
 }
 
-.mv-tile iframe {
+.mvx-tiles { position: absolute; inset: 0; }
+
+.mvx-tile {
+  position: absolute;
+  background: #000;
+  overflow: hidden;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06);
+}
+
+.mvx-tile.is-main { box-shadow: 0 0 0 2px var(--accent, #e10600); }
+
+.mvx-tile iframe {
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
 }
 
-.mv-tile.mv-empty {
-  background: repeating-linear-gradient(45deg, #0b0b0c, #0b0b0c 10px, #101012 10px, #101012 20px);
-}
-
-.mv-off {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font: 700 .6rem 'JetBrains Mono', monospace;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-
-.mv-bar {
+.mvx-tile-bar {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  font: 700 .58rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, .82));
+  gap: 6px;
+  padding: 4px 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .85));
+  opacity: 0;
+  transition: opacity .15s;
 }
 
-.mv-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mvx-tile:hover .mvx-tile-bar,
+.mvx-tile:focus-within .mvx-tile-bar { opacity: 1; }
 
-.mv-sound {
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 255, 255, .35);
-  border-radius: 3px;
-  background: transparent;
+.mvx-tile-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 700 .56rem 'JetBrains Mono', monospace;
+  letter-spacing: .07em;
+  text-transform: uppercase;
   color: #fff;
-  font: inherit;
+}
+
+.mvx-tile-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, .45);
+  color: #fff;
   cursor: pointer;
 }
 
+.mvx-tile-btn svg { width: 12px; height: 12px; }
+.mvx-tile-btn.is-on { border-color: var(--accent, #e10600); background: var(--accent, #e10600); }
+
+.mvx-tile.is-off,
+.mvx-off {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.mvx-tile.is-off { background: repeating-linear-gradient(45deg, #0b0b0c, #0b0b0c 10px, #101012 10px, #101012 20px); }
+
+.mvx-off-name {
+  font: 700 .62rem 'JetBrains Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mvx-off-msg { font: 500 .56rem 'JetBrains Mono', monospace; color: var(--dim); }
+
+.mvx-lib {
+  position: absolute;
+  top: 41px;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 8, 11, .97);
+  border-left: 1px solid var(--line);
+  backdrop-filter: blur(6px);
+  z-index: 3;
+}
+
+.mvx-lib-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font: 700 .64rem 'JetBrains Mono', monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+.mvx-lib-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
+.mvx-lib-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .05);
+  background: transparent;
+  color: var(--fg);
+  font-size: .78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mvx-lib-row:hover:not(:disabled) { background: rgba(255, 255, 255, .05); }
+.mvx-lib-row:disabled { color: var(--dim); cursor: not-allowed; }
+.mvx-lib-row.is-in { color: var(--accent, #e10600); }
+
+.mvx-lib-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mvx-lib-state {
+  font: 700 .55rem 'JetBrains Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The player keeps its place while the grid is up, so nothing on the page jumps. */
+.player.is-parked > iframe,
+.player.is-parked > video { visibility: hidden; }
+
+.player-parked {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 700 .95rem 'Archivo', sans-serif;
+  font-style: italic;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: #07070a;
+}
+
 @media (max-width: 760px) {
-  .mv-grid { aspect-ratio: auto; grid-template-rows: repeat(2, 42vw); }
+  .mvx-stage { aspect-ratio: auto; height: 62vh; }
+  .mvx-modes span, .mvx-add span { display: none; }
+  .mvx-lib { width: 100%; }
 }
