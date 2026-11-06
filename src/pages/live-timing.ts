@@ -1,4 +1,6 @@
 import { initShell } from '../ui/shell';
+/* Every page except the cockpit carries the open-page counter in its header. */
+import '../viewer-counter';
 import { findLiveSession, findNextSession, formatDay, formatTime, sessionShortName } from '../services/weekend';
 
 /* The frame and the clock are real; the row feed lands with the drivers part. */

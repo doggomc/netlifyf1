@@ -30,7 +30,11 @@
   --shadow-raised: 0 1px 0 rgba(255,255,255,.04) inset, 0 18px 40px -24px rgba(0,0,0,.9);
   --font-body: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Archivo', 'Inter', ui-sans-serif, sans-serif;
-  --nav-h: 60px;
+  --nav-h: 64px;
+  /* Every full-width band uses this: the header, the page frame, the footer.
+     Wide enough that text never touches the screen edge, capped so the reading
+     column stays where it was on a large display. */
+  --gutter: clamp(20px, 5vw, 56px);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -59,9 +63,10 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 :focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 4px; }
 
-.wrap { width: 100%; max-width: var(--wrap); margin-inline: auto; padding-inline: 16px; }
-@media (min-width: 640px) { .wrap { padding-inline: 24px; } }
-@media (min-width: 1024px) { .wrap { padding-inline: 32px; } }
+.wrap {
+  width: 100%; max-width: calc(var(--wrap) + var(--gutter) * 2);
+  margin-inline: auto; padding-inline: var(--gutter);
+}
 
 .skip-link {
   position: absolute; left: -999px; top: 12px; z-index: 200;
@@ -93,6 +98,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .nav-inner {
   display: flex; align-items: center; gap: 18px;
   height: var(--nav-h);
+  padding-inline: var(--gutter);
+  max-width: calc(var(--wrap) + var(--gutter) * 2);
+  margin-inline: auto;
+  width: 100%;
 }
 
 .brand { display: inline-flex; align-items: center; gap: 10px; flex: none; }
@@ -108,7 +117,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   letter-spacing: -.01em; color: var(--white);
 }
 
-.nav-links { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+/* Desktop: the menu sits directly left of the counter, which sits left of the
+   far-right control, so the order reads logo … menu · counter. */
+.nav-links { display: flex; align-items: center; gap: 2px; margin-left: auto; margin-right: 14px; order: 1; }
+.nav-right { order: 2; }
 
 .nav-links a {
   position: relative;
@@ -125,6 +137,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 
 .nav-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.brand { order: 0; }
 
 .pill {
   display: inline-flex; align-items: center; gap: 6px;
@@ -139,6 +152,16 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .pill.live.is-on .dot { animation: livePulse 2s var(--ease) infinite; }
 @keyframes livePulse { 50% { box-shadow: 0 0 0 6px rgba(225,6,0,0); } }
+
+/* Open-page counter: a quiet, live dot beside a tabular figure. It stays hidden
+   until the socket reports a number, so a failed connection shows nothing. */
+.pill.viewer { gap: 7px; font-variant-numeric: tabular-nums; }
+.pill.viewer .dot { background: #3ddc84; box-shadow: 0 0 0 3px rgba(61,220,132,.16); }
+.pill.viewer[data-state="connecting"] .dot { background: var(--fg-4); box-shadow: 0 0 0 3px rgba(255,255,255,.06); }
+.pill.viewer[data-state="offline"] { display: none; }
+.pill.viewer #viewerCount { color: var(--white); font-weight: 650; }
+.pill.viewer .viewer-label { color: var(--fg-3); font-weight: 550; }
+@media (max-width: 480px) { .pill.viewer .viewer-label { display: none; } }
 
 .nav-toggle {
   display: none; width: 38px; height: 38px; border-radius: 10px;
@@ -155,15 +178,15 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 @media (max-width: 900px) {
   .nav-toggle { display: grid; }
-  .nav-inner { justify-content: space-between; }
   .nav-links {
     position: fixed; inset: var(--nav-h) 0 auto 0;
     flex-direction: column; align-items: stretch; gap: 2px;
-    margin: 0; padding: 10px 16px 20px;
+    margin: 0; padding: 10px var(--gutter) 20px;
     background: var(--page);
     border-bottom: 1px solid var(--line);
     transform-origin: top center;
     display: none;
+    margin-right: 0;
     max-height: calc(100dvh - var(--nav-h));
     overflow-y: auto;
   }
@@ -182,8 +205,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 main { flex: 1 0 auto; }
 
-.page-head { padding: 34px 0 22px; }
-@media (min-width: 768px) { .page-head { padding: 48px 0 28px; } }
+/* Block padding only: a shorthand `padding` here would overwrite .wrap's inline
+   gutter, which is exactly how the page titles ended up 17px from the edge. */
+.page-head { padding-block: 34px 22px; }
+@media (min-width: 768px) { .page-head { padding-block: 48px 28px; } }
 
 .crumbs {
   display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
@@ -214,7 +239,7 @@ main { flex: 1 0 auto; }
   font-size: 15.5px; line-height: 1.62; color: var(--fg-2);
 }
 
-.section { padding: 26px 0 56px; }
+.section { padding-block: 26px 56px; }
 .section-head {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 16px; margin-bottom: 16px;
@@ -280,11 +305,11 @@ main { flex: 1 0 auto; }
 }
 .hero-inner {
   display: grid; gap: 32px; align-items: end;
-  padding: 56px 0 44px;
+  padding-block: 56px 44px;
   min-height: min(76dvh, 660px);
 }
 @media (min-width: 1024px) {
-  .hero-inner { grid-template-columns: minmax(0,1fr) 360px; gap: 48px; padding: 72px 0 56px; }
+  .hero-inner { grid-template-columns: minmax(0,1fr) 360px; gap: 48px; padding-block: 72px 56px; }
 }
 
 .hero-eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

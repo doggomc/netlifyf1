@@ -180,10 +180,10 @@
         <p class="side-h">Now playing</p>
         <p class="side-now" id="sourceLabel">F1TV</p>
       </div>
-      <button class="side-card side-link" id="standingsBtn" type="button">
+      <a class="side-card side-link" href="/standings.html">
         <span><b>Championship</b><small>Standings and points</small></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
-      </button>
+      </a>
       <a class="side-card side-link" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener">
         <span><b>Live chat on Discord</b><small>Stream status and race chat</small></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
@@ -192,102 +192,8 @@
   </div>
 </section>
 
-<!-- ══ GRID ══ -->
-<section class="sec" id="grid">
-  <div class="wrap">
-    <div class="sec-head rv">
-      <div>
-        <span class="eyebrow">2026 Season</span>
-        <h2>The <span class="accent">Grid</span></h2>
-        <div class="rule" style="width:120px"></div>
-      </div>
-      <p style="color:var(--muted);font-size:.85rem;max-width:340px">Every driver on the 2026 grid, ordered by live championship position. Select a driver for the full profile. Driver imagery © Formula 1, served from the official F1 media CDN.</p>
-    </div>
-    <div class="drivers" id="driverGrid" aria-busy="true">
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-      <div class="dcard skel" aria-hidden="true"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ══ PARALLAX BREAK ══ -->
-<section style="position:relative;height:58vh;min-height:380px;overflow:hidden;display:grid;place-items:center">
-  <div class="hero-layer" id="breakLayer" style="z-index:0"><picture>
-    <source type="image/webp" srcset="/assets/monaco-street-circuit-800.webp 800w, /assets/monaco-street-circuit-1200.webp 1200w" sizes="100vw">
-    <img src="/assets/monaco-street-circuit.jpg" alt="Monaco Grand Prix street circuit" width="1600" height="1065" loading="lazy" decoding="async" fetchpriority="low" style="object-position:50% 55%">
-  </picture></div>
-  <div style="position:absolute;inset:0;background:linear-gradient(180deg,var(--ink),rgba(10,10,11,.42) 40%,rgba(10,10,11,.5) 60%,var(--ink))"></div>
-  <div class="wrap" style="position:relative;z-index:2;text-align:center">
-    <span class="eyebrow rv">Street Circuits</span>
-    <h2 class="display rv d1" style="font-size:clamp(2rem,7vw,5rem);margin-top:12px">Where <span style="color:transparent;-webkit-text-stroke:2px var(--team)">Milliseconds</span> Live</h2>
-  </div>
-</section>
-
-<!-- ══ STANDINGS ══ -->
-<section class="sec" id="standings">
-  <div class="wrap">
-    <div class="sec-head rv">
-      <div>
-        <span class="eyebrow">Championship</span>
-        <h2 id="standingsTitle">Driver <span class="accent">Standings</span></h2>
-        <div class="rule" style="width:120px"></div>
-      </div>
-      <div class="tabs" role="tablist" aria-label="Championship standings">
-        <button class="tab active" type="button" role="tab" aria-selected="true" aria-controls="standingsPanel" data-type="drivers">Drivers</button>
-        <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="standingsPanel" data-type="constructors">Constructors</button>
-      </div>
-    </div>
-    <div class="card rv d1" id="standingsPanel" role="tabpanel" aria-labelledby="standingsTitle" aria-live="polite" style="padding:20px">
-      <div class="rows" id="standingsList" aria-busy="true">
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-        <div class="row skel" aria-hidden="true"><div class="pos">&nbsp;</div><div class="who"><b>&nbsp;</b><small>&nbsp;</small></div><div class="pts">&nbsp;<small>PTS</small></div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
+<!-- The Grid and Driver Standings now live on /drivers and /standings. The cockpit
+     keeps the player, its sources and the session tools only. -->
 
 <!-- ══ SECONDARY PANELS (hidden; served for /info and /discord) ══ -->
 <!-- ══ VIEW: INFO ══ -->
@@ -478,14 +384,6 @@
     </label>
   </div>
 </div>
-
-<div class="modal" id="driverOverlay" role="dialog" aria-modal="true" aria-labelledby="driverTitle">
-  <div class="sheet driver-sheet" id="driverSheet">
-    <div class="sheet-head"><h2 id="driverTitle">Driver Profile</h2><button class="x" id="driverClose" type="button" aria-label="Close driver profile">&times;</button></div>
-    <div id="driverProfile" aria-live="polite"></div>
-  </div>
-</div>
-
 
 <div class="modal" id="diagCautionOverlay" role="dialog" aria-modal="true" aria-labelledby="diagCautionTitle" hidden>
   <div class="sheet" style="max-width:520px">

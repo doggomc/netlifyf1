@@ -1,4 +1,6 @@
 import { initShell } from '../ui/shell';
+/* Every page except the cockpit carries the open-page counter in its header. */
+import '../viewer-counter';
 import {
   countdownParts, findFocusEvent, findLiveSession, findNextSession,
   formatDay, formatFull, formatTime, sessionPhase, sessionShortName, type SessionInfo,

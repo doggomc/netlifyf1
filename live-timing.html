@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e0f11">
 <meta name="color-scheme" content="dark">
+<meta name="freef1-viewer-counter-ws" content="wss://freef1-viewer-counter.calvinbotha1julie.workers.dev/ws">
 <meta name="description" content="Gaps, sectors and tyre compounds as they happen during a session.">
 <link rel="canonical" href="https://freef1.netlify.app/live-timing.html">
 <meta property="og:type" content="website">
@@ -23,14 +24,19 @@
 <a class="skip-link" href="#main">Skip to content</a>
 
 <nav class="nav" aria-label="Primary">
-  <div class="wrap nav-inner">
+  <div class="nav-inner">
     <a class="brand" href="/" aria-label="FreeF1 home">
       <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
       <span class="brand-text">FreeF1</span>
     </a>
-    <button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation" aria-controls="navLinks" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
+    <div class="nav-right">
+      <div class="pill live viewer" id="viewerCounter" hidden role="status" aria-live="polite" aria-atomic="true" aria-label="Open FreeF1 pages" title="Live count of open FreeF1 pages">
+        <span class="dot" aria-hidden="true"></span><span id="viewerCount">—</span><span class="viewer-label">Online</span>
+      </div>
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation" aria-controls="navLinks" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
     <div class="nav-links" id="navLinks">
       <a href="/">Home</a>
       <a href="/cockpit.html">Cockpit</a>
@@ -39,9 +45,6 @@
       <a href="/live-timing.html">Live timing</a>
       <a href="/drivers.html">Drivers</a>
       <a href="/teams.html">Teams</a>
-    </div>
-    <div class="nav-right">
-      <div class="pill live" id="liveBadge"><span class="dot" aria-hidden="true"></span><span id="liveText">Live</span></div>
     </div>
   </div>
 </nav>

@@ -41,7 +41,9 @@ for (const page of ['schedule.html', 'standings.html', 'drivers.html', 'teams.ht
   assert(size < SHELL_BUDGET, `${page} ships ${size} B gzip — over the ${SHELL_BUDGET} B shell budget`);
 }
 
-const optional = ['championship', 'results', 'race-times', 'radio', 'diagnostics', 'multiviewer'];
+/* championship was retired with the grid: /standings and /drivers are whole pages
+   with their own small bundles now, not a lazily-opened panel. */
+const optional = ['results', 'race-times', 'radio', 'diagnostics', 'multiviewer'];
 for (const feature of optional) {
   const entry = manifest[`src/features/${feature}.ts`];
   assert(entry?.isDynamicEntry, `${feature} must stay lazy`);

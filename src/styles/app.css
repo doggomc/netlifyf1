@@ -276,7 +276,7 @@ body.has-stream .deck:has([aria-expanded="true"]) {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 14px clamp(16px,4vw,44px);
+  padding: 14px clamp(20px,5vw,56px);
   background: transparent;
   border-bottom: 1px solid transparent;
   transition: background-color .35s var(--ease),border-color .35s var(--ease);
@@ -887,7 +887,7 @@ from {
 .wrap {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 0 clamp(16px,4vw,44px);
+  padding: 0 clamp(20px,5vw,56px);
 }
 
 section {

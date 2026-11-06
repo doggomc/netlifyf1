@@ -2558,7 +2558,7 @@ $("teamSelectBtn")?.addEventListener('click', () => {
 });
 $("teamSelectClose")?.addEventListener('click', () => closeModal(tOverlay));
 
-[$("sessionsOverlay"), $("raceTimesOverlay"), tOverlay, $("driverOverlay")].forEach((m) => {
+[$("sessionsOverlay"), $("raceTimesOverlay"), tOverlay].forEach((m) => {
   m?.addEventListener('click', (e) => {
     if (e.target === m) closeModal(m);
   });
@@ -2673,14 +2673,9 @@ export const featureContext = {
 };
 export type FeatureContext = typeof featureContext;
 
-// Each optional feature is downloaded and evaluated at most once.
-let championship: Promise<void> | undefined;
-const loadChampionship = () => championship ??= import('./features/championship').then(({ init }) => {
-  const feature = init(featureContext);
-  feature.loadStandings('drivers');
-  feature.loadDriverGrid();
-}).catch(error => { championship = undefined; showToast('Championship data could not load. Try again.', 'error'); throw error; });
-onVisible(['grid', 'standings'], loadChampionship);
+/* The Grid and Driver Standings moved to /drivers and /standings, so the cockpit no
+   longer downloads the championship chunk: its standings list, driver grid and the
+   profile sheet it opened all live on those pages now. */
 /* Replays are a separate, lazily-loaded chunk: the index is ~40 KB gzipped and only matters to
    someone who opens the view. */
 let replaysLoaded = false;
@@ -2701,8 +2696,4 @@ try { if (JSON.parse(store.get(RADIO_RC_STORE_KEY) || '{}').open) onIdle(() => l
 lazyButton('copyDiagnosticsBtn', () => import('./features/diagnostics').then(m => m.init(featureContext)));
 if (!liteMotion) onIdle(() => import('./features/canvas').then(m => m.init(featureContext)));
 
-/* Championship sits in the rail, not beside the stream window. */
-$("standingsBtn")?.addEventListener("click", () => {
-  void loadChampionship().catch(() => {});
-  $("standings")?.scrollIntoView({ behavior: reduceMotion ? 'instant' : 'smooth' });
-});
+/* The rail's Championship card links straight to /standings; nothing to scroll to. */

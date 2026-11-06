@@ -1,4 +1,6 @@
 import { initShell } from '../ui/shell';
+/* Every page except the cockpit carries the open-page counter in its header. */
+import '../viewer-counter';
 import { TEAM_ALIAS, TEAM_HEX, TEAM_LOGO, teams } from '../data/teams';
 import { JOLPI, SITE_SEASON } from '../config';
 
