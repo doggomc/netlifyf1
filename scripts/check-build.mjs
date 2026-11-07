@@ -39,11 +39,20 @@ const pageGzip = (page) => {
     .filter(file => file.endsWith('.js'));
   return pageJs.reduce((sum, file) => sum + gzip(file), 0);
 };
-/* Standings is measured separately below; the rest of these pages are shells. */
-for (const page of ['schedule.html', 'drivers.html', 'teams.html', 'live-timing.html']) {
+/* Standings and Schedule are measured separately below; the rest of these pages are shells. */
+for (const page of ['drivers.html', 'teams.html', 'live-timing.html']) {
   const size = pageGzip(page);
   assert(size < SHELL_BUDGET, `${page} ships ${size} B gzip — over the ${SHELL_BUDGET} B shell budget`);
 }
+/* Schedule embeds the 23-round five-session calendar (~2.5 KiB gzip with weekend
+   helpers), fetches live race winners, ticks a live countdown, and opens per-round
+   session drawers + calendar feed links (~7 KiB page work + ~2.5 KiB calendar). */
+const SCHEDULE_BUDGET = 10 * 1024;
+const scheduleSize = pageGzip('schedule.html');
+console.log(`schedule gzip: ${scheduleSize} B of ${SCHEDULE_BUDGET}`);
+assert(scheduleSize < SCHEDULE_BUDGET, `schedule.html ships ${scheduleSize} B gzip — over the ${SCHEDULE_BUDGET} B budget`);
+assert(existsSync('dist/calendar/f1.ics'), 'dist/calendar/f1.ics missing');
+assert(existsSync('dist/assets/circuits/1.webp') && existsSync('dist/assets/circuits/23.webp'), 'circuit thumbnails missing in dist/assets/circuits/');
 /* Standings stopped being a thin shell when it took on the leaders, the pills and
    two live tables: it fetches both championships, caches each, paints the two
    leader cards, and has an error state. That is a page of work, so it gets its

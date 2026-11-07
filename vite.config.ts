@@ -27,6 +27,7 @@ const IMAGE_OR_FONT = /\.(?:jpe?g|png|webp|gif|svg|avif|woff2?|ttf|otf|eot)$/i;
 const MIME: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
+  '.ics': 'text/calendar; charset=utf-8',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.js': 'text/javascript; charset=utf-8',
