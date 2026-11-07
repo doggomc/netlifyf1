@@ -1,18 +1,18 @@
 {
   "baselineCommit": "1256feb269db136d0f458589eed2d906321b1f94",
   "baselineStartupJsGzipBytes": 56093,
-  "startupJsReductionPercent": 88.2,
+  "startupJsReductionPercent": 87.8,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 6619,
+  "startupJsGzipBytes": 6839,
   "startupJsFiles": [
-    "bundles/index-wOiKKpnd.js",
+    "bundles/index-paOappdu.js",
     "bundles/modulepreload-polyfill-B5Qt9EMX.js",
-    "bundles/viewer-counter-DlaKR6m8.js",
+    "bundles/viewer-counter-EW_oXkOY.js",
     "bundles/dom-DzS30Lfg.js",
     "bundles/weekend-DWtwril0.js",
     "bundles/schedule-v6Kvk26p.js"
   ],
-  "initialCssGzipBytes": 11693,
+  "initialCssGzipBytes": 12296,
   "cockpitJsGzipBytes": 22657,
   "cockpitCssGzipBytes": 19320,
   "lazyFeatures": {

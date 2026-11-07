@@ -17,6 +17,13 @@ type ShellOptions = {
 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
+const clockFormat = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
 /** Normalised pathname: '/cockpit.html' and '/cockpit/' are the same page. */
 function pathKey(pathname: string): string {
   const withoutIndex = pathname.replace(/\/index\.html$/, '/');
@@ -46,6 +53,32 @@ function bindNav(): void {
   const nav = document.querySelector<HTMLElement>('.nav');
   const toggle = document.getElementById('navToggle') as HTMLButtonElement | null;
   const menu = document.getElementById('navLinks');
+  const navRight = nav?.querySelector<HTMLElement>('.nav-right') ?? null;
+
+  let clockEl = document.getElementById('clock');
+  if (!clockEl && navRight) {
+    clockEl = document.createElement('div');
+    clockEl.className = 'pill mono';
+    clockEl.id = 'clock';
+    clockEl.textContent = '--:--:--';
+    navRight.insertBefore(clockEl, toggle ?? null);
+  }
+  if (clockEl) {
+    const updateClock = () => { clockEl.textContent = clockFormat.format(new Date()); };
+    updateClock();
+    let clockTimer: number | null = window.setInterval(updateClock, 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (clockTimer !== null) {
+          window.clearInterval(clockTimer);
+          clockTimer = null;
+        }
+      } else if (clockTimer === null) {
+        updateClock();
+        clockTimer = window.setInterval(updateClock, 1000);
+      }
+    });
+  }
 
   const close = () => {
     menu?.classList.remove('open');
