@@ -52,28 +52,60 @@
 <main id="main">
   <div class="wrap page-head rise">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Standings</span></nav>
-    <span class="eyebrow"><span class="swatch" aria-hidden="true"></span>2026 season</span>
-    <h1 class="page-title">Championship standings</h1>
-    <p class="page-lede">Drivers’ and constructors’ tables, ordered by the current championship positions.</p>
+    <span class="eyebrow" id="standingsEyebrow"><span class="swatch" aria-hidden="true"></span>2026 season</span>
+    <h1 class="page-title">F1 standings 2026</h1>
+    <p class="page-lede">The 2026 Drivers’ and Constructors’ Championship tables, ordered by the current positions and updated automatically after every session.</p>
   </div>
 
-  <section class="wrap section" aria-labelledby="h-tables">
-    <div class="section-head">
-      <h2 class="section-title" id="h-tables">Tables</h2>
-      <div class="seg" role="tablist" aria-label="Championship type">
-        <button class="seg-btn active" type="button" role="tab" aria-selected="true" data-type="drivers">Drivers</button>
-        <button class="seg-btn" type="button" role="tab" aria-selected="false" data-type="constructors">Constructors</button>
+  <div class="wrap">
+    <!-- The two championships, led by whoever holds each one. -->
+    <section class="st-leaders" aria-label="Championship leaders">
+      <a class="card st-leader st-leader-driver rise" id="leaderDriver" href="/drivers.html" style="--team:#7e8188">
+        <div class="st-leader-portrait"><img id="leaderDriverPhoto" alt="" width="320" height="920" loading="lazy" decoding="async"></div>
+        <div class="st-leader-body">
+          <p class="st-leader-label"><span class="st-trophy" aria-hidden="true">🏆</span>Drivers’ leader</p>
+          <p class="st-leader-name" id="leaderDriverName">—</p>
+          <p class="st-leader-team" id="leaderDriverTeam">—</p>
+          <p class="st-leader-points num"><span id="leaderDriverPoints">—</span><span class="st-pts">pts</span></p>
+        </div>
+      </a>
+
+      <a class="card st-leader st-leader-team rise rise-2" id="leaderTeam" href="/teams.html" style="--team:#7e8188">
+        <div class="st-leader-body">
+          <p class="st-leader-label"><span class="st-trophy" aria-hidden="true">🏆</span>Constructors’ leader</p>
+          <p class="st-leader-name" id="leaderTeamName">—</p>
+          <p class="st-leader-points num"><span id="leaderTeamPoints">—</span><span class="st-pts">pts</span></p>
+        </div>
+        <img class="st-leader-car" id="leaderTeamCar" alt="" width="480" height="106" loading="lazy" decoding="async">
+      </a>
+    </section>
+
+    <div class="st-toolbar">
+      <div class="tabs" id="standingsTabs" role="tablist" aria-label="Championship type">
+        <button class="tab active" type="button" role="tab" aria-selected="true" data-type="drivers">Drivers</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-type="constructors">Constructors</button>
       </div>
+      <p class="st-updated" id="standingsUpdated">Loading the championship…</p>
     </div>
-    <div class="card card-pad inset-hl" id="standingsPanel" role="tabpanel" aria-live="polite" aria-busy="true">
+
+    <section class="card st-card" id="standingsPanel" role="tabpanel" aria-live="polite" aria-busy="true" aria-label="Championship table">
       <div class="table-wrap">
-        <table class="tbl" id="standingsTable">
-          <thead><tr><th class="t-pos">Pos</th><th>Driver</th><th class="t-team">Team</th><th class="t-num">Wins</th><th class="t-num">Points</th></tr></thead>
+        <table class="tbl st-tbl">
+          <thead>
+            <tr>
+              <th class="st-pos" scope="col">Pos</th>
+              <th scope="col" id="stNameHead">Driver</th>
+              <th class="st-team-col" scope="col" id="stTeamHead">Team</th>
+              <th class="st-num st-wins-col" scope="col">Wins</th>
+              <th class="st-num st-gap-col" scope="col">Gap</th>
+              <th class="st-num" scope="col">Pts</th>
+            </tr>
+          </thead>
           <tbody id="standingsBody"></tbody>
         </table>
       </div>
-    </div>
-  </section>
+    </section>
+  </div>
 </main>
 
 <footer class="footer">

@@ -37,6 +37,28 @@ export const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (
  */
 export const teamColor = (name?: string) => (name && TEAM_HEX[name]) || 'var(--fg-4)';
 
+/**
+ * Constructors change their public name but not their team: the feed says
+ * "RB F1 Team" where the grid and the standings say "Racing Bulls". Rows read
+ * the same label a card does.
+ */
+const TEAM_LABEL: Record<string, string> = {
+  'Red Bull': 'Red Bull Racing',
+  'RB F1 Team': 'Racing Bulls',
+  'Alpine F1 Team': 'Alpine',
+  'Haas F1 Team': 'Haas',
+  'Cadillac F1 Team': 'Cadillac',
+};
+
+export const teamName = (apiName: string) => TEAM_LABEL[apiName] ?? apiName;
+
+/** The gap to the championship leader, as a table prints it: a dash for the leader. */
+export function gapToLeader(points: string, leaderPoints: string): string {
+  const gap = Number(leaderPoints) - Number(points);
+  if (!Number.isFinite(gap)) return '\u2014';
+  return gap > 0 ? `-${gap}` : '\u2014';
+}
+
 /** "Antonelli" on a card, "andrea-kimi-antonelli" in the URL. */
 export const driverSlug = (driver: DriverRef) => slugify(`${driver.givenName} ${driver.familyName}`);
 

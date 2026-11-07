@@ -939,3 +939,119 @@ a.dp-battle-side:hover .dp-battle-name { color: var(--white); }
 
 .dp-empty { text-align: center; padding: 28px 12px; color: var(--fg-3); font-size: 13.5px; }
 .dp-empty a { color: var(--white); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ═══════════════ STANDINGS ═══════════════
+   Two leader cards, a tab row, then the table. The table carries more than a
+   grid used to: a team bar, a face or a logo, wins and the gap to the leader. */
+
+.st-leaders {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px;
+}
+@media (min-width: 900px) { .st-leaders { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.st-leader {
+  position: relative; display: flex; align-items: flex-end; gap: 20px;
+  overflow: hidden; padding: 22px 22px 22px 20px; min-height: 176px;
+  background:
+    radial-gradient(110% 100% at 100% 100%, color-mix(in srgb, var(--team) 26%, transparent), transparent 62%),
+    var(--card);
+  transition: transform .2s var(--ease), border-color .2s var(--ease);
+}
+.st-leader:hover { transform: translateY(-2px); border-color: var(--line-2); }
+.st-leader-portrait {
+  position: relative; width: 118px; flex: none; overflow: hidden; align-self: stretch;
+  margin: -20px 0 -20px -20px;
+}
+@media (min-width: 640px) { .st-leader-portrait { width: 150px; margin: -22px 0 -22px -22px; } }
+.st-leader-portrait img { position: absolute; inset-inline: 0; top: 0; width: 100%; height: auto; }
+.st-leader-body { min-width: 0; padding-block: 2px; align-self: center; }
+.st-leader-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 650; letter-spacing: .02em; color: var(--fg-3);
+}
+.st-trophy { font-size: 13px; line-height: 1; }
+.st-leader-name {
+  margin-top: 4px; font-size: clamp(1.15rem, 2.4vw, 1.4rem); font-weight: 650;
+  color: var(--white); letter-spacing: -.02em; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.st-leader-team { font-size: 13.5px; color: var(--fg-3); margin-top: 2px; }
+.st-leader-points {
+  display: flex; align-items: baseline; gap: 6px; margin-top: 8px;
+  font-size: clamp(1.45rem, 3vw, 1.85rem); font-weight: 700; color: var(--white); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.st-pts { font-size: 13px; font-weight: 600; color: var(--fg-3); }
+
+.st-leader-team { flex-direction: column; align-items: stretch; justify-content: space-between; }
+.st-leader-car { width: 74%; max-width: 340px; height: auto; margin-left: auto; margin-top: 6px; }
+@media (min-width: 640px) { .st-leader-car { width: 68%; } }
+
+.st-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-top: 30px;
+}
+.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.tab {
+  height: 36px; padding: 0 14px; border-radius: 999px; flex: none;
+  font-size: 14px; font-weight: 600; color: var(--fg-2); background: rgba(255,255,255,.06);
+  transition: color .15s var(--ease), background-color .15s var(--ease);
+}
+.tab:hover { color: var(--white); }
+.tab.active { color: var(--page); background: var(--white); }
+.st-updated { font-size: 12px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+
+.st-card { margin-top: 14px; padding: 4px; overflow: hidden; }
+.st-tbl { font-size: 14px; }
+.st-tbl th {
+  padding: 10px 12px; border-bottom: 2px solid var(--line-2);
+  font-size: 12px; font-weight: 650; letter-spacing: 0;
+  text-transform: none; color: var(--fg-2);
+}
+.st-tbl td { height: 56px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.045); }
+.st-tbl tbody tr:last-child td { border-bottom: 0; }
+.st-pos { width: 44px; color: var(--fg-2); font-weight: 700; font-variant-numeric: tabular-nums; }
+.st-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.st-wins-col, .st-gap-col { color: var(--fg-2); }
+.st-points { color: var(--white); font-weight: 700; }
+.st-team-col { color: var(--fg-2); }
+
+/* Team bar + face + two-line name. The bar is the livery, exactly as a card. */
+.st-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.team-bar { width: 3px; height: 28px; border-radius: 3px; background: var(--team, #666); flex: none; align-self: center; }
+.st-face {
+  width: 32px; height: 32px; flex: none; border-radius: 50%;
+  background: var(--card-3); object-fit: cover; object-position: top center;
+}
+.st-logotile {
+  width: 32px; height: 32px; flex: none; border-radius: 8px;
+  background: var(--card-2); display: grid; place-items: center;
+}
+.st-logo { width: 20px; height: 20px; object-fit: contain; }
+.st-who-text { min-width: 0; display: grid; }
+.st-name {
+  font-weight: 600; color: var(--white); font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.st-sub { font-size: 11.5px; color: var(--fg-3); display: none; }
+a.st-who:hover .st-name { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Below md the team column collapses into each row's second line, as the
+   reference does, so the table never needs a horizontal scroll. */
+@media (max-width: 900px) {
+  .st-team-col { display: none; }
+  .st-sub { display: block; }
+  .st-tbl th, .st-tbl td { padding-inline: 10px; }
+}
+@media (max-width: 640px) {
+  .st-wins-col { display: none; }
+  /* No ellipsis on a phone: the name wraps before it is cut. */
+  .st-name { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+  .st-tbl td { height: auto; padding-block: 10px; }
+  .st-who { gap: 9px; }
+  .st-pos { width: 30px; padding-right: 0; }
+  .st-tbl th, .st-tbl td { padding-inline: 8px; }
+  .st-leader { min-height: 0; padding: 16px; gap: 14px; }
+  .st-leader-portrait { width: 92px; height: 132px; }
+  .st-points, .st-gap-col { font-size: 13.5px; }
+}

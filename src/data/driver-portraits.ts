@@ -31,22 +31,17 @@ export const DRIVER_PORTRAIT: Record<string, string> = {
   bottas: 'cadillac/valbot01/2026cadillacvalbot01right.webp',
 };
 
-const PORTRAIT_BASE = 'https://media.formula1.com/image/upload';
+import { PORTRAIT_ALIAS, headshotWith, portraitWith, type PortraitLookup } from './portraits';
 
-/** Jolpica's driverIds are not always the portrait's own key: the champion is
-   `max_verstappen` and the rookie is `arvid_lindblad`, not `verstappen`/`lindblad`.
-   Map the exceptions instead of renaming two dozen files. */
-const PORTRAIT_ALIAS: Record<string, string> = {
-  max_verstappen: 'verstappen',
-  arvid_lindblad: 'lindblad',
-  ryo_hirakawa: 'hirakawa',
+/* The map is only for the pages that need many portraits (the grid, a profile).
+   A page that needs one or two binds the rule to this map instead of shipping it. */
+const lookup: PortraitLookup = (driverId) => {
+  const key = PORTRAIT_ALIAS[driverId] ?? driverId;
+  return DRIVER_PORTRAIT[key] ?? null;
 };
 
-/** A cut-out portrait at a chosen render width. The CDN resizes on the fly. */
-export function portrait(src: string | null, width: 320 | 440 | 600): string {
-  const key = src ? (PORTRAIT_ALIAS[src] ?? src) : null;
-  const file = key ? DRIVER_PORTRAIT[key] : undefined;
-  const fallback = 'common:f1:2026:fallback:driver:2026fallbackdriverright.webp';
-  if (!file) return `${PORTRAIT_BASE}/c_lfill,w_${width}/q_auto/d_common:f1:2026:fallback:driver:2026fallbackdriverright.webp/v1740000001/${fallback}`;
-  return `${PORTRAIT_BASE}/c_lfill,w_${width}/q_auto/d_${fallback}/v1740000001/common/f1/2026/${file}`;
-}
+export const portrait = (driverId: string | null, width: 320 | 440 | 600) =>
+  portraitWith(driverId ? lookup : () => null, driverId ?? '', width);
+
+export const headshot = (driverId: string | null, size: 64 | 96 = 64) =>
+  headshotWith(driverId ? lookup : () => null, driverId ?? '', size);

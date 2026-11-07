@@ -39,10 +39,19 @@ const pageGzip = (page) => {
     .filter(file => file.endsWith('.js'));
   return pageJs.reduce((sum, file) => sum + gzip(file), 0);
 };
-for (const page of ['schedule.html', 'standings.html', 'drivers.html', 'teams.html', 'live-timing.html']) {
+/* Standings is measured separately below; the rest of these pages are shells. */
+for (const page of ['schedule.html', 'drivers.html', 'teams.html', 'live-timing.html']) {
   const size = pageGzip(page);
   assert(size < SHELL_BUDGET, `${page} ships ${size} B gzip — over the ${SHELL_BUDGET} B shell budget`);
 }
+/* Standings stopped being a thin shell when it took on the leaders, the pills and
+   two live tables: it fetches both championships, caches each, paints the two
+   leader cards, and has an error state. That is a page of work, so it gets its
+   own allowance rather than forcing the shell budget up for everyone else. */
+const STANDINGS_BUDGET = 8 * 1024;
+const standingsSize = pageGzip('standings.html');
+console.log(`standings gzip: ${standingsSize} B of ${STANDINGS_BUDGET}`);
+assert(standingsSize < STANDINGS_BUDGET, `standings.html ships ${standingsSize} B gzip — over the ${STANDINGS_BUDGET} B budget`);
 /* A driver profile is a page of work, not a thin shell: the season's results, the
    sprint rounds, the teammate comparison and the career line are all fetched and
    formatted here. It gets its own budget so the cockpit's budget does not have to

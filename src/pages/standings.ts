@@ -2,119 +2,209 @@ import { initShell } from '../ui/shell';
 /* Every page except the cockpit carries the open-page counter in its header. */
 import '../viewer-counter';
 import { JOLPI, SITE_SEASON } from '../config';
-import { TEAM_HEX } from '../data/teams';
+import { TEAM_CAR, TEAM_HEX, TEAM_LOGO } from '../data/teams';
+import { headshot, portrait } from '../data/driver-portraits';
+import { driverSlug, esc, gapToLeader, teamName } from './driver-core';
 
 initShell();
 
 type DriverRow = {
-  position: string; points: string; wins: string;
-  Driver: { givenName: string; familyName: string; code?: string; nationality?: string };
-  Constructors?: Array<{ name: string }>;
+  position: string; positionText?: string; points: string; wins: string;
+  Driver: { driverId: string; givenName: string; familyName: string; code?: string; nationality?: string };
+  Constructors?: Array<{ name: string; constructorId: string }>;
 };
-type ConstructorRow = { position: string; points: string; wins: string; Constructor: { name: string } };
+type ConstructorRow = { position: string; points: string; wins: string; Constructor: { name: string; constructorId: string } };
+
+type Table = 'drivers' | 'constructors';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T | null;
+const set = (id: string, text: string) => { const node = $(id); if (node) node.textContent = text; };
 const body = $('standingsBody');
 const panel = $('standingsPanel');
+const updated = $('standingsUpdated');
 
-/* Anything the API sends is data, not markup: escape before it reaches innerHTML. */
-const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) =>
-  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] as string));
+/* Constructor slug for the CDN (car and logo art live under it). */
+const TEAM_SLUG: Record<string, string> = {
+  'McLaren': 'mclaren', 'Ferrari': 'ferrari', 'Red Bull': 'redbullracing', 'Mercedes': 'mercedes',
+  'Williams': 'williams', 'Aston Martin': 'astonmartin', 'Alpine': 'alpine', 'Alpine F1 Team': 'alpine',
+  'Haas': 'haasf1team', 'Haas F1 Team': 'haasf1team', 'Audi': 'audi', 'RB F1 Team': 'racingbulls',
+  'Racing Bulls': 'racingbulls', 'Cadillac': 'cadillac', 'Cadillac F1 Team': 'cadillac',
+};
+const slugFor = (apiName: string) => TEAM_SLUG[apiName] ?? '';
 
-const teamColor = (name?: string) => (name && TEAM_HEX[name]) || 'var(--fg-4)';
-
-function driversRow(row: DriverRow): string {
-  const team = row.Constructors?.[0]?.name ?? '';
-  const name = `${row.Driver.givenName} ${row.Driver.familyName}`.trim();
-  const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+/* One row, both tables: team bar, face or logo tile, name, wins, points with the
+   gap beneath, and the team in a column that folds onto the name line on narrow
+   screens. A constructor's name is its own team, so it prints once. */
+function rowOf(cells: {
+  position: string; name: string; team: string; color: string;
+  avatar: string; href: string; wins: string; points: string; gap: string;
+}): string {
   return `<tr>
-    <td class="t-pos"><span class="pos-badge">${esc(row.position)}</span></td>
+    <td class="st-pos num">${esc(cells.position)}</td>
     <td>
-      <a class="who" href="/drivers/${esc(slug)}/">
-        <span class="who-bar" style="background:${teamColor(team)}"></span>
-        <span>
-          <b>${esc(name)}</b>
-          ${row.Driver.code ? `<small>${esc(row.Driver.code)}</small>` : ''}
+      <a class="st-who" href="${esc(cells.href)}">
+        <span class="team-bar" style="--team:${esc(cells.color)}"></span>
+        ${cells.avatar}
+        <span class="st-who-text">
+          <span class="st-name">${esc(cells.name)}</span>
+          <span class="st-sub">${esc(cells.team)}</span>
         </span>
       </a>
     </td>
-    <td class="t-team">${esc(team)}</td>
-    <td class="t-num num">${esc(row.wins)}</td>
-    <td class="t-num num pts">${esc(row.points)}</td>
+    <td class="st-team-col">${esc(cells.team)}</td>
+    <td class="st-num st-wins-col">${esc(cells.wins)}</td>
+    <td class="st-num st-gap-col">${esc(cells.gap)}</td>
+    <td class="st-num st-points">${esc(cells.points)}</td>
   </tr>`;
 }
 
-function constructorRow(row: ConstructorRow): string {
-  const name = row.Constructor.name;
-  return `<tr>
-    <td class="t-pos"><span class="pos-badge">${esc(row.position)}</span></td>
-    <td>
-      <span class="who">
-        <span class="who-bar" style="background:${teamColor(name)}"></span>
-        <span><b>${esc(name)}</b></span>
-      </span>
-    </td>
-    <td class="t-team">—</td>
-    <td class="t-num num">${esc(row.wins)}</td>
-    <td class="t-num num pts">${esc(row.points)}</td>
-  </tr>`;
+const tint = (apiName: string) => TEAM_HEX[apiName] ?? '#7e8188';
+
+function driverRow(row: DriverRow, leaderPoints: number): string {
+  const teamApi = row.Constructors?.[0]?.name ?? '';
+  return rowOf({
+    position: row.positionText ?? row.position,
+    name: `${row.Driver.givenName} ${row.Driver.familyName}`.replace(/\s+/g, ' ').trim(),
+    team: teamName(teamApi),
+    color: tint(teamApi),
+    avatar: `<img class="st-face" src="${esc(headshot(row.Driver.driverId, 64))}" alt="" width="64" height="64" loading="lazy" decoding="async">`,
+    href: `/drivers/${driverSlug(row.Driver)}/`,
+    wins: row.wins,
+    points: row.points,
+    gap: gapToLeader(row.points, String(leaderPoints)),
+  });
 }
 
-type Table = 'drivers' | 'constructors';
-const cache = new Map<Table, string>();
+function constructorRow(row: ConstructorRow, leaderPoints: number): string {
+  const apiName = row.Constructor.name;
+  const team = teamName(apiName);
+  const slug = slugFor(apiName);
+  return rowOf({
+    position: row.position,
+    name: team,
+    team: '',
+    color: tint(apiName),
+    avatar: slug
+      ? `<span class="st-logotile"><img class="st-logo" src="${esc(TEAM_LOGO(slug, 80))}" alt="" width="20" height="20" loading="lazy" decoding="async"></span>`
+      : '',
+    href: '/teams.html',
+    wins: row.wins,
+    points: row.points,
+    gap: gapToLeader(row.points, String(leaderPoints)),
+  });
+}
 
-async function load(type: Table): Promise<void> {
+const cache = new Map<Table, { html: string; leader: unknown }>();
+
+async function fetchTable(type: Table): Promise<{ rows: Array<DriverRow | ConstructorRow>; round: string }> {
+  const endpoint = type === 'drivers' ? 'driverstandings' : 'constructorstandings';
+  const response = await fetch(`${JOLPI}/${SITE_SEASON}/${endpoint}/?limit=40`, { headers: { accept: 'application/json' } });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  const list = data?.MRData?.StandingsTable?.StandingsLists?.[0];
+  const rows = type === 'drivers' ? list?.DriverStandings : list?.ConstructorStandings;
+  if (!Array.isArray(rows) || !rows.length) throw new Error('Empty standings');
+  return { rows, round: String(list?.round ?? '') };
+}
+
+/** The two leader cards at the top of the page. */
+async function paintLeaders(drivers: DriverRow[], constructors: ConstructorRow[] | null): Promise<void> {
+  const leader = drivers[0];
+  if (leader) {
+    const teamApi = leader.Constructors?.[0]?.name ?? '';
+    const team = teamName(teamApi);
+    const color = TEAM_HEX[teamApi] ?? '#7e8188';
+    const name = `${leader.Driver.givenName} ${leader.Driver.familyName}`.replace(/\s+/g, ' ').trim();
+    const card = $('leaderDriver');
+    if (card) {
+      card.style.setProperty('--team', color);
+      card.setAttribute('href', `/drivers/${driverSlug(leader.Driver)}/`);
+      card.setAttribute('aria-label', `${name}, ${team}, ${leader.points} points, championship leader`);
+    }
+    const photo = $('leaderDriverPhoto') as HTMLImageElement | null;
+    if (photo) { photo.src = portrait(leader.Driver.driverId, 320); photo.alt = name; }
+    set('leaderDriverName', name);
+    set('leaderDriverTeam', team);
+    set('leaderDriverPoints', leader.points);
+  }
+
+  if (constructors?.[0]) {
+    const top = constructors[0];
+    const apiName = top.Constructor.name;
+    const team = teamName(apiName);
+    const color = TEAM_HEX[apiName] ?? '#7e8188';
+    const slug = slugFor(apiName);
+    const card = $('leaderTeam');
+    if (card) {
+      card.style.setProperty('--team', color);
+      card.setAttribute('aria-label', `${team}, ${top.points} points, constructors' leaders`);
+    }
+    const car = $('leaderTeamCar') as HTMLImageElement | null;
+    if (car && slug) { car.src = TEAM_CAR(slug, 480); car.alt = `${team} 2026 car`; }
+    set('leaderTeamName', team);
+    set('leaderTeamPoints', top.points);
+  }
+}
+
+async function load(type: Table, force = false): Promise<void> {
   if (!body || !panel) return;
-  panel.setAttribute('aria-busy', 'true');
-  const cached = cache.get(type);
+  const cached = !force ? cache.get(type) : undefined;
   if (cached) {
-    body.innerHTML = cached;
+    body.innerHTML = cached.html as string;
     panel.removeAttribute('aria-busy');
+  } else {
+    panel.setAttribute('aria-busy', 'true');
   }
 
   try {
-    const url = `${JOLPI}/${SITE_SEASON}/${type === 'drivers' ? 'driverstandings' : 'constructorstandings'}/?limit=40`;
-    const response = await fetch(url, { headers: { accept: 'application/json' } });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    const lists = data?.MRData?.StandingsTable?.StandingsLists?.[0];
-    const rows: Array<DriverRow | ConstructorRow> = type === 'drivers' ? lists?.DriverStandings : lists?.ConstructorStandings;
-    if (!Array.isArray(rows) || !rows.length) throw new Error('Empty standings');
-
+    const { rows, round } = await fetchTable(type);
+    const leaderPoints = Number(rows[0].points);
     const html = type === 'drivers'
-      ? (rows as DriverRow[]).map(driversRow).join('')
-      : (rows as ConstructorRow[]).map(constructorRow).join('');
+      ? (rows as DriverRow[]).map((row) => driverRow(row, leaderPoints)).join('')
+      : (rows as ConstructorRow[]).map((row) => constructorRow(row, leaderPoints)).join('');
 
-    cache.set(type, html);
-    body.innerHTML = html;
+    cache.set(type, { html, leader: rows[0] });
+    if (body) body.innerHTML = html;
+
+    /* "After round 19" and a real timestamp: the table changes when the feed does,
+       so the page states when it last read it rather than implying live timing. */
+    if (updated) {
+      const when = new Date().toISOString().slice(11, 16);
+      updated.textContent = `Updated ${when} UTC`;
+    }
+    const eyebrow = $('standingsEyebrow');
+    if (eyebrow && round) eyebrow.innerHTML = `<span class="swatch" aria-hidden="true"></span>After round ${esc(round)} of 23`;
+
+    if (type === 'drivers') {
+      const constructors = await fetchTable('constructors').then((data) => data.rows as ConstructorRow[]).catch(() => null);
+      await paintLeaders(rows as DriverRow[], constructors);
+    }
   } catch {
-    if (!cached) {
-      body.innerHTML = '<tr><td colspan="5" class="t-empty">Standings are unavailable right now. The table returns as soon as the season API answers.</td></tr>';
+    if (!cached && body) {
+      body.innerHTML = '<tr><td colspan="6" class="t-empty">Standings are unavailable right now. The table returns as soon as the season API answers.</td></tr>';
     }
   } finally {
     panel.removeAttribute('aria-busy');
   }
 }
 
-document.querySelectorAll<HTMLButtonElement>('.seg-btn[data-type]').forEach((button) => {
+/* Tabs */
+document.querySelectorAll<HTMLButtonElement>('.tab[data-type]').forEach((button) => {
   button.addEventListener('click', () => {
-    const type = (button.dataset.type === 'constructors' ? 'constructors' : 'drivers') as Table;
-    document.querySelectorAll<HTMLButtonElement>('.seg-btn[data-type]').forEach((other) => {
+    const type: Table = button.dataset.type === 'constructors' ? 'constructors' : 'drivers';
+    document.querySelectorAll<HTMLButtonElement>('.tab[data-type]').forEach((other) => {
       const on = other === button;
       other.classList.toggle('active', on);
       other.setAttribute('aria-selected', String(on));
     });
+    /* The second column means "Driver" or "Team" depending on the table. */
+    const nameHead = $('stNameHead');
+    const teamHead = $('stTeamHead');
+    if (nameHead) nameHead.textContent = type === 'drivers' ? 'Driver' : 'Team';
+    if (teamHead) teamHead.textContent = type === 'drivers' ? 'Team' : '';
     if (body) body.style.opacity = '0';
-    void load(type).then(() => {
-      if (body) body.style.opacity = '1';
-    });
+    void load(type).then(() => { if (body) body.style.opacity = '1'; });
   });
 });
 
-/* The header states follow the table's left column, not a hard-coded label. */
-const heads = document.querySelectorAll<HTMLElement>('#standingsTable thead th');
-const setTeamHead = (label: string) => { if (heads[2]) heads[2].textContent = label; };
-setTeamHead('Team');
-
-document.querySelector<HTMLButtonElement>('.seg-btn[data-type="drivers"]')?.click();
-export {};
+void load('drivers');
