@@ -745,7 +745,22 @@ main { flex: 1 0 auto; }
   pointer-events: none;
 }
 .team-card .t-logo { width: 92px; height: 26px; object-fit: contain; object-position: left center; opacity: .95; }
-.team-card .t-bar { width: 3px; height: 22px; border-radius: 2px; background: var(--tc); }
+.team-card .t-top { display: flex; align-items: center; gap: 10px; }
+.team-card .t-bar { width: 3px; height: 24px; border-radius: 2px; background: var(--tc); flex: none; }
+.team-card .t-ico {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  display: inline-grid; place-items: center;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.07);
+  color: var(--fg-2);
+  transition: color .16s var(--ease), background-color .16s var(--ease), border-color .16s var(--ease);
+}
+.team-card .t-ico svg { width: 18px; height: 18px; display: block; }
+.team-card:hover .t-ico {
+  color: var(--white);
+  background: rgba(255,255,255,.11);
+  border-color: rgba(255,255,255,.14);
+}
 .team-card .t-name {
   font-family: var(--font-display); font-size: 16.5px; font-weight: 700;
   color: var(--white); letter-spacing: -.01em;
