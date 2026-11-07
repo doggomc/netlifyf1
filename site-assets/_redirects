@@ -18,6 +18,11 @@
 /schedule/        /schedule.html   301
 /standings        /standings.html   301
 /standings/       /standings.html   301
+# Driver profiles are their own directories (dist/drivers/<slug>/index.html), written
+# at build time. They must be matched before the grid's own short URL below, or every
+# profile would 301 to the grid and lose its URL.
+/drivers/:slug    /drivers/:slug/index.html   200
+/drivers/:slug/   /drivers/:slug/index.html   200
 /drivers          /drivers.html   301
 /drivers/         /drivers.html   301
 /teams            /teams.html   301

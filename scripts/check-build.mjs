@@ -32,14 +32,25 @@ assert(initialJs < BUDGET, `Startup JS exceeds ${BUDGET} B gzip budget: ${initia
 /* Every page except the cockpit is a thin shell. If a page bundle climbs past this,
    markup has been pasted into a page that should be composing from data. */
 const SHELL_BUDGET = 6 * 1024;
-for (const page of ['schedule.html', 'standings.html', 'drivers.html', 'teams.html', 'live-timing.html']) {
+const pageGzip = (page) => {
   const entry = manifest[page];
   assert(entry, `missing entry ${page}`);
   const pageJs = [entry.file, ...(entry.imports || []).map(key => manifest[key]?.file).filter(Boolean)]
     .filter(file => file.endsWith('.js'));
-  const size = pageJs.reduce((sum, file) => sum + gzip(file), 0);
+  return pageJs.reduce((sum, file) => sum + gzip(file), 0);
+};
+for (const page of ['schedule.html', 'standings.html', 'drivers.html', 'teams.html', 'live-timing.html']) {
+  const size = pageGzip(page);
   assert(size < SHELL_BUDGET, `${page} ships ${size} B gzip — over the ${SHELL_BUDGET} B shell budget`);
 }
+/* A driver profile is a page of work, not a thin shell: the season's results, the
+   sprint rounds, the teammate comparison and the career line are all fetched and
+   formatted here. It gets its own budget so the cockpit's budget does not have to
+   absorb it either. */
+const PROFILE_BUDGET = 14 * 1024;
+const profileSize = pageGzip('driver.html');
+console.log(`driver profile gzip: ${profileSize} B of ${PROFILE_BUDGET}`);
+assert(profileSize < PROFILE_BUDGET, `driver.html ships ${profileSize} B gzip — over the ${PROFILE_BUDGET} B profile budget`);
 
 /* championship was retired with the grid: /standings and /drivers are whole pages
    with their own small bundles now, not a lazily-opened panel. */
@@ -50,6 +61,24 @@ for (const feature of optional) {
   assert(!startup.has(entry.file), `${feature} leaked into the startup bundle`);
 }
 const PAGES = ['index.html', 'cockpit.html', 'schedule.html', 'standings.html', 'drivers.html', 'teams.html', 'live-timing.html', 'help.html', 'maintenance.html', '404.html', 'beertjie.html'];
+
+/* Driver profiles are real pages under dist/drivers/<slug>/. The build knows the
+   grid from benchmarks/driver-grid.json, so every one of them must exist, carry
+   its own title and canonical, and load only built assets. */
+const grid = JSON.parse(readFileSync('benchmarks/driver-grid.json', 'utf8')).drivers;
+const slugify = (value) => value.toLowerCase().normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+assert(grid.length > 0, 'the 2026 grid must not be empty');
+for (const driver of grid) {
+  const file = `dist/drivers/${slugify(`${driver.givenName} ${driver.familyName}`)}/index.html`;
+  assert(existsSync(file), `missing driver profile: ${file}`);
+  const html = readFileSync(file, 'utf8');
+  assert(html.includes(`${driver.familyName}`), `${file} does not name its driver`);
+  assert(/<title>[^<]*— 2026 stats and results \| FreeF1<\/title>/.test(html), `${file} has no driver-specific title`);
+  assert(html.includes('/drivers/') && html.includes('rel="canonical"'), `${file} has no canonical URL`);
+  assert(!html.includes('/src/'), `Unbuilt source reference in ${file}`);
+}
+assert(existsSync('dist/assets/flags/it-40.png'), 'flags are self-hosted; assets/flags is missing from dist');
 for (const page of PAGES) {
   const html = readFileSync(`dist/${page}`, 'utf8');
   assert(!html.includes('/src/'), `Unbuilt source reference in ${page}`);

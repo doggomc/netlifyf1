@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
+import { driverPages } from './scripts/driver-pages';
 import { resolve, extname, join, relative, sep } from 'node:path';
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -70,7 +71,17 @@ function parseHeaders(): HeaderRule[] {
   return rules;
 }
 
+/** Netlify placeholders (`/drivers/:slug`, `/drivers/:slug/`, and `:slug` in a
+    target) are matched here too, so dev routes exactly like a deploy preview. */
 function matches(pattern: string, pathname: string): boolean {
+  const slots: string[] = [];
+  if (pattern.includes(':')) {
+    const source = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/:\w+/g, (token) => {
+      slots.push(token.slice(1));
+      return '([^/]+)';
+    });
+    return new RegExp(`^${source}$`).test(pathname);
+  }
   if (pattern.endsWith('/*')) {
     const base = pattern.slice(0, -2);
     return pathname === base || pathname.startsWith(base + '/');
@@ -121,14 +132,30 @@ function serveStaticFolders(): Plugin {
            the URL and lets Vite render the target page. */
         const rule = redirects.find(candidate => matches(candidate.from, pathname));
         if (rule) {
+          /* `/drivers/:slug/ → /drivers/:slug/index.html` carries the segment over. */
+          let target = rule.to;
+          if (rule.from.includes(':')) {
+            const names = [...rule.from.matchAll(/:(\w+)/g)].map((match) => match[1]);
+            const values = [...pathname.matchAll(/[^/]+/g)].map((match) => match[0]);
+            names.forEach((name, index) => { target = target.replace(`:${name}`, values[index] ?? ''); });
+          }
           if (rule.status === 200) {
-            req.url = rule.to + (req.url || '').slice(pathname.length);
+            req.url = target + (req.url || '').slice(pathname.length);
             return next();
           }
           res.statusCode = rule.status;
           res.setHeader('Location', rule.to);
           res.end();
           return;
+        }
+
+        /* Driver profiles are real directories on Netlify (dist/drivers/<slug>/index.html,
+           written by scripts/driver-pages.ts). In dev there is no build to write them,
+           so route the pattern at the profile template instead — a slug that does not
+           belong to the grid is rejected by the page itself. */
+        if (/^\/drivers\/[^/]+\/?$/.test(pathname)) {
+          req.url = '/driver.html' + (req.url || '').slice(pathname.length);
+          return next();
         }
 
         /* Netlify never serves its own config files. */
@@ -252,7 +279,7 @@ function dedupeRootAssets(): Plugin {
 
 export default defineConfig({
   publicDir: false,
-  plugins: [serveStaticFolders(), dedupeRootAssets()],
+  plugins: [serveStaticFolders(), dedupeRootAssets(), driverPages()],
   server: {
     host: '0.0.0.0', port: 4173,
     allowedHosts: ['.e2b.app', 'localhost'],
@@ -273,6 +300,9 @@ export default defineConfig({
         schedule: resolve(ROOT, 'schedule.html'),
         standings: resolve(ROOT, 'standings.html'),
         drivers: resolve(ROOT, 'drivers.html'),
+        /* The profile template. scripts/driver-pages.ts copies the built page to
+           dist/drivers/<slug>/ once every asset URL is final. */
+        'drivers.driver': resolve(ROOT, 'driver.html'),
         teams: resolve(ROOT, 'teams.html'),
         liveTiming: resolve(ROOT, 'live-timing.html'),
         help: resolve(ROOT, 'help.html'),

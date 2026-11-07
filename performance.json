@@ -5,15 +5,15 @@
   "baselineAppCssGzipBytes": 18115,
   "startupJsGzipBytes": 6261,
   "startupJsFiles": [
-    "bundles/index-ugIhZgL9.js",
+    "bundles/index-DnzCSWkn.js",
     "bundles/modulepreload-polyfill-B5Qt9EMX.js",
     "bundles/viewer-counter-C-NbtiBx.js",
     "bundles/dom-DzS30Lfg.js",
     "bundles/weekend-D2Mq7n7V.js",
     "bundles/schedule-v6Kvk26p.js"
   ],
-  "initialCssGzipBytes": 4900,
-  "cockpitJsGzipBytes": 21011,
+  "initialCssGzipBytes": 6547,
+  "cockpitJsGzipBytes": 20443,
   "cockpitCssGzipBytes": 17801,
   "lazyFeatures": {
     "results": {
