@@ -264,7 +264,7 @@ main { flex: 1 0 auto; }
   font-size: 15.5px; line-height: 1.62; color: var(--fg-2);
 }
 
-.section { padding-block: 26px 56px; }
+.section { padding-block: 40px 56px; }
 .section-head {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 16px; margin-bottom: 16px;
@@ -320,13 +320,17 @@ main { flex: 1 0 auto; }
 /* ═══════════════ HOME HERO ═══════════════ */
 
 .hero { position: relative; overflow: hidden; isolation: isolate; }
+
 .hero-media { position: absolute; inset: 0; z-index: -2; }
 .hero-media img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; }
 .hero::after {
   content: ''; position: absolute; inset: 0; z-index: -1;
+  /* The vertical fade is listed first so it paints on top: with the red glow last
+     the hero ended on a tinted edge against a neutral section, which read as a hard
+     line across the page. Bottom is now exactly the page colour. */
   background:
-    radial-gradient(120% 90% at 12% 100%, rgba(225,6,0,.22), transparent 62%),
-    linear-gradient(180deg, rgba(14,15,17,.55), rgba(14,15,17,.82) 52%, var(--page) 97%);
+    linear-gradient(180deg, rgba(14,15,17,.55), rgba(14,15,17,.78) 46%, rgba(14,15,17,.95) 84%, var(--page)),
+    radial-gradient(120% 90% at 12% 100%, rgba(225,6,0,.22), transparent 62%);
 }
 .hero-inner {
   display: grid;
@@ -400,6 +404,11 @@ main { flex: 1 0 auto; }
 .hero-meta .divider { width: 1px; height: 14px; background: var(--line-2); }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
 
+.hero-rail {
+  display: flex; flex-direction: column;
+  gap: 12px; min-width: 0;
+}
+
 .hero-card {
   border-radius: var(--radius); background: color-mix(in srgb, var(--card) 88%, transparent);
   box-shadow: var(--shadow-raised); position: relative; overflow: hidden;
@@ -461,48 +470,40 @@ main { flex: 1 0 auto; }
 /* The weekend block closes the hero: a labelled surface holding the five sessions,
    directly under the up-next card so the two read as one column. */
 .hero-week {
-  grid-column: 1 / -1;
   min-width: 0;
-  margin-top: 4px;
-  /* Full-bleed within the hero, padded with the same gutter as the heading so the
-     panel's left edge lines up with the Grand Prix name above it. */
-  margin-inline: calc(var(--gutter) * -1);
-  padding: 14px var(--gutter) 16px;
+  padding: 14px;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--card) 78%, transparent);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-raised);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
 .hero-week-head {
   display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px; padding: 0 4px 11px;
+  gap: 12px; padding: 0 2px 11px;
 }
 .hero-week-head span:last-child { font-size: 12px; color: var(--fg-4); }
 
-/* Five sessions in four columns: the first four are small, the last spans two so
-   the block always closes with a full width instead of an orphan in empty space. */
+/* The rail is card-width, so the weekend is two columns of sessions with the fifth
+   spanning both: nothing is orphaned and the block closes flush. On a wide screen
+   the rail is wider and it fits four across, still with the fifth spanning two. */
 .session-strip {
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .session-tile:nth-child(5) { grid-column: span 2; }
-@media (max-width: 420px) {
-  .session-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .session-tile:nth-child(5) { grid-column: span 2; }
-}
 .session-tile {
   background: color-mix(in srgb, var(--card-2) 92%, transparent);
   border-radius: var(--radius-sm);
-  padding: 13px 14px; border: 1px solid var(--line);
+  padding: 10px 12px; border: 1px solid var(--line);
   transition: background-color .18s var(--ease), border-color .18s var(--ease);
   display: flex; flex-direction: column; gap: 3px;
 }
 .session-tile:hover { background: var(--card-3); }
 .session-tile .name { font-size: 12px; font-weight: 650; color: var(--fg-3); letter-spacing: .01em; }
-.session-tile .when { font-family: var(--font-display); font-size: 14.5px; font-weight: 700; color: var(--white); }
-.session-tile .day { font-size: 11.5px; color: var(--fg-4); }
+.session-tile .when { font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: var(--white); }
+.session-tile .day { font-size: 11px; color: var(--fg-4); }
 .session-tile.next { border-color: rgba(225,6,0,.45); background: rgba(225,6,0,.09); }
 .session-tile.done { opacity: .55; }
 .session-tile.live { border-color: var(--accent); background: rgba(225,6,0,.14); }
