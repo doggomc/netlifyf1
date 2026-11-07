@@ -5764,10 +5764,15 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
   gap: 8px;
 }
 
-/* Every source pill enters smoothly on tab switch. */
+/* Every source pill enters smoothly on tab switch; background 3-min refreshes skip re-animating. */
 .wsource-list > button.chip,
 .wsource-list .special-row button.chip {
   animation: fadeUp .28s var(--ease) backwards;
+}
+
+.wsource-list.is-quiet > button.chip,
+.wsource-list.is-quiet .special-row button.chip {
+  animation: none;
 }
 
 .wsource-list > *:nth-child(2), .wsource-list .special-row button.chip:nth-child(2) { animation-delay: .015s; }

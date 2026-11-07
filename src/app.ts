@@ -465,6 +465,8 @@ interface StreamSource {
   lang?: 'en' | 'other';        // which tab the chip belongs to
   special?: 'onboard' | 'data' | 'feed'; // drawn apart from the broadcaster chips
   weelo?: string;               // weelo stream id, when the pool is looked up there
+  weellzUrls?: string[];        // live channel URLs synced from weellz.live (primary + backups)
+  weellzPending?: boolean;      // true only while weellz.live marks the channel link pending
   taifood?: string;             // chip key in taifood's per-race list ('apple', 'sky', …)
   tfLang?: string;              // taifood's own name for the commentary language, e.g. 'italian'
   /* Race Control's own view of the chip: the shipped name and pool, and the live state. */
@@ -484,11 +486,16 @@ let catalogues: Catalogues = { embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {},
 /* Until the catalogue has answered once, an EMB chip has NO pool. Treating "not loaded yet" as
    "nothing upstream" is what made every EMB chip look dead on a cold click. */
 let cataloguesReady = false;
+/* Refresh Weelo links from weellz.live every 3 minutes without interrupting active playback. */
+const WEELO_REFRESH_INTERVAL_MS = 3 * 60_000;
+let lastWeeloRefreshAt = 0;
 
 async function loadCatalogues(): Promise<void> {
   const { loadCatalogues: load } = await import('./features/catalogues');
   catalogues = await load({ fetchWithTimeout, backend: BACKEND_API });
   cataloguesReady = true;
+  lastWeeloRefreshAt = Date.now();
+  syncWeeloSourcesFromFeed();
 }
 
 function cdnLivePlayer(name: string): string {
@@ -738,6 +745,123 @@ function customLink(raw: string): string {
 /* A pasted link plays as given: no 4K prompt, no waiting on a catalogue. */
 const isCustom = (i = currentSource) => sources[i]?.links[0]?.provider === 'custom';
 
+function weeloSourceUrls(source: StreamSource): string[] {
+  if (source.weellzUrls && source.weellzUrls.length) return source.weellzUrls;
+  if (source.weelo) return [`https://weellz.live/beta?stream=${source.weelo}`];
+  return [];
+}
+
+function weeloPillSignature(): string {
+  return sources
+    .filter((s) => s.special)
+    .map((s) => `${s.id}|${s.label}|${s.hidden ? 1 : 0}|${specialDown(s) ? 1 : 0}|${s.weellzPending ? 1 : 0}`)
+    .join(';');
+}
+
+/* Apply the latest links fetched from weellz.live onto the Weelo sources in memory.
+   Preserves Race Control ids ('weelo-skyweelo', 'weelo-kimi', …) and custom overrides,
+   and never touches #player directly. Returns true when visible pill state changed. */
+function syncWeeloSourcesFromFeed(): boolean {
+  const feed = catalogues.weellz;
+  if (!feed) return false;
+  const before = weeloPillSignature();
+
+  const slotToSourceId: Record<string, string> = {
+    skyweelo: 'weelo-skyweelo',
+    intl: 'weelo-intl',
+    f1tvworld: 'weelo-f1tvworld',
+    shows: 'weelo-shows',
+    drivers: 'weelo-drivers',
+    data: 'weelo-data',
+  };
+
+  for (const [slot, sourceId] of Object.entries(slotToSourceId)) {
+    const entry = (feed.slots as Record<string, any>)[slot];
+    const target = sources.find((s) => s.id === sourceId);
+    if (!entry || !target) continue;
+    if (entry.stream) target.weelo = entry.stream;
+    if (Array.isArray(entry.urls) && entry.urls.length) {
+      target.weellzUrls = entry.urls.slice();
+      target.weellzPending = false;
+    } else if (entry.pending) {
+      target.weellzPending = true;
+    }
+  }
+
+  /* Match weellz.live driver onboards onto the onboard chips (supporting rotated drivers). */
+  const onboardTargets: { id: string; pattern: RegExp }[] = [
+    { id: 'weelo-kimi', pattern: /\b(kimi|antonelli)\b/i },
+    { id: 'weelo-charles', pattern: /\b(charles|leclerc)\b/i },
+    { id: 'weelo-max', pattern: /\b(max|verstappen)\b/i },
+  ];
+  const remainingOnboards = Array.isArray(feed.onboards) ? feed.onboards.slice() : [];
+  const unmatchedTargets: StreamSource[] = [];
+
+  for (const { id, pattern } of onboardTargets) {
+    const target = sources.find((s) => s.id === id);
+    if (!target) continue;
+    const idx = remainingOnboards.findIndex((o) => pattern.test(o.label));
+    if (idx >= 0) {
+      const [entry] = remainingOnboards.splice(idx, 1);
+      if (entry.stream) target.weelo = entry.stream;
+      if (entry.urls.length) {
+        target.weellzUrls = entry.urls.slice();
+        target.weellzPending = false;
+      } else if (entry.pending) {
+        target.weellzPending = true;
+      }
+    } else {
+      unmatchedTargets.push(target);
+    }
+  }
+
+  for (const target of unmatchedTargets) {
+    const entry = remainingOnboards.shift();
+    if (!entry) break;
+    const hasCustomLabel = Boolean(target.base && target.label !== target.base.label);
+    if (!hasCustomLabel && entry.label) {
+      target.label = entry.label;
+      if (target.base) target.base.label = entry.label;
+    }
+    if (entry.stream) target.weelo = entry.stream;
+    if (entry.urls.length) {
+      target.weellzUrls = entry.urls.slice();
+      target.weellzPending = false;
+    } else if (entry.pending) {
+      target.weellzPending = true;
+    }
+  }
+
+  for (const extra of remainingOnboards) {
+    if (!extra.label || (!extra.stream && !extra.urls.length)) continue;
+    const slug = extra.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!slug) continue;
+    const id = `weelo-onboard-${slug}`;
+    let target = sources.find((s) => s.id === id);
+    if (!target) {
+      target = {
+        id,
+        label: extra.label,
+        lang: 'en',
+        special: 'onboard',
+        weelo: extra.stream || undefined,
+        weellzUrls: extra.urls.slice(),
+        weellzPending: Boolean(extra.pending && !extra.urls.length),
+        links: [],
+      };
+      sources.push(target);
+    } else {
+      if (extra.stream) target.weelo = extra.stream;
+      if (extra.urls.length) {
+        target.weellzUrls = extra.urls.slice();
+        target.weellzPending = false;
+      }
+    }
+  }
+
+  return weeloPillSignature() !== before;
+}
+
 function linkPool(index: number): string[] {
   const source = sources[index];
   if (!source) return [];
@@ -763,12 +887,13 @@ function linkPool(index: number): string[] {
     links = [...mirrorLinks('skyf1', wanted), ...links.filter((link) => link.quality === wanted || !link.url?.includes('embed/racing/'))];
   }
 
-  /* A weelo special has exactly one address, and only publishes it when weelo says it can play.
-     'soon' still plays: it means the feed is about to come up, and the provider page waits for it. */
-  /* A weelo chip's address is built from its weelo id; a custom link on it (linkPool returns above)
-     always wins. The stamp is skipped for a pasted address for the same reason as everywhere else:
-     someone else's URL is opened exactly as typed. */
-  if (source.weelo) return source.custom ? [] : specialDown(source) ? [] : [stampSession(`https://weellz.live/beta?stream=${source.weelo}`, key)];
+  /* Weelo links are synced from weellz.live every 3 minutes (primary beta?stream=... plus any
+     backup URLs like weellz.live/at?id=...). A custom link from Race Control (handled above) always wins. */
+  if (source.weelo || source.weellzUrls?.length || source.weellzPending) {
+    if (source.custom) return [];
+    const urls = weeloSourceUrls(source);
+    return urls.map((u) => stampSession(u, key));
+  }
 
   if (source.embdlol) {
     /* embdlol publishes exactly the channels that exist right now, so the picker takes the id for
@@ -997,6 +1122,14 @@ function updateWatchSessionState() {
   setTextIfChanged(meta, `${currentEvent.locality}, ${currentEvent.country}`);
 }
 
+/* True whenever a stream iframe or video is actively mounted on the stage without #noStream covering it.
+   Background refreshes (3-min weellz.live sync, 30s session sync) must NEVER touch #player while true. */
+function isStreamPlayingOnStage(): boolean {
+  const media = stageBox?.querySelector('iframe, video');
+  const noStreamShown = Boolean(noStreamEl?.classList.contains('visible'));
+  return Boolean(media && media.isConnected && !noStreamShown);
+}
+
 function syncActiveSession() {
   const target = pickDefault();
   if (!target?.event || !target?.session) return;
@@ -1006,8 +1139,9 @@ function syncActiveSession() {
   resetSessionState();
   normalizeCurrentSource();
   updateHeader();
-  renderButtons();
-  load();
+  renderButtons({ quiet: true });
+  /* Do not interrupt an already-playing stream (e.g. post-session coverage) on session rollover. */
+  if (!isStreamPlayingOnStage()) load();
 }
 
 function updateHeader() {
@@ -1232,8 +1366,9 @@ function renderTabBar() {
   }));
 }
 
-function renderButtons() {
+function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
   if (!linksEl) return;
+  linksEl.classList.toggle('is-quiet', quiet);
   linksEl.replaceChildren();
   normalizeCurrentSource();
   renderTabBar();
@@ -1250,10 +1385,10 @@ function renderButtons() {
     b.className = "chip src-pill" + (active ? " active" : "");
     b.setAttribute("aria-pressed", String(active));
     if (s.gated && !canPlayHevc()) b.title = HEVC_WARNING;
-    /* Specials carry weelo's own state, so a chip that cannot play never looks clickable. */
+    /* Specials carry weelo's own state, so a chip that is standing by gets a subtle dim cue. */
     if (s.special) {
       b.className += ` chip-special chip-${s.special}`;
-      if (specialDown(s)) b.className += ' is-down', b.title = `weelo: ${specialState(s)}`;
+      if (specialDown(s)) b.className += ' is-down', b.title = `weellz.live: ${specialState(s) || 'standby'}`;
     } else if (pill.badge) {
       b.className += ' has-tag';
       const tag = document.createElement('span');
@@ -1275,7 +1410,15 @@ function renderButtons() {
     }
 
     b.onclick = async () => {
-      if (!isPasted(s) && specialDown(s)) return showNoStream({ title: 'Not on air', text: `${pill.title} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
+      if (!isPasted(s) && s.special && weeloSourceUrls(s).length === 0) {
+        currentSource = i;
+        renderButtons();
+        updateHeader();
+        return showNoStream({
+          title: 'Link pending on weellz.live',
+          text: `${pill.title} has not published its live stream link yet. Links refresh automatically every 3 minutes.`,
+        });
+      }
       /* The 4K chip asks once whether they want session alerts before playing. */
       if (s.gated && !isPasted(s) && !isCustom(i)) return chooseFourK();
       currentSource = i;
@@ -1565,6 +1708,12 @@ function attemptSource(token, order, idx, startedAt, linkIdx = 0) {
   if (token !== playerLoadToken) return;
   if (idx >= order.length) return showNoStream({ text: BLOCKED_COPY });
   const sourceIndex = order[idx];
+  const candidate = sources[sourceIndex];
+  /* Never automatically fail over from another source onto an off-air Weelo feed; direct clicks (idx === 0) still open weellz.live's player. */
+  if (idx > 0 && candidate?.special && !isCustom(sourceIndex) && specialDown(candidate)) {
+    attemptSource(token, order, idx + 1, startedAt, 0);
+    return;
+  }
   const pool = linkPool(sourceIndex);
   if (linkIdx >= pool.length) {
     /* A chip with nothing upstream says so instead of silently playing another provider. */
@@ -1727,7 +1876,9 @@ function load() {
     return;
   }
 
-  if (!isStreamAvailable(currentSession)) {
+  const selectedSource = sources[currentSource];
+  const directWeeloSelected = Boolean(selectedSource?.special && weeloSourceUrls(selectedSource).length > 0);
+  if (!isStreamAvailable(currentSession) && !catalogues.weellz?.anyLive && !directWeeloSelected) {
     showNoStream({ blocked: false });
     return;
   }
@@ -2724,12 +2875,45 @@ addEventListener('keydown', (e) => {
 // Apply stored team livery
 applyTeamTheme(store.get('freef1_team') || 'default');
 
-// Resolve the embdlol channel directory before the feed row is built (falls back if it fails).
+/* Fetch fresh Weelo channel links from weellz.live every 3 minutes.
+   CRITICAL: Never reload, unmount, or touch #player while a stream is actively on stage. */
+async function refreshWeeloFeeds(): Promise<void> {
+  try {
+    const { refreshWeeloCatalogues } = await import('./features/catalogues');
+    catalogues = await refreshWeeloCatalogues({ fetchWithTimeout, backend: BACKEND_API });
+    cataloguesReady = true;
+    lastWeeloRefreshAt = Date.now();
+    const pillsChanged = syncWeeloSourcesFromFeed();
+    if (pillsChanged) {
+      renderButtons({ quiet: true });
+      updateCurrentStreamButton();
+    }
+    /* Continuous playback guarantee: never touch #player while a stream is on screen or mounting. */
+    if (isStreamPlayingOnStage() || stageBox?.querySelector('iframe, video')) return;
+
+    const selected = sources[currentSource];
+    const weeloReady = Boolean(selected?.special && !specialDown(selected) && weeloSourceUrls(selected).length > 0);
+    if ((isStreamAvailable(currentSession) || catalogues.weellz?.anyLive || weeloReady) && noStreamEl?.classList.contains('visible') && nsRunning) {
+      load();
+    }
+  } catch {
+    /* Network hiccup during background refresh: keep existing links & playback untouched. */
+  }
+}
+
+// Resolve the embdlol + weellz.live channel directories on startup (falls back if unreachable).
 void loadCatalogues().then(() => {
-  renderButtons();
-  /* No prefetch for token providers: their address dies in seconds, so warming it at load time is
-     the same as burning it. It is minted on click instead. */
+  renderButtons({ quiet: true });
+  updateCurrentStreamButton();
+  if (!isStreamPlayingOnStage() && !stageBox?.querySelector('iframe, video') && catalogues.weellz?.anyLive && noStreamEl?.classList.contains('visible') && nsRunning) {
+    load();
+  }
 });
+// Refresh Weelo stream links from weellz.live every 3 minutes without interrupting playback.
+window.setInterval(() => {
+  void refreshWeeloFeeds();
+}, WEELO_REFRESH_INTERVAL_MS);
+
 void loadProviderHealth();
 window.setInterval(() => {
   if (!document.hidden) void loadProviderHealth();
@@ -2764,6 +2948,9 @@ document.addEventListener('visibilitychange', () => {
     syncActiveSession();
     updateClocks();
     updateCurrentStreamButton();
+    if (Date.now() - lastWeeloRefreshAt >= WEELO_REFRESH_INTERVAL_MS) {
+      void refreshWeeloFeeds();
+    }
   }
 }, { passive: true });
 

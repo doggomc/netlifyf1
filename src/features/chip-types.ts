@@ -2,6 +2,7 @@
 export interface StreamLink { provider?: string; label?: string; quality?: number; url?: string; taid?: number; mark?: string; addressing?: string; ppv?: boolean; }
 export interface StreamSource {
   id: string; label: string; links: StreamLink[]; embdlol?: string; weelo?: string;
+  weellzUrls?: string[]; weellzPending?: boolean;
   special?: 'onboard' | 'data' | 'feed'; lang?: 'en' | 'other'; gated?: boolean;
   base?: { label: string; links: StreamLink[] };
   hidden?: boolean;

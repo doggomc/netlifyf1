@@ -13,8 +13,8 @@
     "bundles/schedule-v6Kvk26p.js"
   ],
   "initialCssGzipBytes": 11106,
-  "cockpitJsGzipBytes": 21397,
-  "cockpitCssGzipBytes": 18256,
+  "cockpitJsGzipBytes": 22433,
+  "cockpitCssGzipBytes": 18274,
   "lazyFeatures": {
     "results": {
       "gzipBytes": 4797
@@ -29,7 +29,7 @@
       "gzipBytes": 3603
     },
     "multiviewer": {
-      "gzipBytes": 4169
+      "gzipBytes": 4205
     }
   }
 }

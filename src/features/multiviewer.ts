@@ -485,12 +485,18 @@ export function init(ctx: any) {
      dropped instead of being kept as a black frame. */
   const sync = () => {
     if (!open) return;
-    for (const id of [...ids]) if (!byId(id)) remove(id);
+    /* Preserve already-mounted playing tiles across 3-minute weellz.live link refreshes unless hidden by Race Control. */
+    for (const id of [...ids]) {
+      const hiddenByAdmin = ctx.sources.some((s: any) => s.hidden && s.weelo === id);
+      if (hiddenByAdmin || (!frames.has(id) && !byId(id))) remove(id);
+    }
     /* weelo's state map arrives after the tiles do, so the badge is refreshed rather than decided
        once: a feed that comes up loses it, a feed that goes dark gains it, and neither is unmounted. */
     for (const id of ids) {
       const tile = tilesEl.querySelector(`[data-feed="${CSS.escape(id)}"]`);
-      const live = byId(id)?.live !== false;
+      const known = byId(id);
+      if (!known) continue;
+      const live = known.live !== false;
       tile?.classList.toggle('is-off', !live);
       const badge = tile?.querySelector('.mvx-off-msg');
       if (badge) badge.textContent = live ? '' : 'off air';
