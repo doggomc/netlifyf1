@@ -8,7 +8,7 @@ import { portrait } from '../data/driver-portraits';
 import { TEAM_HEX } from '../data/teams';
 import { schedule } from '../data/schedule';
 import { SITE_SEASON } from '../config';
-import { driverSlug, esc, loadStandings, ordinal, type StandingRow } from './driver-core';
+import { driverSlug, esc, loadStandings, ordinal, teamSlug, type StandingRow } from './driver-core';
 import { loadSeason, seasonStats, teammateBattle, teammateOf, type SeasonRow } from './driver-season';
 
 initShell();
@@ -150,7 +150,7 @@ async function paint(): Promise<void> {
   show('dpTags', [
     flag ? `${flagHtml(flag)}<span>${esc(driver.nationality ?? '')}</span>` : '',
     `<span class="dp-dot" aria-hidden="true">·</span>`,
-    `<a class="dp-team-link" href="/teams.html"><span class="driver-swatch" aria-hidden="true" style="background:${esc(color)}"></span>${esc(team)}</a>`,
+    `<a class="dp-team-link" href="/teams/${esc(teamSlug(team))}/"><span class="driver-swatch" aria-hidden="true" style="background:${esc(color)}"></span>${esc(team)}</a>`,
   ].filter(Boolean).join(''));
 
   const nameNode = $('dpName');

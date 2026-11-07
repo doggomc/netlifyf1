@@ -12,6 +12,7 @@ export const TEAM_COUNTRY: Record<string, string> = {
 
 /** The name the grid uses for a constructor, from whatever the API calls it. */
 const TEAM_LABEL: Record<string, string> = {
+  'Red Bull': 'Red Bull Racing',
   'RB F1 Team': 'Racing Bulls',
   'Alpine F1 Team': 'Alpine',
   'Haas F1 Team': 'Haas',

@@ -1083,3 +1083,121 @@ a.st-who:hover .st-name { text-decoration: underline; text-underline-offset: 2px
   .st-leader-constructor { padding: 16px; }
   .st-points, .st-gap-col { font-size: 13.5px; }
 }
+
+/* ═══════════════ TEAMS GRID ═══════════════
+   All 11 constructors: top-right team glow, 44px neutral logo tile, championship
+   position in Zen Dots, the 2026 car across the middle, and face chips for the
+   two race drivers at the foot. */
+
+.tm-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) { .tm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .tm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.tm-card {
+  position: relative; display: flex; flex-direction: column; overflow: hidden;
+  padding: 20px;
+  background:
+    radial-gradient(90% 90% at 100% 0%, color-mix(in srgb, var(--team) 22%, transparent), transparent 60%),
+    var(--card);
+  transition: transform .2s var(--ease), border-color .2s var(--ease), background-color .2s var(--ease);
+}
+.tm-card:hover { transform: translateY(-2px); border-color: var(--line-2); }
+.tm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tm-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tm-logo-box {
+  width: 44px; height: 44px; flex: none; border-radius: 8px;
+  background: rgba(206, 206, 217, .07); display: grid; place-items: center;
+}
+.tm-logo { width: 28px; height: 28px; object-fit: contain; }
+.tm-name {
+  font-size: 18px; line-height: 24px; font-weight: 700; color: var(--white);
+  letter-spacing: -.01em;
+}
+.tm-meta { font-size: 12px; line-height: 16px; color: var(--fg-3); margin-top: 2px; }
+.tm-pos {
+  font-family: var(--font-number); font-weight: 400;
+  font-size: 30px; line-height: 1; color: rgba(255, 255, 255, .15);
+  flex: none; user-select: none;
+}
+.tm-car {
+  margin-block: 20px; width: 100%; height: auto;
+  transition: transform .5s var(--ease);
+}
+.tm-card:hover .tm-car { transform: translateX(4px); }
+.tm-drivers { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.tm-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 8px 0 0; border-radius: 6px;
+  background: rgba(206, 206, 217, .07); color: var(--fg-2);
+  font-size: 12px; font-weight: 500; line-height: 16px; white-space: nowrap;
+}
+.tm-chip-face {
+  width: 20px; height: 20px; flex: none; border-radius: 50%;
+  object-fit: cover; object-position: top center; background: var(--card-3);
+}
+
+/* ═══════════════ CONSTRUCTOR PROFILE ═══════════════ */
+
+.tp-hero {
+  position: relative; overflow: hidden; isolation: isolate;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #111218, var(--page));
+}
+.tp-glow {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(70% 90% at 70% 30%, color-mix(in srgb, var(--team) 22%, transparent), transparent 65%);
+}
+.tp-hero-inner { padding-block: 28px 36px; }
+@media (min-width: 640px) { .tp-hero-inner { padding-block: 34px 40px; } }
+.tp-head { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
+.tp-logo-box {
+  width: 64px; height: 64px; flex: none; border-radius: 10px;
+  background: rgba(206, 206, 217, .07); display: grid; place-items: center;
+}
+.tp-logo-box img { width: 40px; height: 40px; object-fit: contain; }
+.tp-entry { font-size: 12px; font-weight: 650; letter-spacing: .02em; color: var(--fg-3); }
+.tp-title {
+  margin-top: 2px; font-size: clamp(2.1rem, 6vw, 3.6rem); line-height: 1.05;
+  font-weight: 650; letter-spacing: -.02em; color: var(--white);
+}
+.tp-car {
+  display: block; width: 100%; max-width: 896px; height: auto;
+  margin: 30px auto 0;
+}
+.tp-stats {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  margin-top: 30px;
+}
+@media (min-width: 640px) { .tp-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; } }
+@media (min-width: 1024px) { .tp-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+.tp-drivers-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px;
+}
+@media (min-width: 560px) { .tp-drivers-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.tp-finishes { color: var(--fg-2); font-variant-numeric: tabular-nums; }
+.tp-finishes.is-win { color: var(--white); font-weight: 600; }
+
+.tp-mini-card { padding: 16px 14px 8px; overflow: hidden; }
+.tp-mini-card .dp-side-title {
+  padding-inline: 6px; margin-bottom: 10px;
+  font-size: 14px; font-weight: 700; color: var(--white);
+  text-transform: none; letter-spacing: 0;
+}
+.tp-mini-tbl { font-size: 13.5px; }
+.tp-mini-tbl th {
+  padding: 6px 8px 8px; font-size: 11.5px; font-weight: 650;
+  letter-spacing: 0; text-transform: none; color: var(--fg-3);
+}
+.tp-mini-tbl td { padding: 8px; }
+.tp-mini-tbl tr.is-current td { background: rgba(255, 255, 255, .04); }
+.tp-mini-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tp-mini-name {
+  font-weight: 600; color: var(--white);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+a.tp-mini-who:hover .tp-mini-name { text-decoration: underline; text-underline-offset: 2px; }

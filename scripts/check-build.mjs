@@ -60,6 +60,9 @@ const PROFILE_BUDGET = 14 * 1024;
 const profileSize = pageGzip('driver.html');
 console.log(`driver profile gzip: ${profileSize} B of ${PROFILE_BUDGET}`);
 assert(profileSize < PROFILE_BUDGET, `driver.html ships ${profileSize} B gzip — over the ${PROFILE_BUDGET} B profile budget`);
+const teamProfileSize = pageGzip('team.html');
+console.log(`team profile gzip: ${teamProfileSize} B of ${PROFILE_BUDGET}`);
+assert(teamProfileSize < PROFILE_BUDGET, `team.html ships ${teamProfileSize} B gzip — over the ${PROFILE_BUDGET} B profile budget`);
 
 /* championship was retired with the grid: /standings and /drivers are whole pages
    with their own small bundles now, not a lazily-opened panel. */
@@ -90,6 +93,16 @@ for (const driver of grid) {
      runtime. A noindex baked into every profile would hide the whole section. */
   assert(!/<meta name="robots" content="noindex">/.test(html), `${file} is noindex; driver profiles must be indexable`);
   assert(html.includes(`drivers/${slugify(`${driver.givenName} ${driver.familyName}`)}/`), `${file} has the wrong canonical`);
+}
+const TEAM_SLUGS = ['mercedes', 'ferrari', 'red-bull-racing', 'mclaren', 'racing-bulls', 'alpine', 'haas', 'audi', 'williams', 'aston-martin', 'cadillac'];
+for (const slug of TEAM_SLUGS) {
+  const file = `dist/teams/${slug}/index.html`;
+  assert(existsSync(file), `missing constructor profile: ${file}`);
+  const html = readFileSync(file, 'utf8');
+  assert(/<title>[^<]*— 2026 drivers, car and results \| FreeF1<\/title>/.test(html), `${file} has no constructor-specific title`);
+  assert(html.includes(`teams/${slug}/`) && html.includes('rel="canonical"'), `${file} has no canonical URL`);
+  assert(!html.includes('/src/'), `Unbuilt source reference in ${file}`);
+  assert(!/<meta name="robots" content="noindex">/.test(html), `${file} is noindex; constructor profiles must be indexable`);
 }
 assert(existsSync('dist/assets/flags/it-40.png'), 'flags are self-hosted; assets/flags is missing from dist');
 /* The racing number falls back to Archivo without a word if this file is absent. */

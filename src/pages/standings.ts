@@ -4,7 +4,7 @@ import '../viewer-counter';
 import { JOLPI, SITE_SEASON } from '../config';
 import { TEAM_CAR, TEAM_HEX, TEAM_LOGO } from '../data/teams';
 import { headshot, portrait } from '../data/driver-portraits';
-import { driverSlug, esc, gapToLeader, teamName } from './driver-core';
+import { driverSlug, esc, gapToLeader, teamName, teamSlug } from './driver-core';
 
 initShell();
 
@@ -87,7 +87,7 @@ function constructorRow(row: ConstructorRow, leaderPoints: number): string {
     avatar: slug
       ? `<span class="st-logotile"><img class="st-logo" src="${esc(TEAM_LOGO(slug, 80))}" alt="" width="20" height="20" loading="lazy" decoding="async"></span>`
       : '',
-    href: '/teams.html',
+    href: `/teams/${teamSlug(apiName)}/`,
     wins: row.wins,
     points: row.points,
     gap: gapToLeader(row.points, String(leaderPoints)),
@@ -137,6 +137,7 @@ async function paintLeaders(drivers: DriverRow[], constructors: ConstructorRow[]
     const card = $('leaderTeam');
     if (card) {
       card.style.setProperty('--team', color);
+      card.setAttribute('href', `/teams/${teamSlug(apiName)}/`);
       card.setAttribute('aria-label', `${team}, ${top.points} points, constructors' leaders`);
     }
     const car = $('leaderTeamCar') as HTMLImageElement | null;

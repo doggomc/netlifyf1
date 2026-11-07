@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import { driverPages } from './scripts/driver-pages';
+import { teamPages } from './scripts/team-pages';
 import { resolve, extname, join, relative, sep } from 'node:path';
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -140,6 +141,14 @@ function serveStaticFolders(): Plugin {
             names.forEach((name, index) => { target = target.replace(`:${name}`, values[index] ?? ''); });
           }
           if (rule.status === 200) {
+            if (/^\/drivers\/[^/]+(?:\/|\/index\.html)?$/.test(target)) {
+              req.url = '/driver.html' + (req.url || '').slice(pathname.length);
+              return next();
+            }
+            if (/^\/teams\/[^/]+(?:\/|\/index\.html)?$/.test(target)) {
+              req.url = '/team.html' + (req.url || '').slice(pathname.length);
+              return next();
+            }
             req.url = target + (req.url || '').slice(pathname.length);
             return next();
           }
@@ -155,6 +164,10 @@ function serveStaticFolders(): Plugin {
            belong to the grid is rejected by the page itself. */
         if (/^\/drivers\/[^/]+\/?$/.test(pathname)) {
           req.url = '/driver.html' + (req.url || '').slice(pathname.length);
+          return next();
+        }
+        if (/^\/teams\/[^/]+\/?$/.test(pathname)) {
+          req.url = '/team.html' + (req.url || '').slice(pathname.length);
           return next();
         }
 
@@ -279,7 +292,7 @@ function dedupeRootAssets(): Plugin {
 
 export default defineConfig({
   publicDir: false,
-  plugins: [serveStaticFolders(), dedupeRootAssets(), driverPages()],
+  plugins: [serveStaticFolders(), dedupeRootAssets(), driverPages(), teamPages()],
   server: {
     host: '0.0.0.0', port: 4173,
     allowedHosts: ['.e2b.app', 'localhost'],
@@ -304,6 +317,7 @@ export default defineConfig({
            dist/drivers/<slug>/ once every asset URL is final. */
         'drivers.driver': resolve(ROOT, 'driver.html'),
         teams: resolve(ROOT, 'teams.html'),
+        'teams.team': resolve(ROOT, 'team.html'),
         liveTiming: resolve(ROOT, 'live-timing.html'),
         help: resolve(ROOT, 'help.html'),
         maintenance: resolve(ROOT, 'maintenance.html'),

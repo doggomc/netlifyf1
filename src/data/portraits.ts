@@ -4,6 +4,7 @@
    map it would otherwise carry to build two URLs. */
 
 const PORTRAIT_BASE = 'https://media.formula1.com/image/upload';
+const FALLBACK_FILE = 'common/f1/2026/fallback/driver/2026fallbackdriverright.webp';
 const FALLBACK = 'd_common:f1:2026:fallback:driver:2026fallbackdriverright.webp';
 
 /** Jolpica's driverIds that differ from the portrait's own file key. */
@@ -16,17 +17,17 @@ export const PORTRAIT_ALIAS: Record<string, string> = {
 /** Where the file for a driverId lives, or null when the map has no entry. */
 export type PortraitLookup = (driverId: string) => string | null;
 
-/** A head-and-shoulders crop for a table row. The CDN crops to the face. */
+/** A head-and-shoulders crop for a table row or chip. The CDN crops to the face. */
 export function headshotWith(lookup: PortraitLookup, driverId: string, size: 64 | 96 = 64): string {
   const file = lookup(driverId);
-  const base = `${PORTRAIT_BASE}/c_fill,g_face,w_${size},h_${size}/q_auto`;
-  return file ? `${base}/d_${FALLBACK}/v1740000001/common/f1/2026/${file}` : `${base}/${FALLBACK}`;
+  const base = `${PORTRAIT_BASE}/c_thumb,g_face,z_0.9,w_${size},h_${size}/q_auto`;
+  return file ? `${base}/${FALLBACK}/v1740000001/common/f1/2026/${file}` : `${base}/v1740000001/${FALLBACK_FILE}`;
 }
 
 /** A cut-out portrait at a render width. */
 export function portraitWith(lookup: PortraitLookup, driverId: string, width: 320 | 440 | 600): string {
   const file = lookup(driverId);
   return file
-    ? `${PORTRAIT_BASE}/c_lfill,w_${width}/q_auto/d_${FALLBACK}/v1740000001/common/f1/2026/${file}`
-    : `${PORTRAIT_BASE}/c_lfill,w_${width}/q_auto/v1740000001/${FALLBACK}`;
+    ? `${PORTRAIT_BASE}/c_lfill,w_${width}/q_auto/${FALLBACK}/v1740000001/common/f1/2026/${file}`
+    : `${PORTRAIT_BASE}/c_lfill,w_${width}/q_auto/v1740000001/${FALLBACK_FILE}`;
 }

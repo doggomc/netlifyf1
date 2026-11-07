@@ -36,7 +36,9 @@ function markCurrentLink(root: ParentNode): void {
       return;
     }
     link.removeAttribute('aria-current');
-    if (target === here) link.setAttribute('aria-current', 'page');
+    if (target === here || (target !== '/' && here.startsWith(`${target}/`))) {
+      link.setAttribute('aria-current', 'page');
+    }
   });
 }
 

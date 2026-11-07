@@ -25,6 +25,8 @@
 /drivers/:slug/   /drivers/:slug/index.html   200
 /drivers          /drivers.html   301
 /drivers/         /drivers.html   301
+/teams/:slug      /teams/:slug/index.html   200
+/teams/:slug/     /teams/:slug/index.html   200
 /teams            /teams.html   301
 /teams/           /teams.html   301
 /live-timing      /live-timing.html   301

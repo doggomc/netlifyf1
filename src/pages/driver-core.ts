@@ -62,6 +62,9 @@ export function gapToLeader(points: string, leaderPoints: string): string {
 /** "Antonelli" on a card, "andrea-kimi-antonelli" in the URL. */
 export const driverSlug = (driver: DriverRef) => slugify(`${driver.givenName} ${driver.familyName}`);
 
+/** "Red Bull" or "Red Bull Racing" → "red-bull-racing" in /teams/<slug>/. */
+export const teamSlug = (apiOrDisplayName: string) => slugify(teamName(apiOrDisplayName));
+
 type RawStanding = { MRData?: { StandingsTable?: { StandingsLists?: Array<{ round?: string; DriverStandings?: StandingRow[] }> } } };
 
 /** The championship, ordered. Seasonal, so it is cached for the life of the page. */
