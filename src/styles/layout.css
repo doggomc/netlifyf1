@@ -392,13 +392,25 @@ main { flex: 1 0 auto; }
 }
 
 /* On a narrow screen the two halves are their own lines: nothing outruns the
-   gutter, and the outline never wraps in the middle of a word. */
+   gutter, and no word ever splits mid-word while filling the available width. */
+.hero h1 .gp-word { display: inline-block; white-space: nowrap; }
 @media (max-width: 700px) {
+  .hero h1 {
+    font-size: clamp(2.6rem, 14.2vw, 5.5rem);
+    max-width: 100%;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    hyphens: none;
+    padding-right: 4px;
+  }
   .hero h1 em { display: block; white-space: nowrap; }
   .hero h1 .gp-place { display: block; }
+  .hero h1.is-nowrap-place .gp-place { white-space: nowrap; }
+  .hero h1.is-measuring .gp-place,
+  .hero h1.is-measuring em { display: inline-block; width: max-content; white-space: nowrap; }
 }
 @media (max-width: 640px) {
-  .hero h1 em { -webkit-text-stroke-width: 1.25px; }
+  .hero h1 em { -webkit-text-stroke-width: 1.5px; }
 }
 
 /* The place, small and flush with the heading's left edge. */
@@ -1180,13 +1192,93 @@ a.dp-battle-side:hover .dp-battle-name { color: var(--white); }
 .tab {
   height: 36px; padding: 0 14px; border-radius: 999px; flex: none;
   font-size: 14px; font-weight: 600; color: var(--fg-2); background: rgba(255,255,255,.06);
-  transition: color .15s var(--ease), background-color .15s var(--ease);
+  transition: color .18s var(--ease), background-color .18s var(--ease);
 }
 .tab:hover { color: var(--white); }
 .tab.active { color: var(--page); background: var(--white); }
+
+/* Segmented sliding pill for Drivers ↔ Constructors on Standings */
+#standingsTabs {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  isolation: isolate;
+  overflow: hidden;
+}
+#standingsTabs::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 2);
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  transition: transform .32s cubic-bezier(.22, 1, .36, 1);
+}
+#standingsTabs:has(.tab:nth-of-type(2).active)::before {
+  transform: translateX(100%);
+}
+#standingsTabs .tab {
+  position: relative;
+  z-index: 1;
+  height: 34px;
+  padding: 0 18px;
+  background: transparent;
+  text-align: center;
+  transition: color .2s var(--ease);
+}
+#standingsTabs .tab.active {
+  background: transparent;
+  color: var(--page);
+}
+
 .st-updated { font-size: 12px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
 
 .st-card { margin-top: 14px; padding: 4px; overflow: hidden; }
+#standingsPanel .table-wrap {
+  transition: opacity .12s var(--ease), transform .12s var(--ease);
+}
+#standingsPanel .table-wrap.is-leaving {
+  opacity: 0;
+  transform: translateX(calc(var(--st-dir, 1) * -12px));
+}
+#standingsPanel .table-wrap.is-entering {
+  animation: stTableEnter .28s cubic-bezier(.22, 1, .36, 1) both;
+}
+#standingsPanel .table-wrap.is-entering tbody tr {
+  animation: stRowIn .26s cubic-bezier(.22, 1, .36, 1) both;
+}
+#standingsPanel .table-wrap.is-entering tbody tr:nth-child(2) { animation-delay: .015s; }
+#standingsPanel .table-wrap.is-entering tbody tr:nth-child(3) { animation-delay: .03s; }
+#standingsPanel .table-wrap.is-entering tbody tr:nth-child(4) { animation-delay: .045s; }
+#standingsPanel .table-wrap.is-entering tbody tr:nth-child(5) { animation-delay: .06s; }
+#standingsPanel .table-wrap.is-entering tbody tr:nth-child(n+6) { animation-delay: .075s; }
+
+@keyframes stTableEnter {
+  from { opacity: 0; transform: translateX(calc(var(--st-dir, 1) * 14px)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes stRowIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #standingsTabs::before,
+  #standingsPanel .table-wrap,
+  #standingsPanel .table-wrap.is-entering,
+  #standingsPanel .table-wrap.is-entering tbody tr {
+    transition: none !important;
+    animation: none !important;
+  }
+}
 .st-tbl { font-size: 14px; }
 .st-tbl th {
   padding: 10px 12px; border-bottom: 2px solid var(--line-2);

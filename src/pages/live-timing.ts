@@ -32,10 +32,6 @@ const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) =>
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T | null;
 const set = (id: string, text: string) => { const el = $(id); if (el && el.textContent !== text) el.textContent = text; };
 
-const dtShort = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-});
-
 const towerWrap = $('ltTowerWrap');
 const towerEl = $('ltTower');
 towerWrap?.addEventListener('scroll', () => {
@@ -120,7 +116,6 @@ function getOrCreateRow(row: TimingRow, isRace: boolean): RowDom {
 
 let activeSnap: TimingSnapshot | null = null;
 let activeSessionId = '';
-let nextWeekendSession: OpenF1Session | null = null;
 let rcSig = '';
 let radioSig = '';
 
@@ -137,16 +132,6 @@ function paintSnapshot(snap: TimingSnapshot): void {
   activeSnap = snap;
   setStatusIndicator(snap.statusText, snap.isLive ? 'live' : 'idle');
   set('ltTitle', `${snap.meetingName}: ${snap.sessionName}`);
-
-  const subBits = [...snap.subtitleParts];
-  if (snap.startMs) subBits.push(dtShort.format(snap.startMs));
-  if (!snap.isLive && nextWeekendSession) {
-    const nTs = Date.parse(nextWeekendSession.date_start);
-    if (Number.isFinite(nTs)) {
-      subBits.push(`next: ${nextWeekendSession.session_name} ${dtShort.format(nTs)}`);
-    }
-  }
-  set('ltSub', subBits.join(' · ') || 'Real-time gaps, intervals, sectors and tyres');
 
   const trackEl = $('ltTrack');
   if (trackEl) trackEl.className = `lt-track ${snap.track.cls}`;
@@ -541,7 +526,6 @@ async function bootstrapOpenF1(): Promise<void> {
     const meetingSessions = await fetchOpenF1<OpenF1Session[]>('sessions', { meeting_key: latest.meeting_key });
     const now = Date.now();
     weekendSessions = meetingSessions.filter((s) => Date.parse(s.date_start) <= now + 10 * 60_000);
-    nextWeekendSession = meetingSessions.find((s) => Date.parse(s.date_start) > now + 10 * 60_000) ?? null;
 
     if (pinnedSessionKey === 'live') return;
     pinnedSessionKey = latest.session_key;

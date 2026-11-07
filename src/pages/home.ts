@@ -23,14 +23,58 @@ const next = findNextSession();
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] as string));
 
+function wrapWords(raw: string): string {
+  return raw
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      /* Allow a clean break right after an explicit hyphen (e.g. "Barcelona-Catalunya") while keeping every word intact. */
+      const parts = word.split(/(?<=-)/);
+      return parts.map((p) => `<span class="gp-word">${escapeHtml(p)}</span>`).join('');
+    })
+    .join(' ');
+}
+
 /* The cockpit hero set the name in two tones: the location solid, "Grand Prix"
    outlined in the team colour. Same split here, so the two pages agree. */
 function heroName(name: string): string {
   const index = name.lastIndexOf(' Grand Prix');
-  if (index <= 0) return escapeHtml(name);
+  if (index <= 0) return wrapWords(name);
   /* The location sits in its own span so a phone can put "Grand Prix" on the next
      line; on a wide screen the space between them keeps them on one line. */
-  return `<span class="gp-place">${escapeHtml(name.slice(0, index))}</span> <em>Grand Prix</em>`;
+  return `<span class="gp-place">${wrapWords(name.slice(0, index))}</span> <em>Grand Prix</em>`;
+}
+
+/* Maximize the mobile hero heading to fill the container width without ever splitting a word. */
+function fitMobileHeroTitle(): void {
+  const title = $('heroTitle');
+  const copy = title?.parentElement;
+  if (!title || !copy) return;
+  if (window.innerWidth > 700) {
+    title.style.fontSize = '';
+    title.classList.remove('is-nowrap-place');
+    return;
+  }
+  const avail = copy.clientWidth - 8;
+  if (avail <= 0) return;
+  const placeEl = title.querySelector<HTMLElement>('.gp-place');
+  const emEl = title.querySelector<HTMLElement>('em');
+  const words = [...title.querySelectorAll<HTMLElement>('.gp-word')];
+  const REF = 48;
+
+  title.classList.add('is-measuring');
+  title.style.fontSize = `${REF}px`;
+  const emW = emEl ? emEl.getBoundingClientRect().width : 0;
+  const placeSingleW = placeEl ? placeEl.getBoundingClientRect().width : 0;
+  const maxWordW = words.reduce((m, w) => Math.max(m, w.getBoundingClientRect().width), 0);
+
+  const singleLinePlace = words.length <= 1 || placeSingleW <= Math.max(emW * 1.12, 1);
+  const targetW = Math.max(emW, singleLinePlace ? placeSingleW : maxWordW, 1);
+  const fitted = Math.max(32, Math.min(92, Math.floor((avail / targetW) * REF)));
+
+  title.classList.remove('is-measuring');
+  title.classList.toggle('is-nowrap-place', singleLinePlace);
+  title.style.fontSize = `${fitted}px`;
 }
 
 if (focus) {
@@ -39,6 +83,16 @@ if (focus) {
   text('heroRound', `Round ${focus.round} of 23`);
   text('heroVenue', `${focus.circuit} · ${focus.locality}, ${focus.country}`);
   document.title = `${focus.name} — FreeF1`;
+  fitMobileHeroTitle();
+  void document.fonts?.ready?.then(() => fitMobileHeroTitle());
+  let fitRaf = 0;
+  window.addEventListener('resize', () => {
+    if (fitRaf) cancelAnimationFrame(fitRaf);
+    fitRaf = requestAnimationFrame(() => {
+      fitRaf = 0;
+      fitMobileHeroTitle();
+    });
+  }, { passive: true });
 }
 
 /* ── Countdown card ─────────────────────────────────────────────────────── */

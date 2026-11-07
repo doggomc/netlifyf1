@@ -1,18 +1,18 @@
 {
   "baselineCommit": "1256feb269db136d0f458589eed2d906321b1f94",
   "baselineStartupJsGzipBytes": 56093,
-  "startupJsReductionPercent": 88.8,
+  "startupJsReductionPercent": 88.1,
   "baselineAppCssGzipBytes": 18115,
-  "startupJsGzipBytes": 6281,
+  "startupJsGzipBytes": 6699,
   "startupJsFiles": [
-    "bundles/index-DZ9lBHJg.js",
+    "bundles/index-D9zb9gnm.js",
     "bundles/modulepreload-polyfill-B5Qt9EMX.js",
     "bundles/viewer-counter-DlaKR6m8.js",
     "bundles/dom-DzS30Lfg.js",
     "bundles/weekend-D2Mq7n7V.js",
     "bundles/schedule-v6Kvk26p.js"
   ],
-  "initialCssGzipBytes": 11116,
+  "initialCssGzipBytes": 11620,
   "cockpitJsGzipBytes": 22433,
   "cockpitCssGzipBytes": 18274,
   "lazyFeatures": {

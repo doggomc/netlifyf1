@@ -147,46 +147,106 @@ async function paintLeaders(drivers: DriverRow[], constructors: ConstructorRow[]
   }
 }
 
+let activeType: Table = 'drivers';
+let switchToken = 0;
+const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const tableWrap = panel?.querySelector<HTMLElement>('.table-wrap') ?? null;
+
+function renderRows(type: Table, rows: Array<DriverRow | ConstructorRow>): string {
+  const leaderPoints = Number(rows[0]?.points ?? 0);
+  return type === 'drivers'
+    ? (rows as DriverRow[]).map((row) => driverRow(row, leaderPoints)).join('')
+    : (rows as ConstructorRow[]).map((row) => constructorRow(row, leaderPoints)).join('');
+}
+
+function updateColumnHeaders(type: Table): void {
+  const nameHead = $('stNameHead');
+  const teamHead = $('stTeamHead');
+  if (nameHead) nameHead.textContent = type === 'drivers' ? 'Driver' : 'Team';
+  if (teamHead) teamHead.textContent = type === 'drivers' ? 'Team' : '';
+}
+
+async function resolveTableHtml(type: Table, force = false): Promise<string> {
+  const cached = !force ? cache.get(type) : undefined;
+  if (cached) return cached.html;
+
+  const { rows, round } = await fetchTable(type);
+  const html = renderRows(type, rows);
+  cache.set(type, { html, leader: rows[0] });
+
+  if (updated) {
+    const when = new Date().toISOString().slice(11, 16);
+    updated.textContent = `Updated ${when} UTC`;
+  }
+  const eyebrow = $('standingsEyebrow');
+  if (eyebrow && round) eyebrow.innerHTML = `<span class="swatch" aria-hidden="true"></span>After round ${esc(round)} of 23`;
+
+  if (type === 'drivers') {
+    const constructors = await fetchTable('constructors').then((data) => data.rows as ConstructorRow[]).catch(() => null);
+    if (constructors?.length) {
+      cache.set('constructors', { html: renderRows('constructors', constructors), leader: constructors[0] });
+    }
+    await paintLeaders(rows as DriverRow[], constructors);
+  }
+  return html;
+}
+
 async function load(type: Table, force = false): Promise<void> {
   if (!body || !panel) return;
   const cached = !force ? cache.get(type) : undefined;
   if (cached) {
-    body.innerHTML = cached.html as string;
+    body.innerHTML = cached.html;
     panel.removeAttribute('aria-busy');
-  } else {
-    panel.setAttribute('aria-busy', 'true');
+    void resolveTableHtml(type, true).then((fresh) => {
+      if (activeType === type && body) body.innerHTML = fresh;
+    }).catch(() => {});
+    return;
   }
-
+  panel.setAttribute('aria-busy', 'true');
   try {
-    const { rows, round } = await fetchTable(type);
-    const leaderPoints = Number(rows[0].points);
-    const html = type === 'drivers'
-      ? (rows as DriverRow[]).map((row) => driverRow(row, leaderPoints)).join('')
-      : (rows as ConstructorRow[]).map((row) => constructorRow(row, leaderPoints)).join('');
-
-    cache.set(type, { html, leader: rows[0] });
-    if (body) body.innerHTML = html;
-
-    /* "After round 19" and a real timestamp: the table changes when the feed does,
-       so the page states when it last read it rather than implying live timing. */
-    if (updated) {
-      const when = new Date().toISOString().slice(11, 16);
-      updated.textContent = `Updated ${when} UTC`;
-    }
-    const eyebrow = $('standingsEyebrow');
-    if (eyebrow && round) eyebrow.innerHTML = `<span class="swatch" aria-hidden="true"></span>After round ${esc(round)} of 23`;
-
-    if (type === 'drivers') {
-      const constructors = await fetchTable('constructors').then((data) => data.rows as ConstructorRow[]).catch(() => null);
-      await paintLeaders(rows as DriverRow[], constructors);
-    }
+    const html = await resolveTableHtml(type, force);
+    if (activeType === type && body) body.innerHTML = html;
   } catch {
-    if (!cached && body) {
+    if (activeType === type && body) {
       body.innerHTML = '<tr><td colspan="6" class="t-empty">Standings are unavailable right now. The table returns as soon as the season API answers.</td></tr>';
     }
   } finally {
     panel.removeAttribute('aria-busy');
   }
+}
+
+async function switchStandingsTab(type: Table): Promise<void> {
+  if (!body || !panel || type === activeType) return;
+  const dir = type === 'constructors' ? 1 : -1;
+  activeType = type;
+  const token = ++switchToken;
+
+  if (reduceMotion || !tableWrap) {
+    updateColumnHeaders(type);
+    await load(type);
+    return;
+  }
+
+  tableWrap.style.setProperty('--st-dir', String(dir));
+  tableWrap.classList.remove('is-entering');
+  tableWrap.classList.add('is-leaving');
+
+  const waitExit = new Promise<void>((resolve) => window.setTimeout(resolve, 120));
+  const nextHtmlPromise = resolveTableHtml(type).catch(() =>
+    cache.get(type)?.html
+      ?? '<tr><td colspan="6" class="t-empty">Standings are unavailable right now. The table returns as soon as the season API answers.</td></tr>',
+  );
+
+  const [, html] = await Promise.all([waitExit, nextHtmlPromise]);
+  if (token !== switchToken) return;
+
+  updateColumnHeaders(type);
+  body.innerHTML = html;
+  panel.removeAttribute('aria-busy');
+
+  tableWrap.classList.remove('is-leaving');
+  void tableWrap.offsetWidth;
+  tableWrap.classList.add('is-entering');
 }
 
 /* Tabs */
@@ -198,13 +258,7 @@ document.querySelectorAll<HTMLButtonElement>('.tab[data-type]').forEach((button)
       other.classList.toggle('active', on);
       other.setAttribute('aria-selected', String(on));
     });
-    /* The second column means "Driver" or "Team" depending on the table. */
-    const nameHead = $('stNameHead');
-    const teamHead = $('stTeamHead');
-    if (nameHead) nameHead.textContent = type === 'drivers' ? 'Driver' : 'Team';
-    if (teamHead) teamHead.textContent = type === 'drivers' ? 'Team' : '';
-    if (body) body.style.opacity = '0';
-    void load(type).then(() => { if (body) body.style.opacity = '1'; });
+    void switchStandingsTab(type);
   });
 });
 
