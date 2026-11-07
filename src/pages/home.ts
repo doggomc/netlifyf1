@@ -5,7 +5,6 @@ import {
   countdownParts, findFocusEvent, findLiveSession, findNextSession,
   formatDay, formatFull, formatTime, sessionPhase, sessionShortName, type SessionInfo,
 } from '../services/weekend';
-import { SITE_SEASON } from '../config';
 
 initShell();
 
@@ -21,18 +20,9 @@ const focus = findFocusEvent();
 const live = findLiveSession();
 const next = findNextSession();
 
-function splitGrandPrix(name: string): [string, string] {
-  /* "Brazilian Grand Prix" reads best as "Brazilian" over "Grand Prix"; a
-     location-led name such as "Mexico City Grand Prix" keeps its own first word. */
-  const index = name.lastIndexOf(' Grand Prix');
-  return index > 0 ? [name.slice(0, index), 'Grand Prix'] : [name, ''];
-}
-
 if (focus) {
-  const [first, second] = splitGrandPrix(focus.name);
-  text('heroTitle', first);
-  text('heroTitle2', second || 'Grand Prix');
-  text('heroSeason', `${SITE_SEASON} season`);
+  /* The whole Grand Prix name in one line, as the cockpit hero always set it. */
+  text('heroTitle', focus.name);
   text('heroRound', `Round ${focus.round} of 23`);
   text('heroVenue', `${focus.circuit} · ${focus.locality}, ${focus.country}`);
   const when = live
