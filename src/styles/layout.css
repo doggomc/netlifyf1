@@ -351,12 +351,13 @@ main { flex: 1 0 auto; }
 .hero-inner {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 32px; align-items: end;
-  padding-block: 56px 40px;
+  gap: 32px; align-items: start;
+  padding-block: 36px 40px;
   min-height: min(76dvh, 660px);
 }
 @media (min-width: 1024px) {
-  .hero-inner { grid-template-columns: minmax(0,1fr) 360px; gap: 40px 48px; padding-block: 72px 48px; }
+  .hero-inner { grid-template-columns: minmax(0,1fr) 360px; gap: 40px 48px; padding-block: 44px 48px; }
+  .hero-copy { padding-top: 6px; }
 }
 
 /* Below the split the card is a grid item in a single column; it must not be wider
