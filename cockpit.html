@@ -55,9 +55,6 @@
     <a href="/teams.html" data-route="teams">Teams</a>
     <!-- Replays hidden: parked until the ok.ru embeds are reliable again (round 9). -->
     <a href="/replays" data-route="replays" hidden>Replays</a>
-    <a href="/info" data-route="info">Info</a>
-    <a href="/discord" data-route="discord">Discord</a>
-    <a class="help-nav-link" href="/help.html">Help<span class="help-notification-dot" hidden aria-label="Unread support reply"></span></a>
   </div>
   <div class="nav-right">
     <div class="pill live" id="badge"><span class="dot"></span>Live</div>
@@ -393,46 +390,30 @@
 </main>
 
 <!-- ══ FOOTER ══ -->
-<footer id="siteFooter">
+<footer class="footer">
   <div class="wrap">
-    <div class="foot-grid">
-      <div class="foot-brand">
-        <a class="brand" href="/" aria-label="FreeF1 home">
-          <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="#fff"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="#fff" opacity=".72"/></svg></span>
-          <span class="brand-text"><b>FreeF1</b></span>
-        </a>
-        <p class="foot-note">A fan-made, ad-free companion for race weekends. Not affiliated with Formula 1, the FIA or any official motorsport organisation; all trademarks belong to their respective owners.</p>
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
+          <span class="brand-text">FreeF1</span>
+        </div>
+        <p style="margin-top:10px;max-width:34ch;font-size:12.5px;color:var(--fg-4)">An independent, ad-free race weekend companion. Not affiliated with Formula 1.</p>
       </div>
-
-      <nav class="foot-column" aria-label="Explore FreeF1">
-        <h4>Explore</h4>
-        <div class="foot-links">
-          <a href="/cockpit.html">Cockpit</a>
-          <a href="/drivers.html">Drivers</a>
-          <a href="/standings.html">Standings</a>
-          <a href="/schedule.html">Schedule</a>
-          <a href="/live-timing.html">Live timing</a>
-          <a href="/teams.html">Teams</a>
-        </div>
-      </nav>
-
-      <nav class="foot-column" aria-label="Site information">
-        <h4>Information</h4>
-        <div class="foot-links">
-          <a href="/help.html">Help</a>
-          <a href="/info" data-route="info">Terms, Privacy &amp; FAQ</a>
-          <a href="/discord" data-route="discord">Discord</a>
-        </div>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/">Home</a>
+        <a href="/cockpit.html">Cockpit</a>
+        <a href="/schedule.html">Schedule</a>
+        <a href="/standings.html">Standings</a>
+        <a href="/live-timing.html">Live timing</a>
+        <a href="/drivers.html">Drivers</a>
+        <a href="/teams.html">Teams</a>
+        <a href="/help.html">Help</a>
       </nav>
     </div>
-  </div>
-
-  <div class="checker" aria-hidden="true"></div>
-  <div class="wrap">
-    <div class="foot-bar">
-      <span class="foot-copy">© 2026 FreeF1 · Independent fan project by <span class="credit">doggo</span></span>
-      <button class="foot-diagnostics" id="copyDiagnosticsBtn" type="button">Copy diagnostics</button>
-      <span class="foot-credits">Photography © Wikimedia Commons · CC BY-SA</span>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> FreeF1 · Streams are provided by third parties.</span>
+      <span>Season data from Jolpica · <a href="/help.html">Support</a></span>
     </div>
   </div>
 </footer>

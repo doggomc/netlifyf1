@@ -2685,6 +2685,12 @@ to {
   line-height: 1.7;
 }
 
+@media(max-width:960px) {
+  .scroll-hint {
+    display: none;
+  }
+}
+
 @media(max-width:760px) {
 .rp-bar {
     margin-bottom: 14px;
@@ -3654,317 +3660,6 @@ to {
   padding: 0 26px 24px;
 }
 
-/* ═══════════════ FOOTER ═══════════════ */
-
-footer {
-  position: relative;
-  z-index: 2;
-  margin-top: clamp(48px, 7vw, 88px);
-  border-top: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255,255,255,.012), rgba(225,6,0,.035));
-}
-
-.foot-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(128px, .72fr) minmax(150px, .82fr);
-  align-items: start;
-  gap: clamp(24px, 4.5vw, 68px);
-  padding: 48px 0 38px;
-}
-
-.foot-brand {
-  max-width: 460px;
-}
-
-.foot-brand .brand {
-  margin-bottom: 14px;
-}
-
-.foot-grid h4 {
-  margin: 4px 0 12px;
-  color: var(--dim);
-  font-family: 'JetBrains Mono';
-  font-size: .62rem;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-}
-
-.foot-links {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.foot-links button,
-.foot-links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 27px;
-  padding: 2px 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-family: 'Inter';
-  font-size: .82rem;
-  font-weight: 500;
-  text-align: left;
-  text-decoration: none;
-  transition: color .18s var(--ease);
-}
-
-.foot-links button:hover,
-.foot-links a:hover {
-  color: var(--team);
-}
-
-.foot-links button:focus-visible,
-.foot-links a:focus-visible,
-.foot-diagnostics:focus-visible {
-  outline: 2px solid var(--team);
-  outline-offset: 4px;
-}
-
-.foot-note {
-  max-width: 42ch;
-  color: var(--dim);
-  font-size: .76rem;
-  line-height: 1.75;
-}
-
-.foot-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 14px 22px;
-  padding: 16px 0 20px;
-  border-top: 1px solid var(--line);
-  color: var(--dim);
-  font-family: 'JetBrains Mono';
-  font-size: .62rem;
-  letter-spacing: .035em;
-}
-
-.foot-copy {
-  min-width: 0;
-}
-
-.foot-credits {
-  justify-self: end;
-  text-align: right;
-}
-
-.foot-bar .credit {
-  color: var(--muted);
-  border-bottom: 1px solid var(--line);
-  cursor: default;
-  transition: color .18s, border-color .18s;
-}
-
-.foot-bar .credit:hover {
-  color: var(--team);
-  border-color: var(--team);
-}
-
-.foot-diagnostics {
-  justify-self: center;
-  min-height: 34px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255,255,255,.035);
-  color: var(--muted);
-  cursor: pointer;
-  font-family: 'JetBrains Mono';
-  font-size: .59rem;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  transition: color .18s, border-color .18s, background .18s;
-}
-
-.foot-diagnostics:hover:not(:disabled) {
-  border-color: rgba(225,6,0,.55);
-  background: rgba(225,6,0,.1);
-  color: #fff;
-}
-
-.foot-diagnostics:disabled {
-  cursor: wait;
-  opacity: .65;
-}
-
-.checker {
-  height: 4px;
-  background: repeating-linear-gradient(90deg, #fff 0 10px, #101114 10px 20px);
-  opacity: .13;
-}
-
-@media(max-width:960px) {
-  .foot-grid {
-    grid-template-columns: minmax(0, 1.25fr) minmax(170px, .75fr);
-    gap: 26px 36px;
-  }
-
-  .foot-brand {
-    grid-row: span 2;
-  }
-
-  .scroll-hint {
-    display: none;
-  }
-}
-
-@media(max-width:640px) {
-  .foot-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 24px 20px;
-    padding: 36px 0 28px;
-  }
-
-  .foot-brand {
-    grid-column: 1 / -1;
-    grid-row: auto;
-  }
-
-  .foot-bar {
-    grid-template-columns: 1fr auto;
-    gap: 12px;
-    padding: 14px 0 18px;
-  }
-
-  .foot-copy {
-    grid-column: 1 / -1;
-  }
-
-  .foot-diagnostics {
-    justify-self: start;
-  }
-
-  .foot-credits {
-    align-self: center;
-    text-align: right;
-  }
-}
-
-@media(max-width:520px) {
-  .foot-bar {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .foot-copy,
-  .foot-credits {
-    grid-column: auto;
-    justify-self: start;
-    text-align: left;
-  }
-
-  .foot-diagnostics {
-    justify-self: start;
-  }
-}
-
-@media(max-width:380px) {
-  .foot-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .foot-brand {
-    grid-column: auto;
-  }
-}
-
-/* Auth */
-.auth {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 22px;
-  background: rgba(5,5,6,.96);
-  backdrop-filter: blur(18px);
-}
-
-.auth.open {
-  display: flex;
-}
-
-.auth .sheet {
-  max-width: 480px;
-  text-align: center;
-}
-
-.auth h2 {
-  color: var(--team);
-}
-
-.code {
-  font-family: 'JetBrains Mono';
-  font-size: .78rem;
-  background: rgba(225,6,0,.09);
-  border: 1px solid rgba(225,6,0,.24);
-  color: #FF6B62;
-  padding: 13px;
-  border-radius: var(--r-sm);
-  margin: 16px 0;
-}
-
-@media(max-width:640px) {
-.hero-inner {
-    padding-top: 110px;
-  }
-
-  .sheet {
-    padding: 18px;
-  }
-
-  .teams {
-    grid-template-columns: repeat(2,1fr);
-  }
-
-  .row {
-    grid-template-columns: 42px 1fr auto;
-    gap: 10px;
-    padding: 11px 13px;
-  }
-
-  .pos {
-    font-size: 1.2rem;
-  }
-
-  .btn {
-    padding: 13px 22px;
-    font-size: .74rem;
-    width: 100%;
-  }
-
-  .hero-cta {
-    flex-direction: column;
-  }
-
-  .pill.next {
-    max-width: 100%;
-  }
-
-}
-
-@media(prefers-reduced-motion:reduce) {
-* {
-    animation-duration: .01ms!important;
-    transition-duration: .01ms!important;
-  }
-
-  .rv {
-    opacity: 1;
-    transform: none;
-  }
-
-}
-
 /* ═══════════════ PERFORMANCE + RESPONSIVE HARDENING ═══════════════ */
 
 .hero-layer picture {
@@ -4426,16 +4121,6 @@ button:focus-visible,a:focus-visible,select:focus-visible {
 
   .race-time-session time {
     font-size: .55rem;
-  }
-
-  .foot-grid {
-    padding-top: 40px;
-  }
-
-  .foot-links button,.foot-links a {
-    min-height: 36px;
-    display: flex;
-    align-items: center;
   }
 
   .scanlines {
@@ -5683,8 +5368,74 @@ body.view-swapping {
 /* First section on the page now: clear the fixed header, then breathe. */
 .watch-sec { padding-top: calc(64px + clamp(22px, 3.4vw, 40px)); }
 
-/* The cockpit is one section deep: its own bottom padding is the gap before the footer. */
-body[data-page="cockpit"] footer { margin-top: 0; }
+/* The cockpit loads app.css, not layout.css, so the public footer's rules
+   live here too. Keep this block identical to layout.css. */
+/* ═══════════════ FOOTER ═══════════════ */
+
+.footer {
+  flex: none; margin-top: 40px;
+  border-top: 1px solid var(--line);
+  background: #0b0c0e;
+  padding: 34px 0 26px;
+}
+.footer-top {
+  display: flex; flex-wrap: wrap; gap: 26px 40px;
+  justify-content: space-between; align-items: flex-start;
+}
+.footer-brand { display: flex; align-items: center; gap: 10px; }
+.footer-nav { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.footer-nav a {
+  padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--fg-2);
+  transition: color .18s, background-color .18s;
+}
+.footer-nav a:hover { color: var(--white); background: rgba(255,255,255,.05); }
+.footer-bottom {
+  margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between;
+  font-size: 12px; color: var(--fg-4);
+}
+.footer-bottom a { color: var(--fg-3); }
+.footer-bottom a:hover { color: var(--white); }
+
+
+/* The cockpit's palette is its own (different --line, different brand mark), so the
+   public footer's tokens are re-declared on the footer itself rather than retuning
+   the whole page for one band. */
+footer.footer {
+  --line: rgba(255,255,255,.08);
+  --fg-2: #a9abaf;
+  --fg-3: #96999e;
+  --fg-4: #7e8188;
+  --white: #fff;
+}
+/* The footer sits on the public 1280px frame with the public font stack, not the
+   cockpit's 1240px one, so the band matches the other pages beat for beat. */
+footer.footer { font-family: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; color: #cecfd2; }
+footer.footer .wrap {
+  width: 100%; max-width: calc(1280px + clamp(20px, 5vw, 56px) * 2);
+  margin-inline: auto; padding-inline: clamp(20px, 5vw, 56px);
+}
+
+footer.footer .brand-mark {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--red), #8b0400);
+  color: #fff; box-shadow: 0 6px 18px -8px rgba(225,6,0,.9);
+}
+footer.footer .brand-mark svg { width: 18px; height: 18px; }
+/* The cockpit mark runs a sheen sweep; the public footer mark does not. */
+footer.footer .brand-mark::after { content: none; animation: none; }
+footer.footer .brand-text {
+  display: block; font-family: 'Archivo', 'Inter', ui-sans-serif, sans-serif;
+  font-style: normal; font-weight: 700; font-size: 15px;
+  letter-spacing: -.01em; color: var(--white); line-height: 1.5;
+}
+footer.footer svg { max-width: 100%; }
+footer.footer a { color: inherit; text-decoration: none; }
+footer.footer .footer-top p { color: var(--fg-4); font-size: 12.5px; margin-top: 10px; max-width: 34ch; }
+
+/* The public footer is 40px off the content; on the cockpit the section's own
+   bottom padding is the gap, so the margin is dropped rather than doubled. */
+body[data-page="cockpit"] footer.footer { margin-top: 0; }
 
 .wrap.watch-grid {
   max-width: 1600px;

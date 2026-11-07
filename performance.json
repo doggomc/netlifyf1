@@ -14,7 +14,7 @@
   ],
   "initialCssGzipBytes": 4900,
   "cockpitJsGzipBytes": 21011,
-  "cockpitCssGzipBytes": 18191,
+  "cockpitCssGzipBytes": 17801,
   "lazyFeatures": {
     "results": {
       "gzipBytes": 4797
