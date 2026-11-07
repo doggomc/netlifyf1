@@ -12,6 +12,8 @@ const messageEl = $('maintenanceMessage');
 const returnEtaEl = $('returnEta');
 const garageTimeEl = $('garageTime');
 const autoStatusEl = $('autoStatus');
+const yearEl = $('year');
+if (yearEl) yearEl.textContent = String(new Date().getFullYear());
 let startedAt = Date.now();
 let updateStream = null;
 let releaseStarted = false;
@@ -43,7 +45,7 @@ function saveConfig(config) {
 function releaseSite() {
   if (releaseStarted) return;
   releaseStarted = true;
-  if (autoStatusEl) autoStatusEl.textContent = 'Race Control clear · returning to FreeF1';
+  if (autoStatusEl) autoStatusEl.innerHTML = '<i></i> Race Control clear · returning to FreeF1…';
   document.documentElement.classList.add('site-released');
   window.setTimeout(() => window.location.replace('/'), 360);
 }

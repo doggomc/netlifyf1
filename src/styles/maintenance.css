@@ -1,103 +1,159 @@
-/* ═══════════════ FreeF1 - Maintenance ═══════════════
-   The maintenance page shares 404.css wholesale — same nav, flag strip, display type, code strip,
-   buttons, radio line and footer. This file only adds what maintenance alone needs, so the two
-   pages cannot drift apart again.
+/* ═══════════════ FreeF1 — Maintenance Mode Overrides ═══════════════
+   Builds on 404.css so Maintenance and 404 share one cohesive FreeF1 shell
+   while giving Scheduled Pit Stop its warm amber / live-return green states. */
 
-   Two things worth knowing:
-   - The page fits on one screen at 1280x720 and above. Vertical rhythm lives in 404.css in vh
-     units rather than fixed padding, which is what pushed the radio line off-screen before.
-   - h1 uses Archivo 900 italic (via .display). Set in Inter instead, Chrome synthesises the bold
-     and italic by double-drawing the glyph outline, which showed up as a ghosted, glitched "R". */
-
-/* ── Garrison clock pill ── */
-#garageTime {
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
+body.is-maintenance {
+  background:
+    radial-gradient(880px 420px at 50% -140px, rgba(245, 158, 11, 0.08), transparent 70%),
+    var(--page);
 }
 
-/* ── The live Race Control line ── */
-.radio .msg {
+.status-card.is-maintenance {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(245, 158, 11, 0.11), transparent 62%),
+    var(--card);
+}
+
+.status-pill.is-amber {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.32);
+  color: #fcd34d;
+}
+
+.status-pill.is-amber .status-dot {
+  background: var(--amber);
+}
+
+.nav-pill.is-amber {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.26);
+  color: #fcd34d;
+}
+
+.nav-pill.is-amber .dot {
+  background: var(--amber);
+}
+
+/* ── 2-Column Telemetry Strip (Return ETA + Garage Elapsed Time) ── */
+.maint-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.maint-cell {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+
+.maint-cell-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  margin-bottom: 4px;
+}
+
+.maint-cell-val {
+  display: block;
+  font-family: 'Archivo', 'Inter', sans-serif;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maint-cell-val.mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14.5px;
+  letter-spacing: 0.03em;
+}
+
+/* ── Live Race Control SSE Connection Line ── */
+#autoStatus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: var(--fg-2);
 }
 
-.radio .who {
-  white-space: nowrap;
-  flex: none;
-}
-
-.radio .msg i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--amber, #FFB020);
-  box-shadow: 0 0 10px currentColor;
-  flex: none;
+#autoStatus i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--amber);
+  flex-shrink: 0;
   animation: maintPulse 1.6s ease-in-out infinite;
 }
 
 @keyframes maintPulse {
-  50% { opacity: 0.3; }
+  50% {
+    opacity: 0.32;
+  }
 }
 
-/* Race Control says the site is back: switch the dot and the strip to the all-clear colour. */
-.site-released .radio .msg {
-  color: var(--green, #00D57E);
+/* ── Released State (Race Control turns maintenance off -> green all-clear) ── */
+.site-released .status-card.is-maintenance {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(37, 211, 102, 0.12), transparent 62%),
+    var(--card);
+  border-color: rgba(37, 211, 102, 0.28);
 }
 
-.site-released .radio .msg i {
-  background: var(--green, #00D57E);
+.site-released .status-pill.is-amber,
+.site-released .nav-pill.is-amber {
+  background: rgba(37, 211, 102, 0.14);
+  border-color: rgba(37, 211, 102, 0.32);
+  color: #8bf0ae;
+}
+
+.site-released .status-pill.is-amber .status-dot,
+.site-released .nav-pill.is-amber .dot {
+  background: var(--green);
+}
+
+.site-released #autoStatus {
+  color: #8bf0ae;
+}
+
+.site-released #autoStatus i {
+  background: var(--green);
   animation: none;
 }
 
-.site-released .flag-strip {
-  background: repeating-linear-gradient(180deg, #00D57E 0 14px, #111 14px 28px);
-  opacity: 0.22;
-}
-
-/* ── Small screens ── */
-@media (max-width: 640px) {
-  .inner {
-    padding-top: clamp(88px, 15vh, 120px);
-  }
-  /* Two pairs do not fit on a phone without wrapping into a ragged stack, so drop the status
-     pair and keep the one that actually matters: when it comes back. */
-  .code .opt {
-    display: none;
-  }
-  .code span {
-    padding: 8px 11px;
-  }
-  .radio {
-    padding: 9px 14px 9px 11px;
-    font-size: 0.66rem;
-  }
-  .radio .who {
-    padding-right: 10px;
-    letter-spacing: 0.16em;
-  }
-}
-
-/* ── Noscript fallback ── */
+/* ── Noscript Fallback ── */
 .noscript-note {
   position: fixed;
   left: 50%;
   bottom: 18px;
   transform: translateX(-50%);
   z-index: 30;
-  max-width: min(560px, calc(100% - 32px));
-  padding: 12px 18px;
+  max-width: min(540px, calc(100% - 32px));
+  padding: 12px 16px;
   border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  background: rgba(15, 16, 18, 0.96);
-  color: var(--muted);
-  font-size: 0.76rem;
+  border-radius: 12px;
+  background: rgba(24, 25, 29, 0.96);
+  color: var(--fg-2);
+  font-size: 13px;
   text-align: center;
 }
 
+@media (max-width: 540px) {
+  .maint-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .radio .msg i {
+  #autoStatus i {
     animation: none;
   }
 }

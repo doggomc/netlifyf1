@@ -72,6 +72,13 @@ import { $ } from './services/dom';
       status.textContent = message;
       status.dataset.state = stateName;
     }
+    const pill = $('helpNavPill');
+    const pillLabel = $('helpNavPillLabel');
+    if (pill) {
+      const offline = stateName === 'offline' || stateName === 'error';
+      pill.classList.toggle('is-offline', offline);
+      if (pillLabel) pillLabel.textContent = offline ? 'Support offline' : 'Support desk';
+    }
   }
 
   function showError(id, message) {
@@ -182,6 +189,7 @@ import { $ } from './services/dom';
     const ticketPanel = $('activeTicketPanel');
     if (requestPanel) requestPanel.hidden = hasTicket;
     if (ticketPanel) ticketPanel.hidden = !hasTicket;
+    try { window.scrollTo?.({ top: 0, behavior: 'instant' as ScrollBehavior }); } catch { /* jsdom */ }
   }
 
   function formatTime(timestamp) {
@@ -409,10 +417,14 @@ import { $ } from './services/dom';
     if (!isHelpPage) return;
     try {
       const config = await request('/api/help/config', { headers: { Accept: 'application/json' } });
-      serviceAvailable = config.available === true;
-      const status = $('helpStatus');
-      if (serviceAvailable) showNotice('Support is online. Your ticket will open in a private Discord channel.', 'ready');
-      else showNotice('Support is not configured or is temporarily offline. Your form draft stays in this browser; you can still use FreeF1.', 'offline');
+      serviceAvailable = config.available === true && config.pausedByAdmin !== true;
+      if (config.pausedByAdmin === true) {
+        showNotice('The Help desk is temporarily paused by Race Control. Your draft stays saved in this browser.', 'offline');
+      } else if (serviceAvailable) {
+        showNotice('Support is online. Your ticket will open in a private Discord channel.', 'ready');
+      } else {
+        showNotice('Support is not configured or is temporarily offline. Your form draft stays in this browser; you can still use FreeF1.', 'offline');
+      }
       const submit = $('helpSubmit');
       if (submit) submit.disabled = !serviceAvailable;
     } catch (error) {
@@ -714,18 +726,49 @@ import { $ } from './services/dom';
     $('deleteTicket')?.addEventListener('click', deleteTicket);
   }
 
+  function bindShellChrome() {
+    const yearEl = $('year');
+    if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+
+    const nav = document.querySelector<HTMLElement>('.nav');
+    if (nav) {
+      const onScroll = () => { nav.classList.toggle('stuck', window.scrollY > 8); };
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    }
+
+    const toggle = $('navToggle');
+    const links = $('navLinks');
+    if (toggle && links) {
+      const closeMenu = () => {
+        links.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+      };
+      toggle.addEventListener('click', () => {
+        const open = links.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+      document.addEventListener('click', event => {
+        const target = event.target as Node | null;
+        if (target && !links.contains(target) && !toggle.contains(target)) closeMenu();
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') closeMenu();
+      });
+    }
+  }
+
   updateNotificationDot();
+  bindShellChrome();
   bindHelpForm();
   if (isHelpPage) {
+    void import('./features/page-gate').then((m) => m.initPageGate());
     void checkAvailability();
     restoreDraft();
   }
 
   if (state.token) {
-    if (isHelpPage) {
-      void import('./features/page-gate').then((m) => m.initPageGate());
-      void loadTicket();
-    }
+    if (isHelpPage) void loadTicket();
     else void refreshTicketStatus();
   }
 
