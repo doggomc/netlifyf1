@@ -77,6 +77,10 @@ for (const driver of grid) {
   assert(/<title>[^<]*— 2026 stats and results \| FreeF1<\/title>/.test(html), `${file} has no driver-specific title`);
   assert(html.includes('/drivers/') && html.includes('rel="canonical"'), `${file} has no canonical URL`);
   assert(!html.includes('/src/'), `Unbuilt source reference in ${file}`);
+  /* Profiles are public pages; only the not-found state marks itself noindex at
+     runtime. A noindex baked into every profile would hide the whole section. */
+  assert(!/<meta name="robots" content="noindex">/.test(html), `${file} is noindex; driver profiles must be indexable`);
+  assert(html.includes(`drivers/${slugify(`${driver.givenName} ${driver.familyName}`)}/`), `${file} has the wrong canonical`);
 }
 assert(existsSync('dist/assets/flags/it-40.png'), 'flags are self-hosted; assets/flags is missing from dist');
 for (const page of PAGES) {

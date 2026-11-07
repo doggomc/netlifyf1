@@ -52,7 +52,9 @@ function driverPage(template: string, driver: Driver): string {
     .replace('<title>Driver — FreeF1</title>', `<title>${escapeHtml(full)} — 2026 stats and results | FreeF1</title>`)
     .replace('content="FreeF1 driver profile: 2026 championship position, points, wins, podiums, qualifying record and every round of the season."',
       `content="${escapeHtml(`${full}, 2026 Formula 1 season: championship position, points, wins, podiums and every round.`)}"`)
-    .replace('</head>', `  <link rel="canonical" href="https://freef1.netlify.app/drivers/${slugify(full)}/">\n</head>`);
+    .replace('</head>', `  <link rel="canonical" href="https://freef1.netlify.app/drivers/${slugify(full)}/">\n`
+      + `  <meta property="og:title" content="${escapeHtml(`${full} — 2026 stats and results | FreeF1`)}">\n`
+      + `  <meta property="og:url" content="https://freef1.netlify.app/drivers/${slugify(full)}/">\n</head>`);
 }
 
 const escapeHtml = (value: string) => value.replace(/[&<>"]/g, (char) =>
