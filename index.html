@@ -70,11 +70,7 @@
       <div class="hero-copy">
         <span class="tag" id="heroRound">Round —</span>
         <h1 class="display" id="heroTitle">Grand Prix</h1>
-        <div class="hero-meta">
-          <span id="heroVenue">Loading the calendar…</span>
-          <span class="divider" aria-hidden="true"></span>
-          <span id="heroNext">Next session —</span>
-        </div>
+        <p class="hero-place" id="heroVenue">Loading the calendar…</p>
         <div class="hero-cta">
           <a class="btn btn-primary" href="/cockpit.html">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor"/></svg>
@@ -90,8 +86,9 @@
           <span class="tag" id="nextTag">—</span>
         </div>
         <div class="hero-card-body">
-          <div class="section-title" style="font-size:15px" id="nextGrandPrix">—</div>
-          <p class="next-name" id="nextSession">Loading…</p>
+          <p class="next-gp visually-hidden" id="nextGrandPrix">—</p>
+          <p class="next-name" id="nextSessionName">—</p>
+          <p class="next-session" id="nextSession">Loading…</p>
           <div class="countdown" id="countdown" aria-live="off">
             <span class="unit"><span class="n" data-unit="d">--</span><span class="l">Days</span></span>
             <span class="unit"><span class="n" data-unit="h">--</span><span class="l">Hrs</span></span>
@@ -101,7 +98,7 @@
         </div>
         <div class="hero-card-foot">
           <span id="nextLocal">—</span>
-          <a href="/schedule.html" style="color:var(--fg-2)">Where to watch →</a>
+          <a class="hero-watch" href="/cockpit.html">Watch</a>
         </div>
       </aside>
     </div>

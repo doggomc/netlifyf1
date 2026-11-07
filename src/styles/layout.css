@@ -23,6 +23,8 @@
   --white: #fff;
   --accent: #E10600;
   --accent-ink: #fff;
+  /* The cockpit assigns this per livery; the public pages keep the brand red. */
+  --team: #E10600;
   --radius: 20px;
   --radius-sm: 12px;
   --wrap: 1280px;
@@ -66,6 +68,11 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .wrap {
   width: 100%; max-width: calc(var(--wrap) + var(--gutter) * 2);
   margin-inline: auto; padding-inline: var(--gutter);
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
 }
 
 .skip-link {
@@ -322,7 +329,9 @@ main { flex: 1 0 auto; }
     linear-gradient(180deg, rgba(14,15,17,.55), rgba(14,15,17,.82) 52%, var(--page) 97%);
 }
 .hero-inner {
-  display: grid; gap: 32px; align-items: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px; align-items: end;
   padding-block: 56px 44px;
   min-height: min(76dvh, 660px);
 }
@@ -330,13 +339,54 @@ main { flex: 1 0 auto; }
   .hero-inner { grid-template-columns: minmax(0,1fr) 360px; gap: 48px; padding-block: 72px 56px; }
 }
 
+/* Below the split the card is a grid item in a single column; it must not be wider
+   than the column, or its right edge is pushed off-canvas. */
+.hero-card { min-width: 0; max-width: 100%; }
+.hero-card-foot { flex-wrap: wrap; }
+.hero-card .countdown { gap: 4px; }
+.hero-card .countdown .unit .n { font-size: clamp(20px, 7vw, 26px); }
+.hero-card .countdown .unit .l { font-size: 10px; letter-spacing: .1em; }
+
+.hero-copy { min-width: 0; }
 .hero-eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 /* The hero heading is the cockpit's own: Archivo 900, italic, uppercase, tight.
    Nothing here overrides it, so the home page and the cockpit share one voice. */
 .hero h1 {
-  font-size: clamp(2.6rem, 10.5vw, 7.5rem);
-  margin: 16px 0 4px;
-  max-width: 15ch;
+  font-size: clamp(2.3rem, 9.4vw, 9rem);
+  margin: 16px 0 6px;
+  max-width: 18ch;
+  /* Desktop keeps the two-tone name on one line; phones break before "Grand Prix". */
+  overflow-wrap: normal;
+  hyphens: none;
+  /* The cockpit hero's colour, not the shell's body grey. */
+  color: #F5F6F7;
+}
+
+/* "Grand Prix" is stroked in the team colour, exactly as the cockpit set it.
+   Solid ink for the location, outline for the series name. */
+.hero h1 em {
+  font-style: italic;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--team);
+}
+
+/* On a narrow screen the two halves are their own lines: nothing outruns the
+   gutter, and the outline never wraps in the middle of a word. */
+@media (max-width: 700px) {
+  .hero h1 em { display: block; white-space: nowrap; }
+  .hero h1 .gp-place { display: block; }
+}
+@media (max-width: 640px) {
+  .hero h1 em { -webkit-text-stroke-width: 1.25px; }
+}
+
+/* The place, small and flush with the heading's left edge. */
+.hero-place {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-3);
+  letter-spacing: .01em;
 }
 
 .hero .tag { margin-top: 2px; }
@@ -359,9 +409,25 @@ main { flex: 1 0 auto; }
 }
 .hero-card-body { padding: 18px; }
 .hero-card .next-name {
-  font-family: var(--font-display); font-size: 19px; font-weight: 700;
-  color: var(--white); letter-spacing: -.01em; margin-top: 6px;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2vw, 24px);
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -.015em;
+  line-height: 1.12;
 }
+/* The session sits directly under the name, clearly subordinate to it. */
+.hero-card .next-session {
+  margin-top: 5px;
+  font-size: 12.5px;
+  font-weight: 550;
+  letter-spacing: .02em;
+  color: var(--fg-3);
+}
+.hero-card .next-session.is-live { color: #ff9d97; }
+
+/* Swap the card's little title for the name: one name, one session, no repeat. */
+.hero-card .next-gp { display: none; }
 .countdown { display: flex; gap: 8px; margin-top: 16px; }
 .countdown .unit { flex: 1; text-align: center; }
 .countdown .unit .n {
@@ -373,6 +439,16 @@ main { flex: 1 0 auto; }
   display: block; margin-top: 4px; font-size: 10.5px; letter-spacing: .12em;
   text-transform: uppercase; color: var(--fg-4);
 }
+.hero-watch {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 650; font-size: 13px; color: var(--white);
+  padding: 6px 12px; border-radius: 8px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid var(--line-2);
+  transition: background-color .18s var(--ease), border-color .18s var(--ease);
+}
+.hero-watch:hover { background: #fff; border-color: #fff; color: #0b0b0d; }
+
 .hero-card-foot {
   padding: 14px 18px; border-top: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between; gap: 10px;

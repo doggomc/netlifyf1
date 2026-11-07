@@ -20,17 +20,24 @@ const focus = findFocusEvent();
 const live = findLiveSession();
 const next = findNextSession();
 
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] as string));
+
+/* The cockpit hero set the name in two tones: the location solid, "Grand Prix"
+   outlined in the team colour. Same split here, so the two pages agree. */
+function heroName(name: string): string {
+  const index = name.lastIndexOf(' Grand Prix');
+  if (index <= 0) return escapeHtml(name);
+  /* The location sits in its own span so a phone can put "Grand Prix" on the next
+     line; on a wide screen the space between them keeps them on one line. */
+  return `<span class="gp-place">${escapeHtml(name.slice(0, index))}</span> <em>Grand Prix</em>`;
+}
+
 if (focus) {
-  /* The whole Grand Prix name in one line, as the cockpit hero always set it. */
-  text('heroTitle', focus.name);
+  const title = $('heroTitle');
+  if (title) title.innerHTML = heroName(focus.name);
   text('heroRound', `Round ${focus.round} of 23`);
   text('heroVenue', `${focus.circuit} · ${focus.locality}, ${focus.country}`);
-  const when = live
-    ? `${live.session.name} on air now`
-    : next
-      ? `${next.session.name} · ${formatDay(next.session.ts)} ${formatTime(next.session.ts)}`
-      : 'Season complete';
-  text('heroNext', when);
   document.title = `${focus.name} — FreeF1`;
 }
 
@@ -40,13 +47,24 @@ let countdownTarget: number | null = null;
 
 function paintNextCard(info: SessionInfo | null, liveInfo: SessionInfo | null): void {
   const gp = $('nextGrandPrix');
+  const name = $('nextSessionName');
   const session = $('nextSession');
   const tag = $('nextTag');
   const local = $('nextLocal');
 
+  /* The card reads top to bottom as name, then session: the name is the loud line,
+     the session a quiet one directly beneath it. */
+  const set = (eventName: string, gpName: string, sessionName: string, live: boolean) => {
+    if (name) name.textContent = eventName;
+    if (gp) gp.textContent = gpName;
+    if (session) {
+      session.textContent = sessionName;
+      session.classList.toggle('is-live', live);
+    }
+  };
+
   if (liveInfo) {
-    if (gp) gp.textContent = liveInfo.event.name;
-    if (session) session.textContent = `${liveInfo.session.name} — on air`;
+    set(liveInfo.event.name, liveInfo.event.name, `${liveInfo.session.name} — on air`, true);
     if (tag) { tag.textContent = 'Live now'; tag.className = 'tag tag-accent'; }
     if (local) local.textContent = `Started ${formatTime(liveInfo.session.ts)}`;
     countdownTarget = null;
@@ -55,8 +73,7 @@ function paintNextCard(info: SessionInfo | null, liveInfo: SessionInfo | null): 
   }
 
   if (!info) {
-    if (gp) gp.textContent = 'Season complete';
-    if (session) session.textContent = 'See you next year';
+    set('Season complete', 'Season complete', 'See you next year', false);
     if (tag) { tag.textContent = '—'; tag.className = 'tag'; }
     if (local) local.textContent = '';
     countdownTarget = null;
@@ -64,8 +81,7 @@ function paintNextCard(info: SessionInfo | null, liveInfo: SessionInfo | null): 
     return;
   }
 
-  if (gp) gp.textContent = info.event.name;
-  if (session) session.textContent = sessionShortName(info.session.name);
+  set(info.event.name, info.event.name, sessionShortName(info.session.name), false);
   if (tag) {
     tag.textContent = `Round ${info.event.round}`;
     tag.className = 'tag';
