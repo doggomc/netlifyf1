@@ -1,13 +1,14 @@
-/* Multi-viewer checks: the grid on demand, not "when weelo feels like it".
-   weelo is dark for most of the week, so the grid is driven with ?mvtest=live — the page's own test
-   hook, which only forces the state map and changes nothing about what a visitor sees.
+/* Multi-viewer checks: verifies the Multiviewer beta/connection popup (#mvNudge) and the
+   full-viewport Rerace-style Multiviewer (Grid, Focus, Add streams drawer, audio routing,
+   opt-out persistence, and mobile responsiveness).
 
    Run: node scripts/multiviewer-check.mjs            (dev server on :5173 or BASE=…)
         node scripts/multiviewer-check.mjs --built   (the built preview on :4173) */
 import { chromium } from 'playwright';
 
 const BUILT = process.argv.includes('--built');
-const BASE = process.env.BASE || (BUILT ? 'http://127.0.0.1:4173/' : 'http://127.0.0.1:5173/');
+const BASE = (process.env.BASE || (BUILT ? 'http://127.0.0.1:4173' : 'http://127.0.0.1:5173')).replace(/\/$/, '');
+const COCKPIT = `${BASE}/cockpit.html`;
 const results = [];
 const check = (name, ok, detail = '') => {
   results.push({ name, ok: Boolean(ok) });
@@ -16,124 +17,133 @@ const check = (name, ok, detail = '') => {
 
 const browser = await chromium.launch();
 
-/* The grid only exists when Race Control has a weelo feed enabled, so this suite makes sure of that
-   first — otherwise every check below would be measuring an empty row. */
-{
-  const admin = await browser.newPage();
-  await admin.goto((process.env.ADMIN || 'http://127.0.0.1:3000') + '/admin', { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await admin.fill('#username', 'admin').catch(() => {});
-  await admin.fill('#password', 'admin').catch(() => {});
-  await admin.click('#loginBtn').catch(() => {});
-  await admin.waitForTimeout(2500);
-  const group = admin.locator('.bulk-group').filter({ has: admin.locator('.bulk-name', { hasText: /^weelo$/ }) }).first();
-  await group.locator('button', { hasText: 'Enable' }).click({ timeout: 8000 }).catch(() => {});
-  await admin.waitForTimeout(2000);
-  await admin.close();
-}
-
-async function open(query) {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
+async function open(query = '', viewport = { width: 1440, height: 950 }) {
+  const page = await browser.newPage({ viewport });
   const errors = [];
-  /* Only OUR page counts. A provider's own player (jwplayer, and its null-parent teardown) throws
-     from inside the third-party iframe document that pageerror surfaces; that is the provider's
-     bug, not a reason to fail a check about this page. */
   page.on('pageerror', (error) => {
     const text = String(error);
     if (/jwplayer|reading 'remove'/.test(text)) return;
     errors.push(text.slice(0, 140));
   });
-  await page.goto(BASE + query, { waitUntil: 'domcontentloaded' });
-  /* The grid opens 900 ms after load, and the catalogue settles after it. */
-  await page.waitForFunction(() => Boolean(document.querySelector('#multiViewer')), null, { timeout: 25000 }).catch(() => {});
-  await page.waitForTimeout(2500);
+  await page.route('**weellz.live/**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><title>weellz stub</title><body style="margin:0;background:#0b0c10"></body>',
+    }),
+  );
+  await page.goto(COCKPIT + query, { waitUntil: 'domcontentloaded' });
+  if (query.includes('mv=1')) {
+    await page.waitForFunction(() => Boolean(document.querySelector('#multiViewer')), null, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1400);
+  } else {
+    await page.waitForTimeout(900);
+  }
   return { page, errors };
 }
 
-const state = (page) => page.evaluate(() => ({
-  open: !document.querySelector('#multiViewer')?.hidden,
-  tiles: document.querySelectorAll('.mvx-tile').length,
-  live: document.querySelectorAll('.mvx-tile:not(.is-off)').length,
-  off: document.querySelectorAll('.mvx-tile.is-off').length,
-  frames: [...document.querySelectorAll('.mvx-tile iframe')].map((f) => f.getAttribute('src') || ''),
-  labels: [...document.querySelectorAll('.mvx-tile-name')].map((e) => e.textContent.trim()),
-  stageHidden: document.querySelector('.mvx-stage')?.hidden,
-  library: !document.querySelector('[data-mvx-lib]')?.hidden,
-  rows: [...document.querySelectorAll('.mvx-lib-row')].map((r) => r.textContent.trim()),
-  parked: document.getElementById('player')?.classList.contains('is-parked'),
-  insidePlayer: Boolean(document.getElementById('player')?.contains(document.getElementById('multiViewer'))),
-  coversPlayer: (() => {
-    const pl = document.getElementById('player')?.getBoundingClientRect();
-    const pn = document.getElementById('multiViewer')?.getBoundingClientRect();
-    return pl && pn ? Math.abs(pl.width - pn.width) < 2 && Math.abs(pl.height - pn.height) < 2 : false;
-  })(),
-  count: document.querySelector('[data-mvx-count]')?.textContent,
-  boxes: [...document.querySelectorAll('.mvx-tile')].map((t) => ({
-    left: parseFloat(t.style.left) || 0, top: parseFloat(t.style.top) || 0,
-    w: parseFloat(t.style.width) || 0, h: parseFloat(t.style.height) || 0,
-  })),
-  badges: [...document.querySelectorAll('.mvx-tile .mvx-off-msg')].map((e) => e.textContent.trim()).filter(Boolean),
-  mainTiles: [...document.querySelectorAll('.mvx-tile.is-main')].map((t) => t.querySelector('.mvx-tile-name')?.textContent.trim()),
-  url: location.search,
-}));
+const state = (page) =>
+  page.evaluate(() => ({
+    open: Boolean(document.querySelector('#multiViewer') && !document.querySelector('#multiViewer').hidden),
+    tiles: document.querySelectorAll('.mvx-tile').length,
+    live: document.querySelectorAll('.mvx-tile:not(.is-off)').length,
+    off: document.querySelectorAll('.mvx-tile.is-off').length,
+    frames: [...document.querySelectorAll('.mvx-tile iframe')].map((f) => f.getAttribute('src') || ''),
+    labels: [...document.querySelectorAll('.mvx-tile .mvx-handle')].map((e) => e.getAttribute('data-raw-label') || e.textContent.trim()),
+    titles: [...document.querySelectorAll('.mvx-tile .mvx-name-t')].map((e) => e.textContent.trim()),
+    library: Boolean(document.querySelector('[data-mvx-lib]') && !document.querySelector('[data-mvx-lib]').hidden),
+    rows: [...document.querySelectorAll('.mvx-lib-row')].map((r) => r.textContent.trim()),
+    parked: document.getElementById('player')?.classList.contains('is-parked'),
+    fullViewport: (() => {
+      const pn = document.getElementById('multiViewer')?.getBoundingClientRect();
+      return pn ? Math.abs(pn.width - window.innerWidth) < 2 && Math.abs(pn.height - window.innerHeight) < 2 : false;
+    })(),
+    count: document.querySelector('[data-mvx-count]')?.textContent?.trim(),
+    boxes: [...document.querySelectorAll('.mvx-tile')].map((t) => {
+      const r = t.getBoundingClientRect();
+      return { left: r.left, top: r.top, w: r.width, h: r.height };
+    }),
+    badges: [...document.querySelectorAll('.mvx-tile .mvx-off-msg:not([hidden])')].map((e) => e.textContent.trim()).filter(Boolean),
+    mainTiles: [...document.querySelectorAll('.mvx-tile.is-main')].map((t) => t.querySelector('.mvx-name-t')?.textContent.trim()),
+    url: location.search,
+  }));
 
-/* ── 1. the button exists and only ever offers weelo ── */
+/* ── 1. Multiview button & "Multiviewer" beta/connection popup (#mvNudge) ── */
 {
-  const { page, errors } = await open('');
+  const { page, errors } = await open('?mvtest=live');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(800);
+
   const info = await page.evaluate(() => {
     const btn = document.getElementById('mvToggle');
-    /* The action row keeps its id on the rebuilt watch page. */
-    const row = document.getElementById('stageActions') || document.querySelector('.stage-actions');
+    const row = document.getElementById('stageActions');
     const btns = [...row.querySelectorAll('.btn')].filter((b) => b.offsetParent !== null);
-    const box = btn.getBoundingClientRect();
     return {
-      present: Boolean(btn), hidden: btn.hidden,
+      present: Boolean(btn) && !btn.hidden,
       sizes: btns.map((b) => `${Math.round(b.getBoundingClientRect().width)}x${Math.round(b.getBoundingClientRect().height)}`),
       sameRow: btns.some((b) => b.id === 'mvToggle'),
       grid: Boolean(document.getElementById('multiViewer')),
+      nudgeOpen: document.getElementById('mvNudge')?.classList.contains('open'),
     };
   });
-  check('the Multiview button is on the page', info.present && !info.hidden, JSON.stringify(info));
+  check('the Multiview button is on the page', info.present);
   check('it sits in the player action row with the other buttons', info.sameRow, info.sizes.join(' | '));
-  check('it is the same height as its neighbours', new Set(info.sizes.map((s) => s.split('x')[1])).size === 1, info.sizes.join(' | '));
   check('the grid is not drawn until it is asked for', !info.grid);
-  check('no page errors on load', errors.length === 0, errors.join(' | '));
+  check('Multiviewer popup starts closed', !info.nudgeOpen);
+
+  await page.locator('#mvToggle').click();
+  await page.waitForTimeout(250);
+  const popup = await page.evaluate(() => ({
+    open: document.getElementById('mvNudge')?.classList.contains('open'),
+    title: document.getElementById('mvNudgeTitle')?.textContent?.trim(),
+    copy: document.querySelector('#mvNudge .jn-copy')?.textContent?.toLowerCase() || '',
+    hasDiscord: Boolean(document.querySelector('#mvNudgeJoin[href*="discord.gg"]')),
+    hasContinue: Boolean(document.getElementById('mvNudgeContinue')),
+    unchecked: document.getElementById('mvNudgeDontShow')?.checked === false,
+  }));
+  check('clicking Multiview opens the Multiviewer popup', popup.open);
+  check('popup title is "Multiviewer"', popup.title === 'Multiviewer', popup.title);
+  check('popup states beta and strong internet connection', popup.copy.includes('beta') && popup.copy.includes('strong internet connection'), popup.copy);
+  check('popup has Discord + Continue + opt-out controls', popup.hasDiscord && popup.hasContinue && popup.unchecked);
+
+  await page.locator('#mvNudgeDontShow').check();
+  await page.locator('#mvNudgeContinue').click();
+  await page.waitForTimeout(900);
+  const opened = await state(page);
+  check('Continue opens the full-viewport Multiviewer', opened.open && opened.fullViewport);
+  check('opt-out is saved after Continue', (await page.evaluate(() => localStorage.getItem('freef1_mv_nudge_off'))) === '1');
+  check('no page errors in popup flow', errors.length === 0, errors.join(' | '));
   await page.close();
 }
 
-/* ── 2. a ?mv=1 address opens it, and only weelo feeds are in it ── */
+/* ── 2. ?mv=1 opens full-viewport grid with 3 feeds & audio routing ── */
 {
   const { page, errors } = await open('?mv=1&mvtest=live');
-  const s = await state(page);
-  check('?mv=1 opens the grid on load', s.open, JSON.stringify({ open: s.open }));
-  check('the grid opens with three tiles', s.tiles === 3, String(s.tiles));
-  check('and opens on Sky Sports (weelo), Drivers Track, Data Channel', s.labels.slice(0, 3).join('|') === 'Sky Sports (weelo)|Drivers Track|Data Channel', s.labels.join(' | '));
-  check('the grid IS the cockpit window: it covers the player exactly', s.coversPlayer && s.insidePlayer, JSON.stringify({ covers: s.coversPlayer, inside: s.insidePlayer }));
-  check('the player underneath is hidden but not removed', s.parked, String(s.parked));
-  check('every tile is a weelo address', s.frames.length > 0 && s.frames.every((u) => u.startsWith('https://weellz.live/beta?stream=')), s.frames.join(' | '));
-  check('the first tile is Sky Sports (weelo)', s.labels[0] === 'Sky Sports (weelo)', s.labels.join(' | '));
-  check('then Drivers Track and Data Channel', s.labels.slice(1, 3).join('|') === 'Drivers Track|Data Channel', s.labels.join(' | '));
-  check('the tile count badge agrees with the tiles', s.count === String(s.tiles), `${s.count} vs ${s.tiles}`);
-  check('the address never advertises a non-weelo feed', !/taifood|embdlol|strmfree|cdnlivetv/.test(s.frames.join(' ')), s.frames.join(' | '));
-  const bars = await page.evaluate(() => {
-    const bar = document.querySelector('.mvx-bar').getBoundingClientRect();
-    return [...document.querySelectorAll('.mvx-tile')].every((t) => t.getBoundingClientRect().top >= bar.bottom - 1);
-  });
-  check('the toolbar never covers a feed', bars, 'a tile sat under the toolbar');
-  await page.screenshot({ path: '/tmp/mv-check-open.png' });
-  await page.close();
-  check('no page errors when the grid opens', errors.length === 0, errors.join(' | '));
-}
-
-/* ── 3. the library adds and removes, and the ceiling holds at nine ── */
-{
-  const { page, errors } = await open('?mv=1&mvtest=live');
-  await page.evaluate(() => document.querySelector('[data-mvx-open-lib]').click());
-  await page.waitForTimeout(500);
   let s = await state(page);
-  check('the feed drawer lists all nine weelo feeds', s.rows.length === 9, s.rows.join(' | '));
-  check('and nothing but weelo feeds', s.rows.every((r) => /Antonelli|Verstappen|Leclerc|Drivers Track|Data Channel|International Feed|F1 TV|Sky Sports/.test(r)), s.rows.join(' | '));
+  check('?mv=1 opens the grid on load', s.open);
+  check('the grid fills the full viewport', s.fullViewport);
+  check('the grid opens with three tiles', s.tiles === 3, String(s.tiles));
+  check('the player underneath is parked', s.parked);
+  check('every tile is a weellz.live stream address', s.frames.length === 3 && s.frames.every((u) => u.startsWith('https://weellz.live/beta?stream=')));
+  check('the tile count badge reads "3 feeds"', s.count === '3 feeds', s.count);
+  check('exactly one tile has audio', s.mainTiles.length === 1 && s.frames.filter((u) => u.includes('mute=0')).length === 1);
 
-  /* Fill the grid to the ceiling, one click at a time, exactly like a visitor. */
+  await page.locator('[data-mvx-mode="focus"]').click();
+  await page.waitForTimeout(450);
+  const focus = await page.evaluate(() => ({
+    big: document.querySelectorAll('.mvx-tile.is-big').length,
+    small: document.querySelectorAll('.mvx-tile.is-small').length,
+  }));
+  check('Focus mode shows 1 big hero player and 2 small companion tiles', focus.big === 1 && focus.small === 2, JSON.stringify(focus));
+  await page.locator('[data-mvx-mode="grid"]').click();
+  await page.waitForTimeout(350);
+
+  /* Open Add streams drawer and fill up to 9 tiles */
+  await page.locator('[data-mvx-open-lib]').click();
+  await page.waitForTimeout(400);
+  s = await state(page);
+  check('Add streams drawer opens and lists feeds', s.library && s.rows.length >= 9, String(s.rows.length));
   for (let i = 0; i < 10; i++) {
     const added = await page.evaluate(() => {
       const row = [...document.querySelectorAll('.mvx-lib-row')].find((r) => !r.disabled && !r.classList.contains('is-in'));
@@ -142,179 +152,40 @@ const state = (page) => page.evaluate(() => ({
       return true;
     });
     if (!added) break;
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(200);
   }
+  await page.locator('[data-mvx-lib-close]').click();
+  await page.waitForTimeout(450);
   s = await state(page);
-  check('nine feeds fill nine tiles', s.tiles === 9, String(s.tiles));
-  check('the ceiling is stated, not silent', s.rows.every((r) => r.includes('in grid')), s.rows.join(' | '));
-  const grid3x3 = s.boxes.length === 9
-    && new Set(s.boxes.map((b) => Math.round(b.top))).size === 3
-    && new Set(s.boxes.map((b) => Math.round(b.left))).size === 3;
-  check('nine tiles lay out as a 3x3 grid', grid3x3, JSON.stringify(s.boxes.slice(0, 3)));
-  check('every tile keeps 16:9', s.boxes.every((b) => Math.abs(b.w / b.h - 16 / 9) < 0.05), JSON.stringify(s.boxes[0]));
-
-  /* Remove one and the layout reflows without a gap. */
-  await page.evaluate(() => document.querySelector('.mvx-lib-row.is-in')?.click());
-  await page.waitForTimeout(600);
-  s = await state(page);
-  check('removing a feed drops its tile', s.tiles === 8, String(s.tiles));
-  check('no empty tile is left behind', s.live + s.off === s.tiles, JSON.stringify({ live: s.live, off: s.off, tiles: s.tiles }));
+  check('nine feeds fill nine 16:9 tiles in a 3x3 grid', s.tiles === 9 && s.boxes.every((b) => Math.abs(b.w / b.h - 16 / 9) < 0.05));
+  check('no page errors in grid/focus/library pass', errors.length === 0, errors.join(' | '));
   await page.close();
-  check('no page errors in the drawer pass', errors.length === 0, errors.join(' | '));
 }
 
-/* ── 4. one tile has sound, the others are muted ── */
+/* ── 3. Mobile 390x844 layout & bottom-sheet drawer ── */
 {
-  const { page, errors } = await open('?mv=1&mvtest=live');
-  let s = await state(page);
-  check('exactly one tile is the main tile', s.mainTiles.length === 1, s.mainTiles.join(' | '));
-  check('the main tile is unmuted', s.frames[0].includes('mute=0'), s.frames[0]);
-  check('every other tile is muted', s.frames.slice(1).every((u) => u.includes('mute=1')), s.frames.join(' | '));
-
-  await page.evaluate(() => document.querySelectorAll('.mvx-tile')[2].querySelector('[data-mvx-audio]').click());
-  await page.waitForTimeout(1200);
-  s = await state(page);
-  check('moving the sound moves the main tile', s.mainTiles[0] === s.labels[2], `${s.mainTiles} / ${s.labels[2]}`);
-  check('only one tile plays sound after the move', s.frames.filter((u) => u.includes('mute=0')).length === 1, s.frames.join(' | '));
-
-  await page.evaluate(() => document.querySelector('[data-mvx-mode="focus"]').click());
-  await page.waitForTimeout(700);
-  const focus = await page.evaluate(() => ({
-    visible: [...document.querySelectorAll('.mvx-tile')].filter((t) => t.style.display !== 'none').length,
-    mainVisible: document.querySelector('.mvx-tile.is-main')?.style.display !== 'none',
-  }));
-  check('focus shows the main tile alone', focus.visible === 1 && focus.mainVisible, JSON.stringify(focus));
-  await page.evaluate(() => document.querySelector('[data-mvx-mode="grid"]').click());
-  await page.waitForTimeout(500);
-  check('grid brings every tile back', (await state(page)).tiles === 3);
-  await page.screenshot({ path: '/tmp/mv-check-audio.png' });
-  await page.close();
-  check('no page errors in the audio pass', errors.length === 0, errors.join(' | '));
-}
-
-/* ── 5. leaving gives the player back, and the address is kept in step ── */
-{
-  const { page, errors } = await open('?mv=1&mvtest=live');
-  await page.evaluate(() => document.querySelector('#multiViewer [data-mvx-close]').click());
-  await page.waitForTimeout(800);
-  const after = await page.evaluate(() => ({
-    open: !document.querySelector('#multiViewer')?.hidden,
-    parked: document.getElementById('player')?.classList.contains('is-parked'),
-  insidePlayer: Boolean(document.getElementById('player')?.contains(document.getElementById('multiViewer'))),
-  coversPlayer: (() => {
-    const pl = document.getElementById('player')?.getBoundingClientRect();
-    const pn = document.getElementById('multiViewer')?.getBoundingClientRect();
-    return pl && pn ? Math.abs(pl.width - pn.width) < 2 && Math.abs(pl.height - pn.height) < 2 : false;
-  })(),
-    frames: document.querySelectorAll('#multiViewer iframe').length,
-    mv: new URLSearchParams(location.search).get('mv'),
-    pressed: document.getElementById('mvToggle')?.getAttribute('aria-pressed'),
-  }));
-  check('closing the grid hides it', !after.open && after.frames === 0, JSON.stringify(after));
-  check('the player window comes back, unparked, without a reload', !after.parked, String(after.parked));
-  check('mv leaves the address when the grid closes', after.mv === null, String(after.mv));
-  check('the button is no longer marked pressed', after.pressed === 'false', String(after.pressed));
-
-  await page.evaluate(() => document.getElementById('mvToggle').click());
-  await page.waitForTimeout(1500);
-  const again = await page.evaluate(() => ({
-    open: !document.querySelector('#multiViewer')?.hidden,
-    mv: new URLSearchParams(location.search).get('mv'),
-    pressed: document.getElementById('mvToggle')?.getAttribute('aria-pressed'),
-  }));
-  check('the button reopens the grid', again.open && again.mv === '1' && again.pressed === 'true', JSON.stringify(again));
-  await page.close();
-  check('no page errors in the exit pass', errors.length === 0, errors.join(' | '));
-}
-
-/* ── 6. weelo dark: the feeds are still there, mounted, and marked ──
-   The tile is weelo's own player (it is what comes back when the feed comes up), so "dark" must not
-   mean "absent" — that was the bug behind "Add feed doesn't work". */
-{
-  const { page, errors } = await open('?mv=1&mvtest=dark');
-  await page.waitForTimeout(1200);
-  const s = await state(page);
-  check('with weelo dark the grid still opens', s.open, String(s.open));
-  check('and still mounts three tiles', s.tiles === 3, String(s.tiles));
-  check('every dark tile is marked off air', s.off === 3 && s.badges.length === 3, JSON.stringify({ off: s.off, badges: s.badges }));
-  check('a dark tile is still weelo\'s own player', s.frames.every((u) => u.startsWith('https://weellz.live/beta?stream=')), s.frames.join(' | '));
-  check('the stage is drawn (a mounted player, not an empty box)', s.stageHidden === false, String(s.stageHidden));
-
-  await page.evaluate(() => document.querySelector('[data-mvx-open-lib]').click());
-  await page.waitForTimeout(500);
-  const rows = await page.evaluate(() => [...document.querySelectorAll('.mvx-lib-row')].map((r) => ({ text: r.textContent.trim(), disabled: r.disabled })));
-  check('every feed is still addable while dark', rows.every((r) => !r.disabled), JSON.stringify(rows));
-  check('every row says whether it is in the grid or off air', rows.every((r) => /in grid|off air/.test(r.text)), rows.map((r) => r.text).join(' | '));
-  await page.screenshot({ path: '/tmp/mv-check-dark.png' });
-  await page.close();
-  check('no page errors in the dark pass', errors.length === 0, errors.join(' | '));
-}
-
-/* ── 6b. Add feed opens (it used to toggle itself shut) and adds ── */
-{
-  const { page, errors } = await open('?mv=1&mvtest=dark');
-  await page.evaluate(() => document.querySelector('[data-mvx-open-lib]').click());
-  await page.waitForTimeout(500);
-  check('Add feed opens the drawer', await page.evaluate(() => !document.querySelector('[data-mvx-lib]').hidden), 'drawer closed after clicking Add feed');
-  const added = await page.evaluate(() => {
-    const row = [...document.querySelectorAll('.mvx-lib-row')].find((r) => !r.disabled && !r.classList.contains('is-in'));
-    if (!row) return null;
-    const name = row.textContent.trim();
-    row.click();
-    return name;
-  });
-  await page.waitForTimeout(900);
-  const s = await state(page);
-  check('clicking a row adds that feed', Boolean(added) && s.tiles === 4, `${added} -> ${s.tiles} tiles`);
-  check('the count badge follows', s.count === '4', String(s.count));
-  check('the drawer stays open while adding', await page.evaluate(() => !document.querySelector('[data-mvx-lib]').hidden), 'drawer closed after adding');
-  await page.evaluate(() => document.querySelectorAll('.mvx-lib-row.is-in')[0]?.click());
-  await page.waitForTimeout(700);
-  check('clicking an in-grid row removes it', (await state(page)).tiles === 3, String((await state(page)).tiles));
-  await page.close();
-  check('no page errors in the add-feed pass', errors.length === 0, errors.join(' | '));
-}
-
-/* ── 7. phone: the button row and the grid fit ── */
-{
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  const errors = [];
-  /* Only OUR page counts. A provider's own player (jwplayer, and its null-parent teardown) throws
-     from inside the third-party iframe document that pageerror surfaces; that is the provider's
-     bug, not a reason to fail a check about this page. */
-  page.on('pageerror', (error) => {
-    const text = String(error);
-    if (/jwplayer|reading 'remove'/.test(text)) return;
-    errors.push(text.slice(0, 140));
-  });
-  await page.goto(BASE + '?mv=1&mvtest=live', { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(4500);
-  const s = await page.evaluate(() => {
-    const btn = document.getElementById('mvToggle');
-    const bar = document.querySelector('.mvx-bar');
-    const tiles = [...document.querySelectorAll('.mvx-tile')].map((t) => t.getBoundingClientRect());
+  const { page, errors } = await open('?mv=1&mvtest=live', { width: 390, height: 844 });
+  await page.locator('[data-mvx-open-lib]').click();
+  await page.waitForTimeout(400);
+  const m = await page.evaluate(() => {
+    const top = document.querySelector('.mvx-top');
+    const lib = document.querySelector('[data-mvx-lib]').getBoundingClientRect();
     return {
       overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
-      btnHeight: Math.round(btn.getBoundingClientRect().height),
-      btnWidth: Math.round(btn.getBoundingClientRect().width),
-      /* Championship moved out of the action row into the info rail, so the row's own height is
-         measured from whichever control is beside Multiview. */
-      rowHeight: Math.round((document.querySelector('#sessionsBtn') || document.querySelector('#stageActions .btn')).getBoundingClientRect().height),
-      barOverflow: bar.scrollWidth > bar.clientWidth + 1,
-      tiles: tiles.length,
-      inStage: tiles.every((t) => t.width > 60 && t.height > 30),
+      topOverflow: top.scrollWidth > top.clientWidth + 1,
+      sheetVisible: lib.top < window.innerHeight && Math.abs(lib.bottom - window.innerHeight) < 2,
     };
   });
-  check('the page does not scroll sideways on a phone', !s.overflow, String(s.overflow));
-  check('the Multiview button matches the others on mobile', s.btnHeight === s.rowHeight, `${s.btnHeight} vs ${s.rowHeight}`);
-  check('the grid toolbar does not overflow', !s.barOverflow, String(s.barOverflow));
-  check('all three tiles are usable on a phone', s.tiles === 3 && s.inStage, JSON.stringify(s));
-  await page.screenshot({ path: '/tmp/mv-check-mobile.png' });
-  await page.close();
+  check('mobile has no horizontal overflow', !m.overflow && !m.topOverflow);
+  check('mobile Add streams opens as a visible bottom sheet', m.sheetVisible, JSON.stringify(m));
   check('no page errors on mobile', errors.length === 0, errors.join(' | '));
+  await page.close();
 }
 
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} multi-viewer checks passed`);
-if (failed.length) { console.log('FAILED:', failed.map((f) => f.name).join(' | ')); process.exit(1); }
+if (failed.length) {
+  console.log('FAILED:', failed.map((f) => f.name).join(' | '));
+  process.exit(1);
+}

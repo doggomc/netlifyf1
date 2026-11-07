@@ -4,10 +4,25 @@
     <loc>https://freef1.netlify.app/</loc>
   </url>
   <url>
-    <loc>https://freef1.netlify.app/help.html</loc>
+    <loc>https://freef1.netlify.app/cockpit.html</loc>
   </url>
   <url>
-    <loc>https://freef1.netlify.app/replays</loc>
+    <loc>https://freef1.netlify.app/schedule.html</loc>
+  </url>
+  <url>
+    <loc>https://freef1.netlify.app/standings.html</loc>
+  </url>
+  <url>
+    <loc>https://freef1.netlify.app/drivers.html</loc>
+  </url>
+  <url>
+    <loc>https://freef1.netlify.app/teams.html</loc>
+  </url>
+  <url>
+    <loc>https://freef1.netlify.app/live-timing.html</loc>
+  </url>
+  <url>
+    <loc>https://freef1.netlify.app/help.html</loc>
   </url>
   <url>
     <loc>https://freef1.netlify.app/info</loc>

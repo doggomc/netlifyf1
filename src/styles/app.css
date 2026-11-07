@@ -1,3 +1,5 @@
+@import './outage.css';
+
 /* The hidden attribute must always win. Class rules that set display (grid, inline-flex, flex)
    otherwise override the UA's [hidden] rule, so an element meant to be invisible still renders.
    That is what painted the replay "no player" notice over every working stream, and would have
@@ -38,16 +40,39 @@
   --maxw: 1240px;
 }
 
-* {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
   scroll-behavior: smooth;
   /* Reserve the scrollbar channel so locking scroll for a modal cannot reflow the page. */
   scrollbar-gutter: stable;
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  touch-action: manipulation;
+}
+
+button,
+[role="button"],
+[role="tab"],
+summary,
+.btn {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .skip-link {
@@ -108,20 +133,6 @@ input,textarea,select,[contenteditable="true"] {
 img {
   display: block;
   max-width: 100%;
-}
-
-/* Racing-stripe scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #000;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(var(--team),var(--red-deep));
-  border-radius: 99px;
 }
 
 /* ═══════════════ TYPOGRAPHY ═══════════════ */
@@ -276,7 +287,7 @@ body.has-stream .deck:has([aria-expanded="true"]) {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 14px clamp(16px,4vw,44px);
+  padding: 14px clamp(20px,5vw,56px);
   background: transparent;
   border-bottom: 1px solid transparent;
   transition: background-color .35s var(--ease),border-color .35s var(--ease);
@@ -887,7 +898,7 @@ from {
 .wrap {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 0 clamp(16px,4vw,44px);
+  padding: 0 clamp(20px,5vw,56px);
 }
 
 section {
@@ -2685,6 +2696,12 @@ to {
   line-height: 1.7;
 }
 
+@media(max-width:960px) {
+  .scroll-hint {
+    display: none;
+  }
+}
+
 @media(max-width:760px) {
 .rp-bar {
     margin-bottom: 14px;
@@ -3654,317 +3671,6 @@ to {
   padding: 0 26px 24px;
 }
 
-/* ═══════════════ FOOTER ═══════════════ */
-
-footer {
-  position: relative;
-  z-index: 2;
-  margin-top: clamp(48px, 7vw, 88px);
-  border-top: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255,255,255,.012), rgba(225,6,0,.035));
-}
-
-.foot-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(128px, .72fr) minmax(150px, .82fr);
-  align-items: start;
-  gap: clamp(24px, 4.5vw, 68px);
-  padding: 48px 0 38px;
-}
-
-.foot-brand {
-  max-width: 460px;
-}
-
-.foot-brand .brand {
-  margin-bottom: 14px;
-}
-
-.foot-grid h4 {
-  margin: 4px 0 12px;
-  color: var(--dim);
-  font-family: 'JetBrains Mono';
-  font-size: .62rem;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-}
-
-.foot-links {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.foot-links button,
-.foot-links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 27px;
-  padding: 2px 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-family: 'Inter';
-  font-size: .82rem;
-  font-weight: 500;
-  text-align: left;
-  text-decoration: none;
-  transition: color .18s var(--ease);
-}
-
-.foot-links button:hover,
-.foot-links a:hover {
-  color: var(--team);
-}
-
-.foot-links button:focus-visible,
-.foot-links a:focus-visible,
-.foot-diagnostics:focus-visible {
-  outline: 2px solid var(--team);
-  outline-offset: 4px;
-}
-
-.foot-note {
-  max-width: 42ch;
-  color: var(--dim);
-  font-size: .76rem;
-  line-height: 1.75;
-}
-
-.foot-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 14px 22px;
-  padding: 16px 0 20px;
-  border-top: 1px solid var(--line);
-  color: var(--dim);
-  font-family: 'JetBrains Mono';
-  font-size: .62rem;
-  letter-spacing: .035em;
-}
-
-.foot-copy {
-  min-width: 0;
-}
-
-.foot-credits {
-  justify-self: end;
-  text-align: right;
-}
-
-.foot-bar .credit {
-  color: var(--muted);
-  border-bottom: 1px solid var(--line);
-  cursor: default;
-  transition: color .18s, border-color .18s;
-}
-
-.foot-bar .credit:hover {
-  color: var(--team);
-  border-color: var(--team);
-}
-
-.foot-diagnostics {
-  justify-self: center;
-  min-height: 34px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255,255,255,.035);
-  color: var(--muted);
-  cursor: pointer;
-  font-family: 'JetBrains Mono';
-  font-size: .59rem;
-  font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  transition: color .18s, border-color .18s, background .18s;
-}
-
-.foot-diagnostics:hover:not(:disabled) {
-  border-color: rgba(225,6,0,.55);
-  background: rgba(225,6,0,.1);
-  color: #fff;
-}
-
-.foot-diagnostics:disabled {
-  cursor: wait;
-  opacity: .65;
-}
-
-.checker {
-  height: 4px;
-  background: repeating-linear-gradient(90deg, #fff 0 10px, #101114 10px 20px);
-  opacity: .13;
-}
-
-@media(max-width:960px) {
-  .foot-grid {
-    grid-template-columns: minmax(0, 1.25fr) minmax(170px, .75fr);
-    gap: 26px 36px;
-  }
-
-  .foot-brand {
-    grid-row: span 2;
-  }
-
-  .scroll-hint {
-    display: none;
-  }
-}
-
-@media(max-width:640px) {
-  .foot-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 24px 20px;
-    padding: 36px 0 28px;
-  }
-
-  .foot-brand {
-    grid-column: 1 / -1;
-    grid-row: auto;
-  }
-
-  .foot-bar {
-    grid-template-columns: 1fr auto;
-    gap: 12px;
-    padding: 14px 0 18px;
-  }
-
-  .foot-copy {
-    grid-column: 1 / -1;
-  }
-
-  .foot-diagnostics {
-    justify-self: start;
-  }
-
-  .foot-credits {
-    align-self: center;
-    text-align: right;
-  }
-}
-
-@media(max-width:520px) {
-  .foot-bar {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .foot-copy,
-  .foot-credits {
-    grid-column: auto;
-    justify-self: start;
-    text-align: left;
-  }
-
-  .foot-diagnostics {
-    justify-self: start;
-  }
-}
-
-@media(max-width:380px) {
-  .foot-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .foot-brand {
-    grid-column: auto;
-  }
-}
-
-/* Auth */
-.auth {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 22px;
-  background: rgba(5,5,6,.96);
-  backdrop-filter: blur(18px);
-}
-
-.auth.open {
-  display: flex;
-}
-
-.auth .sheet {
-  max-width: 480px;
-  text-align: center;
-}
-
-.auth h2 {
-  color: var(--team);
-}
-
-.code {
-  font-family: 'JetBrains Mono';
-  font-size: .78rem;
-  background: rgba(225,6,0,.09);
-  border: 1px solid rgba(225,6,0,.24);
-  color: #FF6B62;
-  padding: 13px;
-  border-radius: var(--r-sm);
-  margin: 16px 0;
-}
-
-@media(max-width:640px) {
-.hero-inner {
-    padding-top: 110px;
-  }
-
-  .sheet {
-    padding: 18px;
-  }
-
-  .teams {
-    grid-template-columns: repeat(2,1fr);
-  }
-
-  .row {
-    grid-template-columns: 42px 1fr auto;
-    gap: 10px;
-    padding: 11px 13px;
-  }
-
-  .pos {
-    font-size: 1.2rem;
-  }
-
-  .btn {
-    padding: 13px 22px;
-    font-size: .74rem;
-    width: 100%;
-  }
-
-  .hero-cta {
-    flex-direction: column;
-  }
-
-  .pill.next {
-    max-width: 100%;
-  }
-
-}
-
-@media(prefers-reduced-motion:reduce) {
-* {
-    animation-duration: .01ms!important;
-    transition-duration: .01ms!important;
-  }
-
-  .rv {
-    opacity: 1;
-    transform: none;
-  }
-
-}
-
 /* ═══════════════ PERFORMANCE + RESPONSIVE HARDENING ═══════════════ */
 
 .hero-layer picture {
@@ -4426,16 +4132,6 @@ button:focus-visible,a:focus-visible,select:focus-visible {
 
   .race-time-session time {
     font-size: .55rem;
-  }
-
-  .foot-grid {
-    padding-top: 40px;
-  }
-
-  .foot-links button,.foot-links a {
-    min-height: 36px;
-    display: flex;
-    align-items: center;
   }
 
   .scanlines {
@@ -5011,655 +4707,15 @@ body.view-swapping {
   color: #fff;
 }
 
-/* The grid IS the cock  pit window while it is up: it covers the player exactly, so activating the
-   multi-viewer changes what the window shows instead of adding a panel underneath it. */
-.mvx {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  background: #050507;
-  border-radius: inherit;
-  overflow: hidden;
-  animation: mvx-in .32s cubic-bezier(.22, 1, .36, 1) both;
-}
-
-.mvx[hidden] { display: none; }
-
-@keyframes mvx-in {
-  from { opacity: 0; transform: scale(.985); }
-  to { opacity: 1; transform: none; }
-}
-
-/* The toolbar is its own strip so it never sits on top of a feed. */
-.mvx-bar {
-  position: relative;
-  z-index: 6;
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 6px;
-  background: rgba(10, 10, 13, .86);
-  backdrop-filter: blur(14px) saturate(140%);
-}
-
-.mvx-title {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font: 700 .62rem 'JetBrains Mono', monospace;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.mvx-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, .12);
-  color: #fff;
-  font-size: .58rem;
-}
-
-.mvx-modes { display: flex; gap: 4px; }
-
-.mvx-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 4px;
-  background: transparent;
-  color: #d7d7dc;
-  font: 700 .58rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color .18s, border-color .18s, background .18s, transform .18s;
-}
-
-.mvx-btn svg { width: 13px; height: 13px; }
-.mvx-btn:hover { color: #fff; border-color: rgba(255, 255, 255, .45); transform: translateY(-1px); }
-.mvx-btn.is-on { color: #fff; border-color: var(--accent, #e10600); background: rgba(225, 6, 0, .18); }
-.mvx-add span, .mvx-modes span { display: inline; }
-
-.mvx-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  background: #050507;
-}
-
-.mvx-tiles { position: absolute; inset: 0; }
-
-.mvx-tile {
-  position: absolute;
-  background: #000;
-  overflow: hidden;
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07);
-  transition: left .34s cubic-bezier(.22, 1, .36, 1), top .34s cubic-bezier(.22, 1, .36, 1),
-              width .34s cubic-bezier(.22, 1, .36, 1), height .34s cubic-bezier(.22, 1, .36, 1),
-              box-shadow .2s ease;
-  animation: mvx-tile-in .3s ease both;
-}
-
-@keyframes mvx-tile-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.mvx-tile.is-main { box-shadow: 0 0 0 2px var(--accent, #e10600); }
-
-.mvx-tile iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
-
-/* A tile weelo reports dark still mounts weelo's player (it is what comes back when the feed comes
-   up); the badge is the only thing that marks it, so the frame is never dimmed into a grey box. */
-.mvx-tile.is-off iframe { opacity: .9; }
-
-/* Their tile chrome: a strip across the top with the feed name on the left and three round glass
-   tools on the right (sound, big, remove). It floats over the video and never takes layout space. */
-.mvx-tile-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px;
-  background: none;
-  pointer-events: none;
-  transition: opacity .18s ease;
-}
-
-.mvx-tile-bar > * { pointer-events: auto; }
-
-/* Always on screen, the way theirs is: a live grid is read at a glance, not by hovering each box. */
-.mvx-tile:hover .mvx-tile-bar,
-.mvx-tile:focus-within .mvx-tile-bar { opacity: 1; }
-
-/* A tile small enough for the grid keeps its chrome on screen, as theirs does. */
-.mvx-tile.is-small .mvx-tile-name { max-width: 40%; }
-
-/* A phone tile is ~110px wide: the name would cover the picture, so the tools stand alone. */
-@media (max-width: 760px) {
-  .mvx-tile-name { display: none; }
-  .mvx-tile-bar { padding: 4px; gap: 4px; justify-content: flex-end; }
-  .mvx-tool { width: 26px; height: 26px; }
-  .mvx-tool svg { width: 14px; height: 14px; }
-  .mvx-tools { gap: 3px; }
-}
-
-.mvx-tile-name {
-  flex: 1;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #0000008c;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 700 .56rem 'JetBrains Mono', monospace;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  color: #fff;
-}
-
-.mvx-off-msg {
-  font: 700 .55rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #ffb020;
-}
-
-.mvx-tools { display: flex; gap: 6px; flex: none; }
-
-/* The beta line sits above the stage, in the bar's own language: one quiet row, never over a feed. */
 .theater-online { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
 .theater-online[hidden] { display: none; }
 .theater-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
 .theater-online b { font-weight: 700; }
 
-.mvx-beta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-  padding: 0 2px;
-  font: 500 11.5px 'JetBrains Mono', monospace;
-  letter-spacing: .02em;
-  color: var(--rr-fg-3, #96999e);
-}
-
-.mvx-beta b:first-of-type { color: #f87168; }
-.mvx-beta .mvx-online { display: inline-flex; align-items: center; gap: 5px; margin-right: 2px; color: var(--rr-fg-2, #a9abaf); }
-.mvx-beta .mvx-online b { color: var(--rr-fg, #cecfd2); font-weight: 700; }
-.mvx-beta .mvx-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
-
-.mvx-tool {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: #0000008c;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: #ffffffd9;
-  cursor: pointer;
-  transition: background-color .2s var(--ease), color .2s var(--ease), transform .2s var(--rr-spring);
-}
-
-.mvx-tool svg { width: 16px; height: 16px; }
-.mvx-tool:hover { color: #fff; background: #000c; transform: scale(1.06); }
-.mvx-tool.is-on { color: #fff; background: var(--rr-brand, #e10600); }
-
-/* Small tiles shrink their tools the way theirs do. */
-.mvx-tile.is-small .mvx-tool { width: 28px; height: 28px; }
-.mvx-tile.is-small .mvx-tools { gap: 4px; }
-
-.mvx-tile-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid rgba(255, 255, 255, .3);
-  border-radius: 3px;
-  background: rgba(0, 0, 0, .45);
-  color: #fff;
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-}
-
-.mvx-tile-btn svg { width: 12px; height: 12px; }
-.mvx-tile-btn:hover { border-color: #fff; }
-.mvx-tile-btn.is-on { border-color: var(--accent, #e10600); background: var(--accent, #e10600); }
-
-/* The feed drawer slides in over the grid from the right. */
-.mvx-lib {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(300px, 100%);
-  display: flex;
-  flex-direction: column;
-  background: rgba(8, 8, 11, .96);
-  border-left: 1px solid rgba(255, 255, 255, .1);
-  backdrop-filter: blur(10px);
-  z-index: 5;
-  animation: mvx-lib-in .26s cubic-bezier(.22, 1, .36, 1) both;
-}
-
-.mvx-lib[hidden] { display: none; }
-
-@keyframes mvx-lib-in {
-  from { transform: translateX(16px); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-
-.mvx-lib-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, .1);
-  font: 700 .62rem 'JetBrains Mono', monospace;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #fff;
-}
-
-.mvx-lib-note {
-  margin: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, .07);
-  color: var(--dim);
-  font-size: .7rem;
-  line-height: 1.45;
-}
-
-.mvx-lib-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 12px;
-  border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, .05);
-  background: transparent;
-  color: #e8e8ec;
-  font-size: .76rem;
-  text-align: left;
-  cursor: pointer;
-  transition: background .15s, padding-left .15s;
-}
-
-.mvx-lib-row:hover:not(:disabled) { background: rgba(255, 255, 255, .06); padding-left: 15px; }
-.mvx-lib-row:disabled { color: var(--dim); cursor: not-allowed; }
-.mvx-lib-row.is-in { color: var(--accent, #e10600); }
-
-.mvx-lib-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.mvx-lib-state {
-  font: 700 .55rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.mvx {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  background: #050507;
-  border-radius: inherit;
-  overflow: hidden;
-  animation: mvx-in .32s cubic-bezier(.22, 1, .36, 1) both;
-}
-
-.mvx[hidden] { display: none; }
-
-@keyframes mvx-in {
-  from { opacity: 0; transform: scale(.985); }
-  to { opacity: 1; transform: none; }
-}
-
-/* The toolbar is its own strip so it never sits on top of a feed. */
-.mvx-bar {
-  position: relative;
-  z-index: 6;
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 6px;
-  background: rgba(10, 10, 13, .86);
-  backdrop-filter: blur(14px) saturate(140%);
-}
-
-.mvx-title {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font: 700 .62rem 'JetBrains Mono', monospace;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.mvx-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, .12);
-  color: #fff;
-  font-size: .58rem;
-}
-
-.mvx-modes { display: flex; gap: 4px; }
-
-.mvx-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 4px;
-  background: transparent;
-  color: #d7d7dc;
-  font: 700 .58rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color .18s, border-color .18s, background .18s, transform .18s;
-}
-
-.mvx-btn svg { width: 13px; height: 13px; }
-.mvx-btn:hover { color: #fff; border-color: rgba(255, 255, 255, .45); transform: translateY(-1px); }
-.mvx-btn.is-on { color: #fff; border-color: var(--accent, #e10600); background: rgba(225, 6, 0, .18); }
-.mvx-add span, .mvx-modes span { display: inline; }
-
-.mvx-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  background: #050507;
-}
-
-.mvx-tiles { position: absolute; inset: 0; }
-
-.mvx-tile {
-  position: absolute;
-  background: #000;
-  overflow: hidden;
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07);
-  transition: left .34s cubic-bezier(.22, 1, .36, 1), top .34s cubic-bezier(.22, 1, .36, 1),
-              width .34s cubic-bezier(.22, 1, .36, 1), height .34s cubic-bezier(.22, 1, .36, 1),
-              box-shadow .2s ease;
-  animation: mvx-tile-in .3s ease both;
-}
-
-@keyframes mvx-tile-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.mvx-tile.is-main { box-shadow: 0 0 0 2px var(--accent, #e10600); }
-
-.mvx-tile iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  display: block;
-}
-
-/* A tile weelo reports dark still mounts weelo's player (it is what comes back when the feed comes
-   up); the badge is the only thing that marks it, so the frame is never dimmed into a grey box. */
-.mvx-tile.is-off iframe { opacity: .9; }
-
-/* Their tile chrome: a strip across the top with the feed name on the left and three round glass
-   tools on the right (sound, big, remove). It floats over the video and never takes layout space. */
-.mvx-tile-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px;
-  background: none;
-  pointer-events: none;
-  transition: opacity .18s ease;
-}
-
-.mvx-tile-bar > * { pointer-events: auto; }
-
-/* Always on screen, the way theirs is: a live grid is read at a glance, not by hovering each box. */
-.mvx-tile:hover .mvx-tile-bar,
-.mvx-tile:focus-within .mvx-tile-bar { opacity: 1; }
-
-/* A tile small enough for the grid keeps its chrome on screen, as theirs does. */
-.mvx-tile.is-small .mvx-tile-name { max-width: 40%; }
-
-/* A phone tile is ~110px wide: the name would cover the picture, so the tools stand alone. */
-@media (max-width: 760px) {
-  .mvx-tile-name { display: none; }
-  .mvx-tile-bar { padding: 4px; gap: 4px; justify-content: flex-end; }
-  .mvx-tool { width: 26px; height: 26px; }
-  .mvx-tool svg { width: 14px; height: 14px; }
-  .mvx-tools { gap: 3px; }
-}
-
-.mvx-tile-name {
-  flex: 1;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #0000008c;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 700 .56rem 'JetBrains Mono', monospace;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  color: #fff;
-}
-
-.mvx-off-msg {
-  font: 700 .55rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #ffb020;
-}
-
-.mvx-tools { display: flex; gap: 6px; flex: none; }
-
-/* The beta line sits above the stage, in the bar's own language: one quiet row, never over a feed. */
-.theater-online { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
-.theater-online[hidden] { display: none; }
-.theater-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
-.theater-online b { font-weight: 700; }
-
-.mvx-beta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 8px;
-  padding: 0 2px;
-  font: 500 11.5px 'JetBrains Mono', monospace;
-  letter-spacing: .02em;
-  color: var(--rr-fg-3, #96999e);
-}
-
-.mvx-beta b:first-of-type { color: #f87168; }
-.mvx-beta .mvx-online { display: inline-flex; align-items: center; gap: 5px; margin-right: 2px; color: var(--rr-fg-2, #a9abaf); }
-.mvx-beta .mvx-online b { color: var(--rr-fg, #cecfd2); font-weight: 700; }
-.mvx-beta .mvx-online i { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; box-shadow: 0 0 0 3px #4ade8026; }
-
-.mvx-tool {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: #0000008c;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: #ffffffd9;
-  cursor: pointer;
-  transition: background-color .2s var(--ease), color .2s var(--ease), transform .2s var(--rr-spring);
-}
-
-.mvx-tool svg { width: 16px; height: 16px; }
-.mvx-tool:hover { color: #fff; background: #000c; transform: scale(1.06); }
-.mvx-tool.is-on { color: #fff; background: var(--rr-brand, #e10600); }
-
-/* Small tiles shrink their tools the way theirs do. */
-.mvx-tile.is-small .mvx-tool { width: 28px; height: 28px; }
-.mvx-tile.is-small .mvx-tools { gap: 4px; }
-
-.mvx-tile-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid rgba(255, 255, 255, .3);
-  border-radius: 3px;
-  background: rgba(0, 0, 0, .45);
-  color: #fff;
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-}
-
-.mvx-tile-btn svg { width: 12px; height: 12px; }
-.mvx-tile-btn:hover { border-color: #fff; }
-.mvx-tile-btn.is-on { border-color: var(--accent, #e10600); background: var(--accent, #e10600); }
-
-/* The feed drawer slides in over the grid from the right. */
-.mvx-lib {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(300px, 100%);
-  display: flex;
-  flex-direction: column;
-  background: rgba(8, 8, 11, .96);
-  border-left: 1px solid rgba(255, 255, 255, .1);
-  backdrop-filter: blur(10px);
-  z-index: 5;
-  animation: mvx-lib-in .26s cubic-bezier(.22, 1, .36, 1) both;
-}
-
-.mvx-lib[hidden] { display: none; }
-
-@keyframes mvx-lib-in {
-  from { transform: translateX(16px); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-
-.mvx-lib-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, .1);
-  font: 700 .62rem 'JetBrains Mono', monospace;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #fff;
-}
-
-.mvx-lib-note {
-  margin: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, .07);
-  color: var(--dim);
-  font-size: .7rem;
-  line-height: 1.45;
-}
-
-.mvx-lib-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 12px;
-  border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, .05);
-  background: transparent;
-  color: #e8e8ec;
-  font-size: .76rem;
-  text-align: left;
-  cursor: pointer;
-  transition: background .15s, padding-left .15s;
-}
-
-.mvx-lib-row:hover:not(:disabled) { background: rgba(255, 255, 255, .06); padding-left: 15px; }
-.mvx-lib-row:disabled { color: var(--dim); cursor: not-allowed; }
-.mvx-lib-row.is-in { color: var(--accent, #e10600); }
-
-.mvx-lib-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.mvx-lib-state {
-  font: 700 .55rem 'JetBrains Mono', monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-/* The player keeps its place while the grid is up, so nothing on the page jumps. */
-/* The grid covers the window while it is up, so the player underneath is hidden but not removed:
-   leaving the grid puts the same stream back with no reload. */
 .player.is-parked > iframe,
-.player.is-parked > video { visibility: hidden; }
-
-@media (max-width: 760px) {
-  .mvx-stage { aspect-ratio: auto; height: 62vh; }
-  .mvx-modes span, .mvx-add span { display: none; }
-  .mvx-lib { width: 100%; }
-}
+.player.is-parked > video,
+.wplayer.is-parked .wplayer-stage > iframe,
+.wplayer.is-parked .wplayer-stage > video { visibility: hidden; }
 
 /* ════════════════════════════════════════════════════════════════════════════════
    WATCH — the rerace-style layout
@@ -5680,7 +4736,238 @@ body.view-swapping {
   --rr-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 
-.watch-sec { padding-top: 34px; }
+/* First section on the page now: clear the fixed header, then breathe. */
+.watch-sec { padding-top: calc(64px + clamp(22px, 3.4vw, 40px)); }
+
+/* The cockpit loads app.css, not layout.css, so the shared public header and footer
+   rules live here too. Keep both blocks identical to layout.css. */
+/* ═══════════════ HEADER ═══════════════ */
+
+nav.nav {
+  --page: #0e0f11;
+  --line: rgba(255,255,255,.08);
+  --line-2: rgba(255,255,255,.14);
+  --fg: #cecfd2;
+  --fg-2: #a9abaf;
+  --fg-3: #96999e;
+  --fg-4: #7e8188;
+  --white: #fff;
+  --accent: #E10600;
+  --font-display: 'Archivo', 'Inter', ui-sans-serif, sans-serif;
+  --nav-h: 64px;
+  --wrap: 1280px;
+  --gutter: clamp(20px, 5vw, 56px);
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 120;
+  display: block;
+  padding: 0;
+  font-family: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--page) 82%, transparent);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s var(--ease), background-color .3s var(--ease);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+nav.nav::before { content: none; display: none; }
+nav.nav.stuck {
+  padding: 0;
+  border-bottom-color: var(--line);
+  background: color-mix(in srgb, var(--page) 94%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+nav.nav .nav-inner {
+  display: flex; align-items: center; gap: 18px;
+  height: var(--nav-h);
+  padding-inline: var(--gutter);
+  max-width: calc(var(--wrap) + var(--gutter) * 2);
+  margin-inline: auto;
+  width: 100%;
+}
+
+nav.nav .brand { display: inline-flex; align-items: center; gap: 10px; flex: none; order: 0; }
+nav.nav .brand-mark {
+  width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--accent), #8b0400);
+  color: #fff; flex: none;
+  box-shadow: 0 6px 18px -8px rgba(225,6,0,.9);
+}
+nav.nav .brand-mark svg { width: 18px; height: 18px; }
+nav.nav .brand-mark svg path { fill: currentColor; }
+nav.nav .brand-mark::after { content: none; animation: none; }
+nav.nav .brand-text {
+  display: block;
+  font-family: var(--font-display); font-style: normal; font-weight: 700; font-size: 15px;
+  letter-spacing: -.01em; line-height: 1.5; color: var(--white);
+}
+
+nav.nav .nav-links {
+  position: static; inset: auto; transform: none;
+  display: flex; align-items: center; gap: 2px;
+  margin-left: auto; margin-right: 14px; order: 1;
+  padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none;
+  opacity: 1; visibility: visible; pointer-events: auto;
+}
+nav.nav .nav-right { display: flex; align-items: center; gap: 8px; flex: none; margin-left: 0; order: 2; }
+
+nav.nav .nav-links a {
+  position: relative; display: inline-block; min-height: 0;
+  padding: 8px 12px; border-radius: 9px;
+  font-family: inherit;
+  font-size: 13.5px; font-weight: 550;
+  letter-spacing: normal; text-transform: none;
+  color: var(--fg-2);
+  transition: color .18s var(--ease), background-color .18s var(--ease);
+  white-space: nowrap;
+}
+nav.nav .nav-links a::after { content: none; display: none; }
+nav.nav .nav-links a:hover { color: var(--white); background: rgba(255,255,255,.05); }
+nav.nav .nav-links a[aria-current="page"],
+nav.nav .nav-links a.current { color: var(--white); }
+nav.nav .nav-links a[aria-current="page"]::after,
+nav.nav .nav-links a.current::after {
+  content: ''; display: block;
+  position: absolute; left: 12px; right: 12px; width: auto; bottom: 2px;
+  height: 2px; border-radius: 2px; background: var(--accent);
+  transform: none; transition: none;
+}
+nav.nav .nav-links a[hidden] { display: none; }
+
+nav.nav .pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 11px; border-radius: 999px;
+  border: 1px solid var(--line-2); background: rgba(255,255,255,.04);
+  font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1.5;
+  letter-spacing: normal; color: var(--fg-2); white-space: nowrap;
+  transform: none;
+}
+nav.nav .pill[hidden] { display: none; }
+nav.nav .pill .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(225,6,0,.18);
+}
+nav.nav .pill.viewer { gap: 7px; color: #fff; font-variant-numeric: tabular-nums; }
+nav.nav .pill.viewer .dot { background: #3ddc84; box-shadow: 0 0 0 3px rgba(61,220,132,.16); }
+nav.nav .pill.viewer[data-state="connecting"] .dot { background: var(--fg-4); box-shadow: 0 0 0 3px rgba(255,255,255,.06); }
+nav.nav .pill.viewer[data-state="offline"] { opacity: .75; }
+nav.nav .pill.viewer #viewerCount { color: var(--white); font-weight: 650; }
+nav.nav .pill.viewer .viewer-label { color: var(--fg-3); font-weight: 550; }
+@media (max-width: 480px) { nav.nav .pill.viewer .viewer-label { display: none; } }
+
+nav.nav .nav-toggle {
+  display: none; width: 38px; height: 38px; flex: 0 0 38px; border-radius: 10px;
+  border: 1px solid var(--line-2); background: none; color: inherit;
+  place-items: center; gap: 4px; align-content: center; justify-items: center;
+}
+nav.nav .nav-toggle span {
+  display: block; width: 16px; height: 1.5px; border-radius: 2px;
+  background: var(--fg); transition: transform .25s var(--ease), opacity .2s;
+}
+nav.nav .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+nav.nav .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+nav.nav .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+@media (max-width: 900px) {
+  nav.nav .nav-toggle { display: grid; }
+  nav.nav .nav-right { margin-left: auto; }
+  nav.nav .nav-links {
+    position: fixed; inset: var(--nav-h) 0 auto 0;
+    flex-direction: column; align-items: stretch; gap: 2px;
+    margin: 0; padding: 10px var(--gutter) 20px;
+    background: var(--page);
+    border-bottom: 1px solid var(--line);
+    transform-origin: top center;
+    display: none;
+    max-height: calc(100dvh - var(--nav-h));
+    overflow-y: auto;
+  }
+  nav.nav .nav-links.open { display: flex; animation: menuIn .26s var(--ease) both; }
+  nav.nav .nav-links a { padding: 13px 12px; font-size: 15px; border-radius: 12px; }
+  nav.nav .nav-links a[aria-current="page"],
+  nav.nav .nav-links a.current { background: rgba(255,255,255,.06); }
+  nav.nav .nav-links a[aria-current="page"]::after,
+  nav.nav .nav-links a.current::after { display: none; }
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  nav.nav .nav-links.open { animation: none; }
+}
+
+/* ═══════════════ FOOTER ═══════════════ */
+
+.footer {
+  flex: none; margin-top: 40px;
+  border-top: 1px solid var(--line);
+  background: #0b0c0e;
+  padding: 34px 0 26px;
+}
+.footer-top {
+  display: flex; flex-wrap: wrap; gap: 26px 40px;
+  justify-content: space-between; align-items: flex-start;
+}
+.footer-brand { display: flex; align-items: center; gap: 10px; }
+.footer-nav { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.footer-nav a {
+  padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--fg-2);
+  transition: color .18s, background-color .18s;
+}
+.footer-nav a:hover { color: var(--white); background: rgba(255,255,255,.05); }
+.footer-bottom {
+  margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between;
+  font-size: 12px; color: var(--fg-4);
+}
+.footer-bottom a { color: var(--fg-3); }
+.footer-bottom a:hover { color: var(--white); }
+
+
+/* The cockpit's palette is its own (different --line, different brand mark), so the
+   public footer's tokens are re-declared on the footer itself rather than retuning
+   the whole page for one band. */
+footer.footer {
+  --line: rgba(255,255,255,.08);
+  --fg-2: #a9abaf;
+  --fg-3: #96999e;
+  --fg-4: #7e8188;
+  --white: #fff;
+}
+/* The footer sits on the public 1280px frame with the public font stack, not the
+   cockpit's 1240px one, so the band matches the other pages beat for beat. */
+footer.footer { font-family: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; color: #cecfd2; }
+footer.footer .wrap {
+  width: 100%; max-width: calc(1280px + clamp(20px, 5vw, 56px) * 2);
+  margin-inline: auto; padding-inline: clamp(20px, 5vw, 56px);
+}
+
+footer.footer .brand-mark {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--red), #8b0400);
+  color: #fff; box-shadow: 0 6px 18px -8px rgba(225,6,0,.9);
+}
+footer.footer .brand-mark svg { width: 18px; height: 18px; }
+/* The cockpit mark runs a sheen sweep; the public footer mark does not. */
+footer.footer .brand-mark::after { content: none; animation: none; }
+footer.footer .brand-text {
+  display: block; font-family: 'Archivo', 'Inter', ui-sans-serif, sans-serif;
+  font-style: normal; font-weight: 700; font-size: 15px;
+  letter-spacing: -.01em; color: var(--white); line-height: 1.5;
+}
+footer.footer svg { max-width: 100%; }
+footer.footer a { color: inherit; text-decoration: none; }
+footer.footer .footer-top p { color: var(--fg-4); font-size: 12.5px; margin-top: 10px; max-width: 34ch; }
+
+/* The public footer is 40px off the content; on the cockpit the section's own
+   bottom padding is the gap, so the margin is dropped rather than doubled. */
+body[data-page="cockpit"] footer.footer { margin-top: 0; }
 
 .wrap.watch-grid {
   max-width: 1600px;
@@ -5719,6 +5006,7 @@ body.view-swapping {
 /* ── the window ── */
 .wplayer {
   position: relative;
+  width: 100%;
   border-radius: 16px;
   background: #000;
   box-shadow: var(--rr-ring);
@@ -5777,14 +5065,8 @@ body.view-swapping {
 
 .wplayer-live.active { background: #f8716824; color: #fd9891; }
 
-/* On a wide screen the window is capped by the viewport height rather than by its column: a 16:9
-   box inside a 1000px column was 688x387 while the page had room for far more. Below that cap the
-   stage keeps its 16:9 ratio and centres itself in the column. */
+/* Full column width right up to the side cards, maintaining a true 16:9 stage. */
 .wplayer-stage { position: relative; aspect-ratio: 16 / 9; background: #000; }
-
-@media (min-width: 1101px) {
-  .wplayer { width: min(100%, calc((100vh - 210px) * 16 / 9)); }
-}
 
 /* The frame fills the stage: it used to be appended to the card instead, which laid it out at the
    browser's default 300x150 in the top-left and left the rest of the box black. */
@@ -5813,14 +5095,91 @@ body.view-swapping {
 .wplayer-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 14px 20px;
   flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--rr-ink-850);
+  box-shadow: var(--rr-ring);
 }
 
-.wplayer-actions-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
+.watch-session-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
 
-.watch-selects { display: flex; gap: 8px; flex: 0 1 420px; min-width: 260px; }
-.watch-selects .sel { flex: 1; min-width: 0; }
+.watch-session-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--rr-fg-3);
+}
+
+.watch-session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ffffff40;
+  flex: none;
+}
+.watch-session-dot.is-live {
+  background: var(--team, #e10600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--team, #e10600) 26%, transparent);
+}
+.watch-session-dot.is-next {
+  background: #facc15;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, .2);
+}
+
+#watchSessionBadge { color: #fff; }
+.watch-session-sep { opacity: .5; }
+#watchSessionCountdown {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--rr-fg-2, #b6b8be);
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-session-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.watch-session-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: #fff;
+}
+
+.watch-session-meta {
+  font-size: 12.5px;
+  color: var(--rr-fg-3);
+}
+
+.wplayer-actions-main {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+}
+@media (max-width: 720px) {
+  .wplayer-actions-main { justify-content: flex-start; width: 100%; }
+}
 
 #mvToggle svg, #theaterBtn svg { width: 15px; height: 15px; flex: none; }
 
@@ -5890,6 +5249,7 @@ body.view-swapping {
 .wtabs .chip.active { color: #fff; background: transparent; border-color: transparent; box-shadow: none; }
 
 /* ── sources: the same pill language as the action row, one per line ── */
+/* ── sources: compact horizontal wrapping pills ── */
 .wsources {
   padding: 18px;
   border-radius: 20px;
@@ -5897,39 +5257,52 @@ body.view-swapping {
   box-shadow: var(--rr-ring);
 }
 
-.wsources-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-.wsources-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+.wsources-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.wsources-title-wrap { display: inline-flex; align-items: baseline; gap: 10px; }
+.wsources-head h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+.wsources-count { font-size: 11.5px; color: var(--rr-fg-3); }
 
-.wsource-list { display: grid; gap: 2px; }
-
-/* Every source row enters on its own beat, so a tab switch reads as the list rebuilding rather than
-   three rows swapping labels. */
-.wsource-list > button.chip,
-.wsource-list .special-row button.chip {
-  animation: fadeUp .34s var(--ease) backwards;
+.wsource-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.wsource-list > *:nth-child(2), .wsource-list .special-row button.chip:nth-child(2) { animation-delay: .02s; }
-.wsource-list > *:nth-child(n+4), .wsource-list .special-row button.chip:nth-child(n+4) { animation-delay: .04s; }
-.wsource-list > *:nth-child(n+7), .wsource-list .special-row button.chip:nth-child(n+7) { animation-delay: .06s; }
+/* Every source pill enters smoothly on tab switch; background 3-min refreshes skip re-animating. */
+.wsource-list > button.chip,
+.wsource-list .special-row button.chip {
+  animation: fadeUp .28s var(--ease) backwards;
+}
+
+.wsource-list.is-quiet > button.chip,
+.wsource-list.is-quiet .special-row button.chip {
+  animation: none;
+}
+
+.wsource-list > *:nth-child(2), .wsource-list .special-row button.chip:nth-child(2) { animation-delay: .015s; }
+.wsource-list > *:nth-child(n+4), .wsource-list .special-row button.chip:nth-child(n+4) { animation-delay: .03s; }
+.wsource-list > *:nth-child(n+7), .wsource-list .special-row button.chip:nth-child(n+7) { animation-delay: .045s; }
 
 .wsource-list > button.chip,
 .wsource-list .special-row button.chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 46px;
+  gap: 7px;
+  width: auto;
+  min-height: 36px;
   height: auto;
-  padding: 7px 10px;
+  padding: 6px 13px;
   border: 0;
-  border-radius: 8px;
-  background: transparent;
+  border-radius: 999px;
+  background: #ffffff0b;
+  box-shadow: inset 0 0 0 1px #ffffff16;
   color: var(--rr-fg);
-  font: 600 13.5px 'Inter', system-ui, sans-serif;
+  font: 600 13px/1.15 'Inter', system-ui, sans-serif;
   letter-spacing: 0;
   text-transform: none;
   text-align: left;
+  white-space: nowrap;
   transition: background-color .18s var(--ease), color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
 }
 
@@ -5938,7 +5311,8 @@ body.view-swapping {
 
 .wsource-list > button.chip:hover,
 .wsource-list .special-row button.chip:hover {
-  background: #ffffff12;
+  background: #ffffff14;
+  box-shadow: inset 0 0 0 1px #ffffff2b;
   color: #fff;
   border-color: transparent;
   transform: translateY(-1px);
@@ -5946,75 +5320,110 @@ body.view-swapping {
 
 .wsource-list > button.chip.active,
 .wsource-list .special-row button.chip.active {
-  background: #ffffff14;
+  background: color-mix(in srgb, var(--team, #e10600) 17%, #1a1c22);
   color: #fff;
-  box-shadow: inset 2px 0 0 #e10600;
+  box-shadow: inset 0 0 0 1.5px var(--team, #e10600);
 }
 
-.wsource-list > button.chip:active { transform: translateY(0) scale(.995); }
+.wsource-list > button.chip:active,
+.wsource-list .special-row button.chip:active { transform: translateY(0) scale(.985); }
 
-/* A quiet lead dot, the same weight as the old chip's tag, so every source row reads as one thing. */
-.wsource-list button.chip:not(.chip-special)::before {
+.src-pill-title { color: inherit; }
+.src-pill-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff75;
+  letter-spacing: .01em;
+}
+.wsource-list button.chip.active .src-pill-sub { color: #ffffffba; }
+
+.src-pill-tag {
+  display: inline-grid;
+  place-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+.src-pill-tag.is-4k {
+  background: rgba(250, 204, 21, .16);
+  color: #fde047;
+}
+.wsource-list button.chip.active .src-pill-tag.is-4k {
+  background: rgba(250, 204, 21, .24);
+  color: #fef08a;
+}
+
+/* A quiet lead dot on standard broadcaster pills, lit in the active team accent when playing. */
+.wsource-list button.chip:not(.chip-special):not(.has-tag)::before {
   content: '';
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  background: #ffffff26;
+  background: #ffffff38;
   transition: background-color .2s var(--ease), box-shadow .2s var(--ease);
 }
 
-.wsource-list button.chip.active:not(.chip-special)::before {
-  background: #669df1;
-  box-shadow: 0 0 0 3px #669df126;
+.wsource-list button.chip.active:not(.chip-special):not(.has-tag)::before {
+  background: var(--team, #e10600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--team, #e10600) 28%, transparent);
 }
 
-/* The specials keep their order and their tag, in their own group under the broadcasters. */
+/* The specials keep their order and their tag, in their own wrapping row under the broadcasters. */
 .wsource-list .special-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
-  margin-top: 4px;
-  padding-top: 10px;
-  border-top: 1px solid #ffffff0f;
+  flex: 1 0 100%;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #ffffff12;
 }
 
 .wsource-list .special-head {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0 0 2px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--rr-fg-3);
   text-transform: none;
 }
 
-/* ONBD / DATA / FEED, kept: it sits where the broadcasters' dot sits. */
+/* ONBD / DATA / FEED micro-badge inside special pills. */
 .wsource-list .special-row button.chip::before {
   content: 'ONBD';
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: 30px;
-  height: 20px;
+  height: 18px;
+  padding: 0 5px;
   margin: 0;
   border: 0;
   border-radius: 5px;
-  font-size: .5rem;
-  letter-spacing: .06em;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .05em;
   line-height: 1;
   color: var(--team);
-  background: #ffffff0f;
+  background: #ffffff12;
   transition: background-color .2s var(--ease), color .2s var(--ease);
 }
 
-.wsource-list .special-row button.chip.chip-data::before { content: 'DATA'; color: #669df1; background: #669df11f; }
-.wsource-list .special-row button.chip.chip-feed::before { content: 'FEED'; }
+.wsource-list .special-row button.chip.chip-data::before { content: 'DATA'; color: #669df1; background: #669df124; }
+.wsource-list .special-row button.chip.chip-feed::before { content: 'FEED'; color: #cbd5e1; background: #ffffff14; }
 
-.wsource-list .special-row button.chip.is-down { opacity: .5; }
-.wsource-list .special-row button.chip.is-down:hover { opacity: .75; }
+.wsource-list .special-row button.chip.is-down { opacity: .48; }
+.wsource-list .special-row button.chip.is-down:hover { opacity: .78; }
 
 /* ── the rail ── */
 .watch-side {
@@ -6131,32 +5540,28 @@ body.theater .wplayer {
 
 body.theater .wplayer-bar { background: #0b0c0e; }
 
-/* Two centred rows: every control on one line, the pickers on the next. */
+/* Single bar in theater: active/next session on the left, controls on the right. */
 body.theater .wplayer-actions {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  width: min(100%, calc((100vh - 200px) * 16 / 9));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  width: min(100%, calc((100vh - 150px) * 16 / 9));
   max-width: 100%;
-  justify-self: center;
+  padding: 10px 16px;
   animation: fadeUp .4s var(--ease) .06s backwards;
 }
 
-/* One line on a wide screen; a phone wraps its controls rather than pushing them off the edge. */
 @media (min-width: 1101px) {
   body.theater .wplayer-actions-main { flex-wrap: nowrap; flex: none; }
 }
 
-body.theater .watch-selects { flex: none; width: 420px; max-width: 100%; }
-
-body.theater .wplayer-actions-main { max-width: 100%; width: 100%; justify-content: center; }
-
-/* Theater is for watching: Championship, results, livery, race times and radio stay on the page. */
+/* Theater is for watching: livery and race times stay on the main cockpit view. */
 /* Sources hidden: the rail leaves and the window and controls take the full width back. */
 body.theater.theater-no-sources .wsources { display: none; }
 body.theater.theater-no-sources .watch-main { padding-right: 0; }
-body.theater.theater-no-sources .wplayer { width: min(100%, calc((100vh - 200px) * 16 / 9)); }
-body.theater.theater-no-sources .wplayer-actions { width: min(100%, calc((100vh - 200px) * 16 / 9)); }
+body.theater.theater-no-sources .wplayer { width: min(100%, calc((100vh - 150px) * 16 / 9)); }
+body.theater.theater-no-sources .wplayer-actions { width: min(100%, calc((100vh - 150px) * 16 / 9)); }
 
 body.theater #sessionsBtn,
 body.theater #teamSelectBtn,
@@ -6290,51 +5695,128 @@ body.theater #theaterBtn { background: #1c2b42; box-shadow: inset 0 0 0 2px #669
 
 .btn.hero-btn.primary:hover { color: var(--ink); background: var(--team); }
 
-/* ── The grid toolbar, in rerace's language ──
-   38px white-on-glass pill buttons, a 999px segmented control for Grid/Focus whose chosen half goes
-   solid white, and a white "Add" that is the one action on the bar with a fill. */
-.mvx-bar { align-items: center; gap: 8px; }
+/* ════════════════════════════════════════════════════════════════════════════════
+   MULTIVIEWER — full-viewport theater (Rerace design language)
+   56px top bar with centered Grid/Focus segmented control, GPU-positioned 12px
+   tiles with frosted handles and round audio/focus/remove tools, and a docked
+   360px rounded #111216 "Add streams" library drawer (bottom sheet on mobile).
+   ════════════════════════════════════════════════════════════════════════════════ */
 
-.mvx-actions {
+html.has-mvx,
+html.has-mvx body {
+  overflow: hidden;
+}
+
+.mvx {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  background: #000;
+  color: #fff;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  animation: mvx-in .22s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.mvx[hidden] {
+  display: none !important;
+}
+
+@keyframes mvx-in {
+  from { opacity: 0; transform: scale(.992); }
+  to { opacity: 1; transform: none; }
+}
+
+.mvx-top {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 56px;
+  padding: 0 12px 0 16px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  pointer-events: auto;
+  justify-content: space-between;
+  gap: 12px;
+  background: #000;
+  z-index: 3;
 }
 
-.mvx-btn {
-  min-width: 38px;
-  height: 38px;
-  padding: 0 11px;
-  border: 0;
+.mvx-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.mvx-live-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  background: #ffffff14;
+  background: #e10600;
+  box-shadow: 0 0 0 3px rgba(225, 6, 0, .24);
+  flex: none;
+}
+
+.mvx-brand-title {
+  font: 600 15px/1 'Inter', system-ui, sans-serif;
+  letter-spacing: -.015em;
   color: #fff;
-  font: 600 13px 'Inter', system-ui, sans-serif;
-  letter-spacing: 0;
-  text-transform: none;
-  transition: background-color .2s var(--ease), transform .2s var(--rr-spring);
+  white-space: nowrap;
 }
 
-.mvx-btn svg { width: 16px; height: 16px; }
-.mvx-btn:hover { background: #ffffff26; color: #fff; border-color: transparent; transform: translateY(-1px); }
-.mvx-btn:active { transform: scale(.96); }
-
-.mvx-add {
-  background: #fff;
-  color: #000;
-  padding: 0 14px;
-  font-weight: 650;
+.mvx-count {
+  font: 500 12.5px/1 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #8b8d93;
+  white-space: nowrap;
 }
 
-.mvx-add:hover { background: #e8e8ea; color: #000; }
+.mvx-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  color: #a3a6ad;
+  font: 500 11.5px/1 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mvx-online[hidden] {
+  display: none !important;
+}
+
+.mvx-online i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, .2);
+}
+
+.mvx-online b {
+  color: #fff;
+  font-weight: 600;
+}
 
 .mvx-seg {
   display: inline-flex;
+  align-items: center;
   gap: 2px;
   padding: 3px;
   border-radius: 999px;
-  background: #ffffff14;
+  background: rgba(255, 255, 255, .08);
+}
+
+@media (min-width: 768px) {
+  .mvx-seg {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
 }
 
 .mvx-seg button {
@@ -6346,21 +5828,849 @@ body.theater #theaterBtn { background: #1c2b42; box-shadow: inset 0 0 0 2px #669
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--rr-fg-2, #a9abaf);
-  font: 600 13px 'Inter', system-ui, sans-serif;
-  transition: background-color .2s var(--ease), color .2s var(--ease);
+  color: #a9abaf;
+  font: 600 13px/1 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
 }
 
-.mvx-seg button:hover { color: #fff; }
-.mvx-seg button[aria-pressed="true"] { background: #fff; color: #000; }
-.mvx-seg button svg { width: 15px; height: 15px; }
-
-.mvx-modes { display: none; }
-
-@media (max-width: 760px) {
-  .mvx-btn { min-width: 34px; height: 34px; padding: 0 9px; }
-  .mvx-seg button { height: 30px; padding: 0 9px; }
-  .mvx-seg span, .mvx-add span, .mvx-title { display: none; }
-  .mvx-bar { gap: 6px; }
-  .mvx-actions { gap: 4px; }
+.mvx-seg button:hover {
+  color: #fff;
 }
+
+.mvx-seg button[aria-pressed="true"] {
+  background: #fff;
+  color: #000;
+}
+
+.mvx-seg button svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.mvx-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.mvx-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font: 600 13px/1 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  transition: background-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+.mvx-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.mvx-btn:hover {
+  background: rgba(255, 255, 255, .15);
+  color: #fff;
+}
+
+.mvx-btn:active {
+  transform: scale(.96);
+}
+
+.mvx-icon-btn {
+  width: 38px;
+  padding: 0;
+}
+
+.mvx-add {
+  background: #fff;
+  color: #000;
+  font-weight: 650;
+}
+
+.mvx-add:hover {
+  background: #e6e7ea;
+  color: #000;
+}
+
+.mvx-add.is-open {
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+}
+
+/* ── Stage & GPU-positioned 16:9 tiles ── */
+.mvx-stage {
+  grid-area: 2 / 1;
+  position: relative;
+  overflow: hidden;
+  margin: 0 8px 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mvx-stage.is-empty::after {
+  content: 'Add a feed to start watching';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #8b8d93;
+  font: 500 14px 'Inter', system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.mvx-tiles {
+  position: absolute;
+  inset: 0;
+}
+
+.mvx-tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #0b0c10;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07);
+  transition: transform .3s cubic-bezier(.22, 1, .36, 1), box-shadow .2s ease;
+}
+
+.mvx-tile.has-audio,
+.mvx-tile.is-main {
+  box-shadow: 0 0 0 2px #e10600;
+  z-index: 1;
+}
+
+.mvx-tile iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #0b0c10;
+}
+
+.mvx.is-dragging .mvx-tile iframe {
+  pointer-events: none;
+}
+
+.mvx-tile.is-lifted {
+  z-index: 8;
+  transition: box-shadow .15s ease;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .75), 0 0 0 2px rgba(255, 255, 255, .5);
+}
+
+.mvx-tile.is-target {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.mvx-tile-load {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.mvx-tile.is-loading .mvx-tile-load {
+  opacity: 1;
+}
+
+.mvx-spin {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2.5px solid rgba(255, 255, 255, .16);
+  border-top-color: #fff;
+  animation: mvx-spin .75s linear infinite;
+}
+
+@keyframes mvx-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Tile chrome: frosted top-left drag handle + top-right round glass tools ── */
+.mvx-tile-bar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.mvx-tile-bar > * {
+  pointer-events: auto;
+}
+
+.mvx-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(68%, 290px);
+  min-width: 0;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .58);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  cursor: grab;
+  user-select: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+
+.mvx-handle:active {
+  cursor: grabbing;
+}
+
+.mvx-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.mvx-name-t {
+  font: 600 12px/1.2 'Inter', system-ui, sans-serif;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mvx-name-s {
+  font: 500 10.5px/1.2 'Inter', system-ui, sans-serif;
+  color: rgba(255, 255, 255, .64);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mvx-off-msg {
+  font: 600 10px/1 'JetBrains Mono', monospace;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #fbbf24;
+}
+
+.mvx-off-msg[hidden] {
+  display: none !important;
+}
+
+.mvx-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.mvx-avatar.is-lg {
+  width: 48px;
+  height: 48px;
+}
+
+.mvx-avatar-driver {
+  position: relative;
+  background: #1b1d24;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+}
+
+.mvx-avatar-init {
+  font: 700 10px/1 'Inter', system-ui, sans-serif;
+  letter-spacing: .02em;
+  color: rgba(255, 255, 255, .55);
+}
+
+.mvx-avatar.is-lg .mvx-avatar-init {
+  font-size: 13px;
+}
+
+.mvx-avatar-driver img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mvx-avatar-logo {
+  width: 34px;
+  height: 24px;
+  border-radius: 7px;
+  background: #fff;
+  color: #111;
+  padding: 0 3px;
+}
+
+.mvx-avatar-logo svg {
+  width: 24px;
+  height: 12px;
+  display: block;
+}
+
+.mvx-avatar-logo.is-sky {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 8px;
+  letter-spacing: -.03em;
+}
+
+.mvx-avatar-logo.is-sky b {
+  color: #0b1f4d;
+  font-weight: 800;
+}
+
+.mvx-avatar-logo.is-sky i {
+  font-style: normal;
+  color: #e10600;
+  font-weight: 800;
+}
+
+.mvx-avatar-icon {
+  background: rgba(255, 255, 255, .1);
+  color: #e4e5e9;
+}
+
+.mvx-avatar-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mvx-avatar-icon.is-tracker {
+  background: rgba(16, 185, 129, .18);
+  color: #34d399;
+}
+
+.mvx-avatar-icon.is-data {
+  background: rgba(56, 189, 248, .18);
+  color: #38bdf8;
+}
+
+.mvx-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.mvx-tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .58);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, .88);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+  transition: background-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+.mvx-tool svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mvx-tool:hover {
+  background: rgba(0, 0, 0, .82);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.mvx-tool.is-on {
+  background: #e10600;
+  color: #fff;
+  box-shadow: none;
+}
+
+.mvx-tool.is-on:hover {
+  background: #c70500;
+}
+
+.mvx-tile.is-big [data-mvx-big] {
+  display: none;
+}
+
+.mvx-tile.is-small .mvx-handle {
+  padding: 3px;
+}
+
+.mvx-tile.is-small .mvx-name {
+  display: none;
+}
+
+.mvx-tile.is-small:hover .mvx-handle {
+  padding: 4px 10px 4px 4px;
+}
+
+.mvx-tile.is-small:hover .mvx-name {
+  display: flex;
+}
+
+.mvx-tile.is-small .mvx-tool {
+  width: 28px;
+  height: 28px;
+}
+
+.mvx-tile.is-small .mvx-tools {
+  gap: 4px;
+}
+
+/* ── Right-hand docked "Add streams" drawer (360px card, bottom sheet on mobile) ── */
+.mvx-library {
+  grid-area: 2 / 2;
+  width: 360px;
+  margin: 0 8px 8px 0;
+  background: #111216;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07);
+  animation: mvx-lib-in .22s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.mvx-library[hidden] {
+  display: none !important;
+}
+
+@keyframes mvx-lib-in {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.mvx-lib-top {
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  flex: none;
+}
+
+.mvx-lib-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mvx-lib-title {
+  margin: 0;
+  font: 600 15px/1.2 'Inter', system-ui, sans-serif;
+  color: #fff;
+}
+
+.mvx-lib-head .mvx-icon-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+}
+
+.mvx-search {
+  height: 40px;
+  padding: 0 10px 0 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .06);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8b8d93;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05);
+  transition: box-shadow .18s ease, background-color .18s ease;
+}
+
+.mvx-search:focus-within {
+  background: rgba(255, 255, 255, .09);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22);
+  color: #fff;
+}
+
+.mvx-search > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.mvx-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font: 500 13px/1.2 'Inter', system-ui, sans-serif;
+}
+
+.mvx-search input::placeholder {
+  color: #7c7f87;
+}
+
+.mvx-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.mvx-search-clear {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.mvx-search-clear[hidden] {
+  display: none !important;
+}
+
+.mvx-search-clear svg {
+  width: 11px;
+  height: 11px;
+}
+
+.mvx-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mvx-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.mvx-filters button {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  color: #a9abaf;
+  font: 600 12px/1 'Inter', system-ui, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .16s ease, color .16s ease;
+}
+
+.mvx-filters button:hover {
+  background: rgba(255, 255, 255, .13);
+  color: #fff;
+}
+
+.mvx-filters button[aria-selected="true"] {
+  background: #fff;
+  color: #000;
+}
+
+.mvx-lib-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mvx-lib-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(225, 6, 0, .14);
+  color: #fca5a5;
+  font: 500 12px/1.4 'Inter', system-ui, sans-serif;
+}
+
+.mvx-lib-note[hidden] {
+  display: none !important;
+}
+
+.mvx-lib-ev {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mvx-lib-evh {
+  margin: 0 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mvx-series-chip {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #e10600;
+  color: #fff;
+  font: 700 10.5px/1 'Inter', system-ui, sans-serif;
+  letter-spacing: .04em;
+  flex: none;
+}
+
+.mvx-lib-evname {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 13px/1.25 'Inter', system-ui, sans-serif;
+  color: #f3f4f6;
+}
+
+.mvx-lib-gh {
+  margin: 8px 2px 2px;
+  font: 600 11px/1.2 'Inter', system-ui, sans-serif;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #7c7f87;
+}
+
+.mvx-lib-list,
+.mvx-lib-faces {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mvx-lib-list {
+  display: grid;
+  gap: 4px;
+}
+
+.mvx-lib-faces {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 6px;
+}
+
+.mvx-feed {
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .04);
+  color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .16s ease, transform .16s ease;
+}
+
+.mvx-feed:hover:not(:disabled) {
+  background: rgba(255, 255, 255, .09);
+}
+
+.mvx-feed:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.mvx-feed.is-on {
+  background: rgba(255, 255, 255, .1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+}
+
+.mvx-feed-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mvx-feed-t {
+  font: 600 13px/1.2 'Inter', system-ui, sans-serif;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mvx-feed-s {
+  font: 500 11.5px/1.2 'Inter', system-ui, sans-serif;
+  color: #8b8d93;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mvx-feed-off {
+  color: #fbbf24;
+  font: 600 10px/1 'JetBrains Mono', monospace;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.mvx-feed-ic {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .09);
+  color: #d4d6dc;
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition: background-color .16s ease, color .16s ease;
+}
+
+.mvx-feed-ic svg {
+  width: 13px;
+  height: 13px;
+}
+
+.mvx-feed.is-on .mvx-feed-ic {
+  background: #fff;
+  color: #000;
+}
+
+/* Portrait card variant for driver onboard cameras */
+.mvx-feed-face {
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px 10px;
+  text-align: center;
+}
+
+.mvx-feed-face .mvx-feed-t {
+  font-size: 12px;
+  max-width: 100%;
+}
+
+.mvx-feed-face .mvx-feed-ic {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+}
+
+.mvx-feed-face .mvx-feed-ic svg {
+  width: 12px;
+  height: 12px;
+}
+
+.mvx-lib-empty {
+  margin: 24px 0;
+  text-align: center;
+  color: #8b8d93;
+  font: 500 13px/1.45 'Inter', system-ui, sans-serif;
+}
+
+.mvx-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 767px) {
+  .mvx-top {
+    height: 50px;
+    padding: 0 8px 0 12px;
+    gap: 6px;
+  }
+
+  .mvx-brand-title {
+    font-size: 13.5px;
+  }
+
+  .mvx-online,
+  .mvx-seg span,
+  .mvx-add span {
+    display: none;
+  }
+
+  .mvx-seg button {
+    height: 30px;
+    padding: 0 10px;
+  }
+
+  .mvx-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+  }
+
+  .mvx-icon-btn {
+    width: 34px;
+    padding: 0;
+  }
+
+  .mvx-actions {
+    gap: 4px;
+  }
+
+  .mvx-stage {
+    margin: 0 6px 6px;
+  }
+
+  .mvx-library {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    grid-area: auto;
+    width: 100%;
+    height: min(78vh, 620px);
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    z-index: 12;
+    box-shadow: 0 -24px 64px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .1);
+    animation: mvx-sheet-in .22s cubic-bezier(.22, 1, .36, 1) both;
+  }
+
+  @keyframes mvx-sheet-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+

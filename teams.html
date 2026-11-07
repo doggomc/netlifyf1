@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f11">
+<meta name="color-scheme" content="dark">
+<meta name="freef1-viewer-counter-ws" content="wss://freef1-viewer-counter.calvinbotha1julie.workers.dev/ws">
+<meta name="description" content="The 2026 Formula 1 grid: every team, its car, colours and line-up.">
+<link rel="canonical" href="https://freef1.netlify.app/teams.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FreeF1 Live">
+<meta property="og:title" content="2026 Teams — FreeF1">
+<meta property="og:url" content="https://freef1.netlify.app/teams.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<title>2026 Teams — FreeF1</title>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
+<link rel="stylesheet" href="/fonts.css">
+<link rel="stylesheet" href="/src/styles/layout.css">
+</head>
+<body data-page="teams">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="brand" href="/" aria-label="FreeF1 home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
+      <span class="brand-text">FreeF1</span>
+    </a>
+    <div class="nav-right">
+      <div class="pill live viewer" id="viewerCounter" hidden role="status" aria-live="polite" aria-atomic="true" aria-label="Open FreeF1 pages" title="Live count of open FreeF1 pages">
+        <span class="dot" aria-hidden="true"></span><span id="viewerCount">—</span><span class="viewer-label">Online</span>
+      </div>
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation" aria-controls="navLinks" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="nav-links" id="navLinks">
+      <a href="/">Home</a>
+      <a href="/cockpit.html">Cockpit</a>
+      <a href="/schedule.html">Schedule</a>
+      <a href="/standings.html">Standings</a>
+      <a href="/live-timing.html">Live timing</a>
+      <a href="/drivers.html">Drivers</a>
+      <a href="/teams.html">Teams</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="wrap page-head rise">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Teams</span></nav>
+    <span class="eyebrow" id="teamsEyebrow"><span class="swatch" aria-hidden="true"></span>2026 season</span>
+    <h1 class="page-title">F1 teams 2026</h1>
+    <p class="page-lede">All 11 Formula 1 constructors of the 2026 season with their current drivers, championship positions and cars.</p>
+  </div>
+
+  <section class="wrap section" aria-label="Teams">
+    <div class="tm-grid" id="teamList" aria-busy="true"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
+          <span class="brand-text">FreeF1</span>
+        </div>
+        <p style="margin-top:10px;max-width:34ch;font-size:12.5px;color:var(--fg-4)">An independent, ad-free race weekend companion. Not affiliated with Formula 1.</p>
+      </div>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/">Home</a>
+        <a href="/cockpit.html">Cockpit</a>
+        <a href="/schedule.html">Schedule</a>
+        <a href="/standings.html">Standings</a>
+        <a href="/live-timing.html">Live timing</a>
+        <a href="/drivers.html">Drivers</a>
+        <a href="/teams.html">Teams</a>
+        <a href="/help.html">Help</a>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> FreeF1 · Streams are provided by third parties.</span>
+      <span>Season data from Jolpica · <a href="/help.html">Support</a></span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="/src/pages/teams.ts"></script>
+</body>
+</html>

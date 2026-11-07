@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f11">
+<meta name="color-scheme" content="dark">
+<meta name="freef1-viewer-counter-ws" content="wss://freef1-viewer-counter.calvinbotha1julie.workers.dev/ws">
+<meta name="description" content="Every Formula 1 Grand Prix of the 2026 season in your own time zone, with winners, sprint weekends and live cockpit links.">
+<link rel="canonical" href="https://freef1.netlify.app/schedule.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FreeF1 Live">
+<meta property="og:title" content="F1 Schedule 2026 — FreeF1">
+<meta property="og:url" content="https://freef1.netlify.app/schedule.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<title>F1 Schedule 2026 — FreeF1</title>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/ZenDots-latin.woff2" crossorigin>
+<link rel="stylesheet" href="/fonts.css">
+<link rel="stylesheet" href="/src/styles/layout.css">
+</head>
+<body data-page="schedule">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<nav class="nav" aria-label="Primary">
+  <div class="nav-inner">
+    <a class="brand" href="/" aria-label="FreeF1 home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
+      <span class="brand-text">FreeF1</span>
+    </a>
+    <div class="nav-right">
+      <div class="pill live viewer" id="viewerCounter" hidden role="status" aria-live="polite" aria-atomic="true" aria-label="Open FreeF1 pages" title="Live count of open FreeF1 pages">
+        <span class="dot" aria-hidden="true"></span><span id="viewerCount">—</span><span class="viewer-label">Online</span>
+      </div>
+      <button class="nav-toggle" id="navToggle" type="button" aria-label="Open navigation" aria-controls="navLinks" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="nav-links" id="navLinks">
+      <a href="/">Home</a>
+      <a href="/cockpit.html">Cockpit</a>
+      <a href="/schedule.html">Schedule</a>
+      <a href="/standings.html">Standings</a>
+      <a href="/live-timing.html">Live timing</a>
+      <a href="/drivers.html">Drivers</a>
+      <a href="/teams.html">Teams</a>
+    </div>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="wrap page-head sc-hero-head rise">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Schedule</span>
+    </nav>
+    <div class="sc-hero-row">
+      <div class="sc-hero-copy">
+        <span class="eyebrow"><span class="swatch" aria-hidden="true"></span>23 rounds · 6 sprint weekends</span>
+        <h1 class="page-title">F1 schedule 2026</h1>
+        <p class="page-lede">Every Formula 1 Grand Prix of the 2026 season in your own time zone, with winners, sprint weekends and a link to watch each one live. Subscribe once and every session lands in your calendar.</p>
+        <div class="sc-cal-actions">
+          <div class="sc-cal-menu">
+            <button type="button" class="sc-cal-btn" id="scCalBtn" aria-expanded="false" aria-controls="scCalPop">
+              <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M225.29,165.93C216.61,151,212,129.57,212,104a84,84,0,0,0-168,0c0,25.58-4.59,47-13.27,61.93A20.08,20.08,0,0,0,30.66,186,19.77,19.77,0,0,0,48,196H84.18a44,44,0,0,0,87.64,0H208a19.77,19.77,0,0,0,17.31-10A20.08,20.08,0,0,0,225.29,165.93ZM128,212a20,20,0,0,1-19.6-16h39.2A20,20,0,0,1,128,212ZM54.66,172C63.51,154,68,131.14,68,104a60,60,0,0,1,120,0c0,27.13,4.48,50,13.33,68Z"/></svg>
+              Subscribe to calendar
+            </button>
+            <div class="sc-cal-pop" id="scCalPop" hidden role="menu" aria-label="Subscribe to calendar">
+              <a role="menuitem" href="https://calendar.google.com/calendar/render?cid=webcal%3A%2F%2Ffreef1.netlify.app%2Fcalendar%2Ff1.ics" target="_blank" rel="noopener">Google Calendar</a>
+              <a role="menuitem" href="webcal://freef1.netlify.app/calendar/f1.ics">Apple Calendar</a>
+              <a role="menuitem" href="webcal://freef1.netlify.app/calendar/f1.ics">Outlook</a>
+              <a role="menuitem" href="/calendar/f1.ics" download="freef1-2026.ics">Download .ics file</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="sc-next-wrap" aria-label="Next session">
+        <div class="card sc-next-card" id="scNextCard">
+          <p class="sc-next-label" id="scNextLabel">Next session</p>
+          <p class="sc-next-title" id="scNextTitle">—</p>
+          <p class="sc-next-clock num" id="scNextClock">—</p>
+          <p class="sc-next-when" id="scNextWhen">—</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <section class="wrap section" aria-label="2026 season calendar">
+    <div class="sc-toolbar">
+      <p class="sc-tz-note">Countdowns and session times use <b id="scTzName">your time zone</b>.</p>
+    </div>
+    <ol class="sc-list" id="roundList"></ol>
+  </section>
+
+  <section class="wrap sc-about" aria-labelledby="h-about-cal">
+    <h2 class="sc-about-title" id="h-about-cal">About the 2026 Formula 1 calendar</h2>
+    <div class="sc-about-copy">
+      <p>The 2026 FIA Formula One World Championship runs over 23 rounds, from the Australian Grand Prix to the Abu Dhabi Grand Prix. 6 weekends use the sprint format, with Sprint Qualifying on Friday and a short Sprint race on Saturday before Grand Prix qualifying.</p>
+      <p>Session times above update automatically and are converted to your device’s time zone. Select any round for the full five-session weekend timetable and a direct link to the live cockpit.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M2 17.5L7.5 6.5h5.2l-2 4h4.6l-1.6 3.2H8.9l-1.7 3.8H2z" fill="currentColor"/><path d="M14.5 6.5H22l-1.7 3.4h-7.5l1.7-3.4z" fill="currentColor" opacity=".72"/></svg></span>
+          <span class="brand-text">FreeF1</span>
+        </div>
+        <p style="margin-top:10px;max-width:34ch;font-size:12.5px;color:var(--fg-4)">An independent, ad-free race weekend companion. Not affiliated with Formula 1.</p>
+      </div>
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/">Home</a>
+        <a href="/cockpit.html">Cockpit</a>
+        <a href="/schedule.html">Schedule</a>
+        <a href="/standings.html">Standings</a>
+        <a href="/live-timing.html">Live timing</a>
+        <a href="/drivers.html">Drivers</a>
+        <a href="/teams.html">Teams</a>
+        <a href="/help.html">Help</a>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> FreeF1 · Streams are provided by third parties.</span>
+      <span>Season data from Jolpica · <a href="/help.html">Support</a></span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="/src/pages/schedule.ts"></script>
+</body>
+</html>

@@ -1,3 +1,5 @@
+@import './outage.css';
+
 :root {
   color-scheme: dark;
   --help-bg: #07080a;
@@ -13,8 +15,9 @@
   --help-radius: 18px;
 }
 
-* { box-sizing: border-box; }
-html { min-height: 100%; background: var(--help-bg); }
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { min-height: 100%; background: var(--help-bg); -webkit-tap-highlight-color: transparent; }
+::selection { background: rgba(225, 6, 0, .4); color: #fff; }
 body {
   min-height: 100vh;
   margin: 0;
@@ -26,6 +29,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 button, input, select, textarea { font: inherit; }
+a { touch-action: manipulation; }
+button, [role="button"], [role="option"], summary {
+  touch-action: manipulation; -webkit-user-select: none; user-select: none;
+}
+:focus:not(:focus-visible) { outline: none; }
 button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
   outline: 2px solid var(--help-red-bright);
