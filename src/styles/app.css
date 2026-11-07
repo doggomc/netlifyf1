@@ -5356,6 +5356,25 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
   background: rgba(250, 204, 21, .24);
   color: #fef08a;
 }
+.src-pill-tag.is-stripped {
+  background: rgba(52, 211, 153, .15);
+  color: #6ee7b7;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  letter-spacing: .05em;
+}
+.wsource-list button.chip.active .src-pill-tag.is-stripped {
+  background: rgba(52, 211, 153, .24);
+  color: #a7f3d0;
+}
+
+@media (max-width: 440px) {
+  .wsource-list .special-row button.chip {
+    max-width: 100%;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+}
 
 /* A quiet lead dot on standard broadcaster pills, lit in the active team accent when playing. */
 .wsource-list button.chip:not(.chip-special):not(.has-tag)::before {
@@ -6539,6 +6558,20 @@ html.has-mvx body {
   font: 600 10px/1 'JetBrains Mono', monospace;
   letter-spacing: .04em;
   text-transform: uppercase;
+}
+
+.mvx-feed-strip {
+  display: inline-grid;
+  place-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(52, 211, 153, .16);
+  color: #6ee7b7;
+  font: 700 9px/1 'JetBrains Mono', monospace;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  vertical-align: middle;
 }
 
 .mvx-feed-ic {

@@ -200,4 +200,14 @@ describe('stream source link pools', () => {
     expect(block).not.toMatch(/play\/eyJ/);
     expect(app).not.toMatch(/play\/eyJ/);
   });
+
+  it('adds stripped Weelo counterparts after the original specials with sandboxed embed URLs', () => {
+    expect(block).toContain('...SPECIAL_SOURCES,');
+    expect(block).toContain('...STRIPPED_SPECIAL_SOURCES,');
+    expect(block.indexOf('...SPECIAL_SOURCES,')).toBeLessThan(block.indexOf('...STRIPPED_SPECIAL_SOURCES,'));
+    expect(app).toContain("id: id.replace(/^weelo-/, 'weelo-stripped-')");
+    expect(app).toContain('/api/stream/weellz-embed?stream=');
+    expect(app).toContain("f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation')");
+    expect(app).toContain("strippedTag.textContent = 'Stripped'");
+  });
 });

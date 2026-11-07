@@ -4,6 +4,7 @@ export interface StreamSource {
   id: string; label: string; links: StreamLink[]; embdlol?: string; weelo?: string;
   weellzUrls?: string[]; weellzPending?: boolean;
   special?: 'onboard' | 'data' | 'feed'; lang?: 'en' | 'other'; gated?: boolean;
+  stripped?: boolean;
   base?: { label: string; links: StreamLink[] };
   hidden?: boolean;
   /* Race Control pasted an address for this chip; it is played exactly as given. */

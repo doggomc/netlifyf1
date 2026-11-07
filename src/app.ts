@@ -465,6 +465,7 @@ interface StreamSource {
   gated?: boolean;              // the 4K chip: resolved server-side, plays through the nudge
   lang?: 'en' | 'other';        // which tab the chip belongs to
   special?: 'onboard' | 'data' | 'feed'; // drawn apart from the broadcaster chips
+  stripped?: boolean;           // ad-stripped Weelo counterpart relayed via /api/stream/weellz-embed
   weelo?: string;               // weelo stream id, when the pool is looked up there
   weellzUrls?: string[];        // live channel URLs synced from weellz.live (primary + backups)
   weellzPending?: boolean;      // true only while weellz.live marks the channel link pending
@@ -566,6 +567,16 @@ const SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, special, la
   links: [],
 }));
 
+const STRIPPED_SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, special, lang, id]): StreamSource => ({
+  id: id.replace(/^weelo-/, 'weelo-stripped-'),
+  label,
+  lang,
+  special,
+  stripped: true,
+  weelo,
+  links: [],
+}));
+
 /* ═══ The source list ═══
    Every link here was verified by probe: strmfree/streamfree pages answer 200 with a live player
    shell, cdnlivetv reports channel status, taifood ids come from the live manifests. Anything
@@ -607,6 +618,7 @@ const sources: StreamSource[] = [
 
   /* Onboards and the data channel: the specials block, right after the broadcast feeds. */
   ...SPECIAL_SOURCES,
+  ...STRIPPED_SPECIAL_SOURCES,
 
   { id: "sky-sports", label: "Sky Sports", rp: "unsafe-url", links: [
       { provider: 'hakunamatata', url: "https://hakunamatata5.org/hakunamatata5.html" }
@@ -745,7 +757,35 @@ function customLink(raw: string): string {
 /* A pasted link plays as given: no 4K prompt, no waiting on a catalogue. */
 const isCustom = (i = currentSource) => sources[i]?.links[0]?.provider === 'custom';
 
+function weeloStrippedEmbedUrl(streamId: string, apiBase = BACKEND_API): string {
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  return `${base}/api/stream/weellz-embed?stream=${encodeURIComponent(streamId)}`;
+}
+
+function toStrippedWeeloUrls(urls: string[], fallbackStream?: string): string[] {
+  const out: string[] = [];
+  const pushStream = (sid: string) => {
+    const clean = sid.trim();
+    if (!clean) return;
+    const next = weeloStrippedEmbedUrl(clean);
+    if (!out.includes(next)) out.push(next);
+  };
+  for (const raw of urls) {
+    try {
+      const parsed = new URL(raw, 'https://weellz.live');
+      const sid = parsed.searchParams.get('stream') || '';
+      if (sid) pushStream(sid);
+    } catch (_) {}
+  }
+  if (!out.length && fallbackStream) pushStream(fallbackStream);
+  return out;
+}
+
 function weeloSourceUrls(source: StreamSource): string[] {
+  if (source.stripped) {
+    if (source.weellzPending && (!source.weellzUrls || !source.weellzUrls.length)) return [];
+    return toStrippedWeeloUrls(source.weellzUrls || [], source.weelo);
+  }
   if (source.weellzUrls && source.weellzUrls.length) return source.weellzUrls;
   if (source.weelo) return [`https://weellz.live/beta?stream=${source.weelo}`];
   return [];
@@ -754,17 +794,35 @@ function weeloSourceUrls(source: StreamSource): string[] {
 function weeloPillSignature(): string {
   return sources
     .filter((s) => s.special)
-    .map((s) => `${s.id}|${s.label}|${s.hidden ? 1 : 0}|${specialDown(s) ? 1 : 0}|${s.weellzPending ? 1 : 0}`)
+    .map((s) => `${s.id}|${s.label}|${s.stripped ? 1 : 0}|${s.hidden ? 1 : 0}|${specialDown(s) ? 1 : 0}|${s.weellzPending ? 1 : 0}`)
     .join(';');
 }
 
-/* Apply the latest links fetched from weellz.live onto the Weelo sources in memory.
-   Preserves Race Control ids ('weelo-skyweelo', 'weelo-kimi', …) and custom overrides,
+/* Apply the latest links fetched from weellz.live onto the Weelo sources (regular + stripped) in memory.
+   Preserves Race Control ids ('weelo-skyweelo', 'weelo-stripped-skyweelo', …) and custom overrides,
    and never touches #player directly. Returns true when visible pill state changed. */
 function syncWeeloSourcesFromFeed(): boolean {
   const feed = catalogues.weellz;
   if (!feed) return false;
   const before = weeloPillSignature();
+
+  const applyWeeloEntry = (target: StreamSource | undefined, entry: { stream?: string; urls?: string[]; pending?: boolean; label?: string }, updateLabel = false) => {
+    if (!target || !entry) return;
+    if (updateLabel && entry.label) {
+      const hasCustomLabel = Boolean(target.base && target.label !== target.base.label);
+      if (!hasCustomLabel) {
+        target.label = entry.label;
+        if (target.base) target.base.label = entry.label;
+      }
+    }
+    if (entry.stream) target.weelo = entry.stream;
+    if (Array.isArray(entry.urls) && entry.urls.length) {
+      target.weellzUrls = entry.urls.slice();
+      target.weellzPending = false;
+    } else if (entry.pending) {
+      target.weellzPending = true;
+    }
+  };
 
   const slotToSourceId: Record<string, string> = {
     skyweelo: 'weelo-skyweelo',
@@ -777,15 +835,9 @@ function syncWeeloSourcesFromFeed(): boolean {
 
   for (const [slot, sourceId] of Object.entries(slotToSourceId)) {
     const entry = (feed.slots as Record<string, any>)[slot];
-    const target = sources.find((s) => s.id === sourceId);
-    if (!entry || !target) continue;
-    if (entry.stream) target.weelo = entry.stream;
-    if (Array.isArray(entry.urls) && entry.urls.length) {
-      target.weellzUrls = entry.urls.slice();
-      target.weellzPending = false;
-    } else if (entry.pending) {
-      target.weellzPending = true;
-    }
+    if (!entry) continue;
+    applyWeeloEntry(sources.find((s) => s.id === sourceId), entry);
+    applyWeeloEntry(sources.find((s) => s.id === sourceId.replace(/^weelo-/, 'weelo-stripped-')), entry);
   }
 
   /* Match weellz.live driver onboards onto the onboard chips (supporting rotated drivers). */
@@ -795,7 +847,7 @@ function syncWeeloSourcesFromFeed(): boolean {
     { id: 'weelo-max', pattern: /\b(max|verstappen)\b/i },
   ];
   const remainingOnboards = Array.isArray(feed.onboards) ? feed.onboards.slice() : [];
-  const unmatchedTargets: StreamSource[] = [];
+  const unmatchedIds: string[] = [];
 
   for (const { id, pattern } of onboardTargets) {
     const target = sources.find((s) => s.id === id);
@@ -803,33 +855,18 @@ function syncWeeloSourcesFromFeed(): boolean {
     const idx = remainingOnboards.findIndex((o) => pattern.test(o.label));
     if (idx >= 0) {
       const [entry] = remainingOnboards.splice(idx, 1);
-      if (entry.stream) target.weelo = entry.stream;
-      if (entry.urls.length) {
-        target.weellzUrls = entry.urls.slice();
-        target.weellzPending = false;
-      } else if (entry.pending) {
-        target.weellzPending = true;
-      }
+      applyWeeloEntry(target, entry);
+      applyWeeloEntry(sources.find((s) => s.id === id.replace(/^weelo-/, 'weelo-stripped-')), entry);
     } else {
-      unmatchedTargets.push(target);
+      unmatchedIds.push(id);
     }
   }
 
-  for (const target of unmatchedTargets) {
+  for (const id of unmatchedIds) {
     const entry = remainingOnboards.shift();
     if (!entry) break;
-    const hasCustomLabel = Boolean(target.base && target.label !== target.base.label);
-    if (!hasCustomLabel && entry.label) {
-      target.label = entry.label;
-      if (target.base) target.base.label = entry.label;
-    }
-    if (entry.stream) target.weelo = entry.stream;
-    if (entry.urls.length) {
-      target.weellzUrls = entry.urls.slice();
-      target.weellzPending = false;
-    } else if (entry.pending) {
-      target.weellzPending = true;
-    }
+    applyWeeloEntry(sources.find((s) => s.id === id), entry, true);
+    applyWeeloEntry(sources.find((s) => s.id === id.replace(/^weelo-/, 'weelo-stripped-')), entry, true);
   }
 
   for (const extra of remainingOnboards) {
@@ -849,13 +886,35 @@ function syncWeeloSourcesFromFeed(): boolean {
         weellzPending: Boolean(extra.pending && !extra.urls.length),
         links: [],
       };
-      sources.push(target);
+      const firstStrippedIdx = sources.findIndex((s) => s.stripped);
+      if (firstStrippedIdx >= 0) sources.splice(firstStrippedIdx, 0, target);
+      else sources.push(target);
     } else {
-      if (extra.stream) target.weelo = extra.stream;
-      if (extra.urls.length) {
-        target.weellzUrls = extra.urls.slice();
-        target.weellzPending = false;
+      applyWeeloEntry(target, extra);
+    }
+
+    const strippedId = `weelo-stripped-onboard-${slug}`;
+    let strippedTarget = sources.find((s) => s.id === strippedId);
+    if (!strippedTarget) {
+      strippedTarget = {
+        id: strippedId,
+        label: extra.label,
+        lang: 'en',
+        special: 'onboard',
+        stripped: true,
+        weelo: extra.stream || undefined,
+        weellzUrls: extra.urls.slice(),
+        weellzPending: Boolean(extra.pending && !extra.urls.length),
+        links: [],
+      };
+      let lastStrippedIdx = -1;
+      for (let i = 0; i < sources.length; i++) {
+        if (sources[i].stripped) lastStrippedIdx = i;
       }
+      if (lastStrippedIdx >= 0) sources.splice(lastStrippedIdx + 1, 0, strippedTarget);
+      else sources.push(strippedTarget);
+    } else {
+      applyWeeloEntry(strippedTarget, extra);
     }
   }
 
@@ -1173,7 +1232,10 @@ function updateHeader() {
   if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
   if (sourceLabel) {
     const pill = describeSourcePill(src);
-    sourceLabel.textContent = pill.sub ? `${pill.title} · ${pill.sub}` : pill.title;
+    const parts = [pill.title];
+    if (pill.sub) parts.push(pill.sub);
+    if (src.stripped) parts.push('Stripped');
+    sourceLabel.textContent = parts.join(' · ');
   }
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
   updateWatchSessionState();
@@ -1425,6 +1487,7 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
     /* Specials carry weelo's own state, so a chip that is standing by gets a subtle dim cue. */
     if (s.special) {
       b.className += ` chip-special chip-${s.special}`;
+      if (s.stripped) b.className += ' chip-stripped';
       if (specialDown(s)) b.className += ' is-down', b.title = `weellz.live: ${specialState(s) || 'standby'}`;
     } else if (s.embdlol && !s.custom && Object.keys(catalogues.embdlol).length > 0 && !catalogues.embdlol[s.embdlol]) {
       b.className += ' is-down';
@@ -1447,6 +1510,13 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
       subSpan.className = 'src-pill-sub';
       subSpan.textContent = pill.sub;
       b.appendChild(subSpan);
+    }
+
+    if (s.stripped) {
+      const strippedTag = document.createElement('span');
+      strippedTag.className = 'src-pill-tag is-stripped';
+      strippedTag.textContent = 'Stripped';
+      b.appendChild(strippedTag);
     }
 
     b.onclick = async () => {
@@ -1730,17 +1800,28 @@ function iframeCommitted(f) {
   }
 }
 
+function isStrippedWeellzEmbed(url: string): boolean {
+  return typeof url === 'string' && url.includes('/api/stream/weellz-embed');
+}
+
 /* A provider's anti-embed check can read an EMPTY referrer as "sandboxed": ehgembxe answers
    no-referrer with "Remove sandbox attributes on the iframe tag" and mounts no player, while the
    same token plays with an origin referrer (verified in a real browser, not headless). 'origin'
-   sends only our domain — enough to look embedded, and no path or query ever leaves the site. */
+   sends only our domain — enough to look embedded, and no path or query ever leaves the site.
+   Stripped weellz embeds run inside an explicit sandbox with no-referrer so popup/navigation
+   attempts are browser-blocked and direct weelo.live HLS segment requests send no Referer. */
 function makeStreamIframe(url, rp) {
   const f = document.createElement("iframe");
   f.src = url;
   f.allow = IFRAME_ALLOW;
   f.setAttribute('allow', IFRAME_ALLOW);
   f.allowFullscreen = true;
-  f.referrerPolicy = rp || "origin";
+  if (isStrippedWeellzEmbed(url)) {
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
+    f.referrerPolicy = 'no-referrer';
+  } else {
+    f.referrerPolicy = rp || "origin";
+  }
   f.title = "Live stream";
   return f;
 }

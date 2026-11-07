@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_TILES, describeFeed, focusLayout, layout, tileUrl } from '../src/features/multiviewer';
+import { MAX_TILES, describeFeed, focusLayout, layout, strippedPlayerUrl, tileUrl } from '../src/features/multiviewer';
 
 describe('multiviewer geometry & feed classification', () => {
-  it('builds muted and unmuted weellz.live tile URLs cleanly', () => {
+  it('builds muted and unmuted weellz.live and stripped relay tile URLs cleanly', () => {
     expect(tileUrl('abc123', false)).toBe('https://weellz.live/beta?stream=abc123&autoplay=1&mute=0');
     expect(tileUrl('abc123', true)).toBe('https://weellz.live/beta?stream=abc123&autoplay=1&mute=1');
     expect(tileUrl('abc123', true, 'https://weellz.live/beta?stream=xyz')).toBe(
       'https://weellz.live/beta?stream=xyz&autoplay=1&mute=1',
+    );
+    const strippedBase = strippedPlayerUrl('dflgjhacdfahpgchehacbdacoekfacieee', 'https://f1admin.onrender.com');
+    expect(tileUrl('dflgjhacdfahpgchehacbdacoekfacieee', false, strippedBase)).toBe(
+      'https://f1admin.onrender.com/api/stream/weellz-embed?stream=dflgjhacdfahpgchehacbdacoekfacieee&autoplay=1&mute=0',
     );
   });
 
@@ -75,6 +79,19 @@ describe('multiviewer geometry & feed classification', () => {
       title: 'Data Channel',
       category: 'data',
       badgeKind: 'data',
+    });
+    expect(describeFeed({ id: 'weelo-stripped-max', label: 'Max Verstappen', special: 'onboard', stripped: true })).toMatchObject({
+      title: 'Max Verstappen',
+      subtitle: 'Onboard · Stripped',
+      category: 'onboard',
+      driverKey: 'verstappen',
+      badgeKind: 'driver',
+    });
+    expect(describeFeed({ id: 'weelo-stripped-skyweelo', label: 'Sky Sports (weelo)', special: 'feed', stripped: true })).toMatchObject({
+      title: 'Sky Sports F1',
+      subtitle: 'UK · English · Stripped',
+      category: 'broadcast',
+      badgeKind: 'sky',
     });
   });
 });

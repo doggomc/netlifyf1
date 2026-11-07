@@ -6,6 +6,7 @@
 
    Loaded lazily: visitors who never open Multiviewer download none of this chunk. */
 
+import { BACKEND_API } from '../config';
 import { DRIVER_PORTRAIT, headshot } from '../data/driver-portraits';
 
 export type FeedCategory = 'broadcast' | 'onboard' | 'data';
@@ -24,6 +25,7 @@ export interface WeeloStream extends FeedMeta {
   streamId: string;
   label: string;
   live: boolean;
+  stripped?: boolean;
   pasted?: string;
 }
 
@@ -40,11 +42,19 @@ const STATE_KEY = 'freef1_mvx_state_v1';
 
 export const PLAYER = 'https://weellz.live/beta?stream=';
 const ALLOW = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+const STRIPPED_SANDBOX = 'allow-scripts allow-same-origin allow-presentation';
+
+export function strippedPlayerUrl(streamId: string, apiBase = BACKEND_API): string {
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  return `${base}/api/stream/weellz-embed?stream=${encodeURIComponent(streamId)}`;
+}
 
 export function tileUrl(id: string, muted: boolean, base = ''): string {
   const url = base || `${PLAYER}${id}`;
   try {
-    const parsed = new URL(url);
+    const parsed = url.startsWith('/') && typeof window !== 'undefined'
+      ? new URL(url, window.location.origin)
+      : new URL(url);
     parsed.searchParams.set('autoplay', '1');
     parsed.searchParams.set('mute', muted ? '1' : '0');
     return parsed.href;
@@ -159,24 +169,25 @@ const DRIVER_MATCHERS: [string, RegExp][] = [
   ['bottas', /\b(bottas|valtteri)\b/i],
 ];
 
-export function describeFeed(source: { id?: string; label: string; special?: string }): FeedMeta {
+export function describeFeed(source: { id?: string; label: string; special?: string; stripped?: boolean }): FeedMeta {
   const raw = String(source.label || '').trim();
   const low = raw.toLowerCase();
+  const withStripped = (sub: string) => (source.stripped ? `${sub} · Stripped` : sub);
 
-  if (/drivers?\s*track|driver\s*tracker|pit\s*lane|tracker/i.test(raw) || source.id === 'weelo-drivers') {
+  if (/drivers?\s*track|driver\s*tracker|pit\s*lane|tracker/i.test(raw) || source.id === 'weelo-drivers' || source.id === 'weelo-stripped-drivers') {
     return {
       title: /drivers?\s*track$/i.test(raw) ? 'Driver Tracker' : raw,
-      subtitle: 'Live GPS map',
+      subtitle: withStripped('Live GPS map'),
       category: 'data',
       driverKey: null,
       badgeKind: 'tracker',
     };
   }
 
-  if (/data\s*channel|telemetry|timing/i.test(raw) || source.id === 'weelo-data' || source.special === 'data') {
+  if (/data\s*channel|telemetry|timing/i.test(raw) || source.id === 'weelo-data' || source.id === 'weelo-stripped-data' || source.special === 'data') {
     return {
       title: 'Data Channel',
-      subtitle: 'Live timing & sectors',
+      subtitle: withStripped('Live timing & sectors'),
       category: 'data',
       driverKey: null,
       badgeKind: 'data',
@@ -188,7 +199,7 @@ export function describeFeed(source: { id?: string; label: string; special?: str
       const cleanName = raw.replace(/\s*\((onboard|weelo)\)\s*/ig, '').trim();
       return {
         title: cleanName,
-        subtitle: 'Onboard',
+        subtitle: withStripped('Onboard'),
         category: 'onboard',
         driverKey: key,
         badgeKind: 'driver',
@@ -199,7 +210,7 @@ export function describeFeed(source: { id?: string; label: string; special?: str
   if (source.special === 'onboard') {
     return {
       title: raw.replace(/\s*\((onboard|weelo)\)\s*/ig, '').trim() || raw,
-      subtitle: 'Onboard',
+      subtitle: withStripped('Onboard'),
       category: 'onboard',
       driverKey: null,
       badgeKind: 'tv',
@@ -209,7 +220,7 @@ export function describeFeed(source: { id?: string; label: string; special?: str
   if (low.includes('sky sports')) {
     return {
       title: 'Sky Sports F1',
-      subtitle: 'UK · English',
+      subtitle: withStripped('UK · English'),
       category: 'broadcast',
       driverKey: null,
       badgeKind: 'sky',
@@ -219,7 +230,7 @@ export function describeFeed(source: { id?: string; label: string; special?: str
   if (low.includes('international feed')) {
     return {
       title: 'International Feed',
-      subtitle: 'Multi-audio',
+      subtitle: withStripped('Multi-audio'),
       category: 'broadcast',
       driverKey: null,
       badgeKind: 'f1',
@@ -229,7 +240,7 @@ export function describeFeed(source: { id?: string; label: string; special?: str
   if (low.includes('f1 tv') && low.includes('world')) {
     return {
       title: 'F1 TV Live',
-      subtitle: 'F1 Live · English',
+      subtitle: withStripped('F1 Live · English'),
       category: 'broadcast',
       driverKey: null,
       badgeKind: 'f1',
@@ -239,7 +250,7 @@ export function describeFeed(source: { id?: string; label: string; special?: str
   if (low.includes('f1 tv') && low.includes('show')) {
     return {
       title: 'F1 TV Shows',
-      subtitle: 'Pre & post-session',
+      subtitle: withStripped('Pre & post-session'),
       category: 'broadcast',
       driverKey: null,
       badgeKind: 'f1',
@@ -248,7 +259,7 @@ export function describeFeed(source: { id?: string; label: string; special?: str
 
   return {
     title: raw.replace(/\s*\(weelo\)\s*/ig, '').trim() || raw,
-    subtitle: 'Live broadcast',
+    subtitle: withStripped('Live broadcast'),
     category: 'broadcast',
     driverKey: null,
     badgeKind: low.includes('f1') ? 'f1' : 'tv',
@@ -411,8 +422,13 @@ export function init(ctx: any) {
     .map((s: any): WeeloStream => {
       const custom = s.links?.[0]?.provider === 'custom' ? String(s.links[0].url || '') : '';
       const synced = Array.isArray(s.weellzUrls) && s.weellzUrls.length ? String(s.weellzUrls[0] || '') : '';
-      const streamId = String(s.weelo || s.id);
+      let streamId = String(s.weelo || '');
+      if (!streamId && synced) {
+        try { streamId = new URL(synced, 'https://weellz.live').searchParams.get('stream') || ''; } catch { /* ignore */ }
+      }
+      if (!streamId) streamId = String(s.id);
       const id = String(s.id || streamId);
+      const stripped = Boolean(s.stripped) && !custom;
       const meta = describeFeed(s);
       return {
         ...meta,
@@ -420,7 +436,8 @@ export function init(ctx: any) {
         streamId,
         label: String(s.label || meta.title),
         live: custom ? true : !ctx.isSpecialDown(s),
-        pasted: custom || synced,
+        stripped,
+        pasted: custom || (stripped ? strippedPlayerUrl(streamId) : synced),
       };
     });
 
@@ -551,12 +568,18 @@ export function init(ctx: any) {
     if (!stream.live) tile.classList.add('is-off');
 
     const f = document.createElement('iframe');
-    f.src = tileUrl(stream.streamId, id !== audio, stream.pasted);
+    const nextUrl = tileUrl(stream.streamId, id !== audio, stream.pasted);
+    f.src = nextUrl;
     f.dataset.state = id === audio ? 'on' : 'off';
     f.allow = ALLOW;
     f.setAttribute('allow', ALLOW);
     f.allowFullscreen = true;
-    f.referrerPolicy = 'strict-origin-when-cross-origin';
+    if (stream.stripped || nextUrl.includes('/api/stream/weellz-embed')) {
+      f.setAttribute('sandbox', STRIPPED_SANDBOX);
+      f.referrerPolicy = 'no-referrer';
+    } else {
+      f.referrerPolicy = 'strict-origin-when-cross-origin';
+    }
     f.title = stream.title;
     f.dataset.stream = stream.streamId;
 
@@ -708,16 +731,18 @@ export function init(ctx: any) {
     const renderFeedButton = (s: WeeloStream, faceCard: boolean) => {
       const inGrid = ids.includes(s.id);
       const disabled = !inGrid && full ? ' disabled' : '';
-      const stateCls = `${inGrid ? ' is-on is-in' : ''}${!s.live ? ' is-off' : ''}`;
+      const stateCls = `${inGrid ? ' is-on is-in' : ''}${!s.live ? ' is-off' : ''}${s.stripped ? ' is-stripped' : ''}`;
       const statusText = inGrid ? 'in grid' : s.live ? 'add' : 'off air';
+      const strippedBadge = s.stripped ? '<span class="mvx-feed-strip">Stripped</span>' : '';
       if (faceCard) {
         const surname = s.title.split(/\s+/).slice(-1)[0] || s.title;
         return `<li>
-          <button type="button" class="mvx-feed mvx-feed-face mvx-lib-row${stateCls}" data-mvx-toggle="${escapeText(s.id)}" aria-pressed="${String(inGrid)}" title="${escapeText(s.title)}${!s.live ? ' · Off air' : ''}"${disabled}>
+          <button type="button" class="mvx-feed mvx-feed-face mvx-lib-row${stateCls}" data-mvx-toggle="${escapeText(s.id)}" aria-pressed="${String(inGrid)}" title="${escapeText(s.title)}${s.stripped ? ' · Stripped' : ''}${!s.live ? ' · Off air' : ''}"${disabled}>
             ${renderAvatar(s, true)}
             <span class="mvx-feed-t">${escapeText(surname)}</span>
+            ${strippedBadge}
             ${!s.live ? '<span class="mvx-feed-off">off air</span>' : ''}
-            <span class="mvx-sr">${escapeText(s.label)} · ${statusText}</span>
+            <span class="mvx-sr">${escapeText(s.label)}${s.stripped ? ' · Stripped' : ''} · ${statusText}</span>
             <span class="mvx-feed-ic" aria-hidden="true">${icon(inGrid ? 'check' : 'plus')}</span>
           </button>
         </li>`;
@@ -727,10 +752,10 @@ export function init(ctx: any) {
         <button type="button" class="mvx-feed mvx-lib-row${stateCls}" data-mvx-toggle="${escapeText(s.id)}" aria-pressed="${String(inGrid)}"${disabled}>
           ${renderAvatar(s, false)}
           <span class="mvx-feed-copy">
-            <span class="mvx-feed-t">${escapeText(s.title)}</span>
+            <span class="mvx-feed-t">${escapeText(s.title)} ${strippedBadge}</span>
             <span class="mvx-feed-s">${sub}</span>
           </span>
-          <span class="mvx-sr">${escapeText(s.label)} · ${statusText}</span>
+          <span class="mvx-sr">${escapeText(s.label)}${s.stripped ? ' · Stripped' : ''} · ${statusText}</span>
           <span class="mvx-feed-ic" aria-hidden="true">${icon(inGrid ? 'check' : 'plus')}</span>
         </button>
       </li>`;
