@@ -3,7 +3,7 @@ import { initShell } from '../ui/shell';
 import '../viewer-counter';
 import {
   countdownParts, findFocusEvent, findLiveSession, findNextSession,
-  formatDay, formatFull, formatTime, sessionPhase, sessionShortName, type SessionInfo,
+  formatDay, formatFull, formatTime, sessionPhase, type SessionInfo,
 } from '../services/weekend';
 
 initShell();
@@ -135,7 +135,7 @@ function paintNextCard(info: SessionInfo | null, liveInfo: SessionInfo | null): 
     return;
   }
 
-  set(info.event.name, info.event.name, sessionShortName(info.session.name), false);
+  set(info.event.name, info.event.name, info.session.name, false);
   if (tag) {
     tag.textContent = `Round ${info.event.round}`;
     tag.className = 'tag';
@@ -188,7 +188,7 @@ function paintSessionStrip(): void {
     const classes = ['session-tile', phase === 'next' ? 'next' : '', phase === 'live' ? 'live' : '', phase === 'done' ? 'done' : '']
       .filter(Boolean).join(' ');
     return `<div class="${classes}">
-      <span class="name">${sessionShortName(session.name)}</span>
+      <span class="name">${escapeHtml(session.name)}</span>
       <span class="when">${phase === 'live' ? 'On air' : formatTime(session.ts)}</span>
       <span class="day">${formatDay(session.ts)}</span>
     </div>`;
@@ -213,7 +213,7 @@ if (badge && liveText) {
     badge.classList.add('is-on');
     liveText.textContent = 'Live';
   } else {
-    liveText.textContent = next ? sessionShortName(next.session.name) : 'Off air';
+    liveText.textContent = next ? next.session.name : 'Off air';
   }
 }
 
