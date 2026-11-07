@@ -111,7 +111,7 @@
           </div>
         </div>
         <div class="wplayer-actions-main" id="stageActions">
-          <button class="btn sm" id="mvToggle" type="button" title="Watch several weelo feeds at once" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Multiview</span></button>
+          <button class="btn sm" id="mvToggle" type="button" title="Watch multiple live feeds at once" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Multiview</span></button>
           <button class="btn sm" id="theaterBtn" type="button" title="Fill the window with the stream" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg><span>Theater</span></button>
           <button class="btn sm" id="sourcesToggle" type="button" title="Show or hide the stream sources in theater" aria-pressed="true" hidden>Sources</button>
           <span class="btn sm theater-online mono" id="theaterOnline" role="status" aria-live="polite" hidden><i aria-hidden="true"></i><b id="theaterOnlineCount">—</b> online</span>
@@ -328,6 +328,21 @@
     </div>
     <label class="jn-optout">
       <input type="checkbox" id="joinNudgeDontShow">
+      <span>Don&rsquo;t show this again</span>
+    </label>
+  </div>
+</div>
+
+<div class="modal" id="mvNudge" role="dialog" aria-modal="true" aria-labelledby="mvNudgeTitle">
+  <div class="sheet" style="max-width:520px">
+    <div class="sheet-head"><h2 id="mvNudgeTitle">Multiviewer</h2><button class="x" id="mvNudgeClose" type="button" aria-label="Close">&times;</button></div>
+    <p class="jn-copy">This feature is currently in beta and requires a strong internet connection to stream multiple live feeds at once. Join the Discord for session alerts and to share feedback.</p>
+    <div class="jn-actions">
+      <a class="btn sm primary" id="mvNudgeJoin" href="https://discord.gg/KYXHCAzhN4" target="_blank" rel="noopener noreferrer">Join the Discord</a>
+      <button class="btn sm" id="mvNudgeContinue" type="button">Continue to Multiviewer</button>
+    </div>
+    <label class="jn-optout">
+      <input type="checkbox" id="mvNudgeDontShow">
       <span>Don&rsquo;t show this again</span>
     </label>
   </div>

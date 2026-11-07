@@ -1183,15 +1183,20 @@ function updateHeader() {
    offers a short "joining helps with session alerts" prompt, then plays the feed. The popup can
    be silenced with its own checkbox; the feed always continues either way. */
 const FOURK_NUDGE_KEY = 'freef1_4k_nudge_off';
+const MV_NUDGE_KEY = 'freef1_mv_nudge_off';
 const DISCORD_INVITE = 'https://discord.gg/KYXHCAzhN4';
 const joinNudgeOverlay = document.getElementById('joinNudge');
 const joinNudgeDontShow = document.getElementById('joinNudgeDontShow') as HTMLInputElement | null;
+const mvNudgeOverlay = document.getElementById('mvNudge');
+const mvNudgeDontShow = document.getElementById('mvNudgeDontShow') as HTMLInputElement | null;
 
 let fourKUrl = '';
 let fourKRequest = 0;
 
 const nudgeMuted = () => store.get(FOURK_NUDGE_KEY) === '1';
 const setNudgeMuted = (muted: boolean) => { muted ? store.set(FOURK_NUDGE_KEY, '1') : store.remove(FOURK_NUDGE_KEY); };
+const mvNudgeMuted = () => store.get(MV_NUDGE_KEY) === '1';
+const setMvNudgeMuted = (muted: boolean) => { muted ? store.set(MV_NUDGE_KEY, '1') : store.remove(MV_NUDGE_KEY); };
 
 /* The address is resolved server-side because the upstream channel id rotates. */
 async function fetchFourKUrl(): Promise<string> {
@@ -1293,6 +1298,36 @@ function chooseFourK() {
   openJoinNudge(() => { void playFourK(); });
 }
 
+function closeMvNudge() {
+  if (mvNudgeOverlay) closeModal(mvNudgeOverlay);
+}
+
+function openMvNudge(onContinue: () => void) {
+  if (!mvNudgeOverlay) { onContinue(); return; }
+  if (mvNudgeDontShow) mvNudgeDontShow.checked = false;
+  openModal(mvNudgeOverlay);
+
+  const continueBtn = document.getElementById('mvNudgeContinue');
+  const joinBtn = document.getElementById('mvNudgeJoin');
+  const closeBtn = document.getElementById('mvNudgeClose');
+  const proceed = () => {
+    if (mvNudgeDontShow?.checked) setMvNudgeMuted(true);
+    closeMvNudge();
+    onContinue();
+  };
+
+  if (continueBtn) continueBtn.onclick = proceed;
+  if (closeBtn) closeBtn.onclick = () => closeMvNudge();
+  if (joinBtn) joinBtn.onclick = (event) => {
+    event.preventDefault();
+    window.open(DISCORD_INVITE, '_blank', 'noopener');
+    proceed();
+  };
+  mvNudgeOverlay.onclick = (event) => {
+    if (event.target === mvNudgeOverlay) closeMvNudge();
+  };
+}
+
 /* ═══ Reset ═══
    /?reset=discord forgets any legacy Discord link state; /?reset=all also drops the livery,
    saved preferences and cached API data. */
@@ -1317,6 +1352,7 @@ async function handleResetRequest() {
       /* Leftover tokens from the retired Superlicense gate, plus the nudge opt-out. */
       localStorage.removeItem('freef1_dg_token');
       setNudgeMuted(false);
+      setMvNudgeMuted(false);
     }
   } catch (_) {}
 
@@ -1454,12 +1490,23 @@ function openMultiViewer() {
   void (multiviewer ??= import('./features/multiviewer').then((m) => m.init(featureContext))).then((m) => m?.show(true));
 }
 
-/* The first click loads the chunk and opens the grid; from then on the module's own listener owns
-   the button (two listeners meant open-then-close on the very click that opened it, which read as
-   the page jumping twice and made the address bar look like a redirect). */
-$('mvToggle')?.addEventListener('click', () => {
-  if (!multiviewer) openMultiViewer();
-});
+function chooseMultiViewer() {
+  const active = (featureContext as any).multiViewer;
+  if (active?.isOpen?.()) {
+    active.show(false);
+    return;
+  }
+  if (mvNudgeMuted()) {
+    openMultiViewer();
+    return;
+  }
+  openMvNudge(() => {
+    openMultiViewer();
+  });
+}
+
+/* Clicking Multiview shows the beta/connection popup (unless muted) before opening the grid. */
+$('mvToggle')?.addEventListener('click', chooseMultiViewer);
 
 /* Theater mode: the window fills the viewport, the rail and sources step aside. Escape puts it back. */
 const theaterBtn = $('theaterBtn');
