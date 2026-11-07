@@ -847,21 +847,21 @@ body.is-leaving { animation: pageOut .18s var(--ease) both; pointer-events: none
    width, anchored just below the top edge, and the well crops it at the shins —
    the same framing as the reference. The fade hides the crop. */
 .driver-portrait img {
-  position: absolute; inset-inline: 0; top: 10px; margin-inline: auto;
+  position: absolute; inset-inline: 0; top: 10px; z-index: 1; margin-inline: auto;
   width: 86%; height: auto; max-width: none; max-height: none;
   transition: transform .5s var(--ease);
   filter: drop-shadow(0 18px 24px rgba(0,0,0,.55));
 }
 .driver-card:hover .driver-portrait img { transform: scale(1.03); }
 .driver-plate {
-  position: absolute; top: 14px; right: 16px; z-index: 1;
+  position: absolute; top: 14px; right: 16px; z-index: 0;
   font-family: var(--font-number); font-size: 2.15rem; line-height: 1;
   font-weight: 400; letter-spacing: 0;
   color: rgba(255,255,255,.13);
   font-variant-numeric: tabular-nums;
 }
 .driver-fade {
-  position: absolute; inset-inline: 0; bottom: 0; height: 96px; pointer-events: none;
+  position: absolute; inset-inline: 0; bottom: 0; z-index: 2; height: 96px; pointer-events: none;
   background: linear-gradient(to top, var(--card) 8%, color-mix(in srgb, var(--card) 55%, transparent) 55%, transparent);
   transition: background-image .2s var(--ease);
 }
@@ -869,7 +869,7 @@ body.is-leaving { animation: pageOut .18s var(--ease) both; pointer-events: none
   background: linear-gradient(to top, var(--card-2) 8%, color-mix(in srgb, var(--card-2) 55%, transparent) 55%, transparent);
 }
 
-.driver-body { position: relative; z-index: 1; margin-top: -40px; padding: 0 16px 16px; }
+.driver-body { position: relative; z-index: 3; margin-top: -40px; padding: 0 16px 16px; }
 .driver-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-3); }
 .driver-meta .flag { border-radius: 3px; outline: 1px solid rgba(255,255,255,.14); width: 20px; height: 15px; object-fit: cover; }
 .driver-standing { font-weight: 650; color: var(--fg-2); font-variant-numeric: tabular-nums; }

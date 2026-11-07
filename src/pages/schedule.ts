@@ -99,8 +99,14 @@ function statusBadge(event: RaceEvent, state: 'live' | 'next' | 'done' | 'upcomi
   return `<span class="sc-kind">${state === 'done' ? 'Completed' : 'Grand Prix'}</span>`;
 }
 
-function renderDrawer(event: RaceEvent, now: number, nextTs: number | null): string {
+function renderDrawer(
+  event: RaceEvent,
+  state: 'live' | 'next' | 'done' | 'upcoming',
+  now: number,
+  nextTs: number | null,
+): string {
   const winner = winners.get(event.round);
+  const isCurrent = state === 'live' || state === 'next';
   const rows = event.sessions.map((session) => {
     const phase = sessionPhase(session, now, nextTs);
     const pill = phase === 'live'
@@ -119,16 +125,19 @@ function renderDrawer(event: RaceEvent, now: number, nextTs: number | null): str
   const winnerLine = winner
     ? `<p class="sc-drawer-winner">Race winner: <a href="${esc(winner.driverHref)}">${esc(winner.fullName)}</a> · <a href="${esc(winner.teamHref)}">${esc(winner.team)}</a></p>`
     : '';
+  const actions = isCurrent
+    ? `<div class="sc-drawer-links">
+        <a class="sc-drawer-link is-primary" href="/cockpit.html">Watch in cockpit</a>
+        <a class="sc-drawer-link" href="/live-timing.html">Live timing</a>
+      </div>`
+    : '';
+  const foot = winnerLine || actions
+    ? `<div class="sc-drawer-foot">${winnerLine}${actions}</div>`
+    : '';
 
   return `<div class="sc-drawer-inner">
     <ul class="sc-sess-list">${rows}</ul>
-    <div class="sc-drawer-foot">
-      ${winnerLine}
-      <div class="sc-drawer-links">
-        <a class="sc-drawer-link is-primary" href="/cockpit.html">Watch in cockpit</a>
-        <a class="sc-drawer-link" href="/live-timing.html">Live timing</a>
-      </div>
-    </div>
+    ${foot}
   </div>`;
 }
 
@@ -218,7 +227,7 @@ function render(): void {
           </div>
         </button>
         <div class="sc-drawer" id="sc-drawer-${event.round}" ${isOpen ? '' : 'hidden'}>
-          ${renderDrawer(event, now, nextTs)}
+          ${renderDrawer(event, state, now, nextTs)}
         </div>
       </article>
     </li>`;
