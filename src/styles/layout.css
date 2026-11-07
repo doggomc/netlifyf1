@@ -332,11 +332,11 @@ main { flex: 1 0 auto; }
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 32px; align-items: end;
-  padding-block: 56px 44px;
+  padding-block: 56px 40px;
   min-height: min(76dvh, 660px);
 }
 @media (min-width: 1024px) {
-  .hero-inner { grid-template-columns: minmax(0,1fr) 360px; gap: 48px; padding-block: 72px 56px; }
+  .hero-inner { grid-template-columns: minmax(0,1fr) 360px; gap: 40px 48px; padding-block: 72px 48px; }
 }
 
 /* Below the split the card is a grid item in a single column; it must not be wider
@@ -382,7 +382,9 @@ main { flex: 1 0 auto; }
 
 /* The place, small and flush with the heading's left edge. */
 .hero-place {
+  /* Slightly inset from the heading's edge, a deliberate step rather than a flush line. */
   margin-top: 10px;
+  margin-left: 12px;
   font-size: 13px;
   line-height: 1.5;
   color: var(--fg-3);
@@ -456,19 +458,48 @@ main { flex: 1 0 auto; }
 }
 
 /* Session strip under the hero: the weekend at a glance. */
-.session-strip {
-  display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0,1fr));
-  padding: 0 0 56px;
+/* The weekend block closes the hero: a labelled surface holding the five sessions,
+   directly under the up-next card so the two read as one column. */
+.hero-week {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-top: 4px;
+  /* Full-bleed within the hero, padded with the same gutter as the heading so the
+     panel's left edge lines up with the Grand Prix name above it. */
+  margin-inline: calc(var(--gutter) * -1);
+  padding: 14px var(--gutter) 16px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-raised);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
-@media (min-width: 720px) { .session-strip { grid-template-columns: repeat(3, minmax(0,1fr)); } }
-@media (min-width: 1080px) { .session-strip { grid-template-columns: repeat(6, minmax(0,1fr)); } }
+.hero-week-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; padding: 0 4px 11px;
+}
+.hero-week-head span:last-child { font-size: 12px; color: var(--fg-4); }
+
+/* Five sessions in four columns: the first four are small, the last spans two so
+   the block always closes with a full width instead of an orphan in empty space. */
+.session-strip {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.session-tile:nth-child(5) { grid-column: span 2; }
+@media (max-width: 420px) {
+  .session-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .session-tile:nth-child(5) { grid-column: span 2; }
+}
 .session-tile {
-  background: var(--card); border-radius: var(--radius-sm);
-  padding: 13px 14px; border: 1px solid transparent;
+  background: color-mix(in srgb, var(--card-2) 92%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 13px 14px; border: 1px solid var(--line);
   transition: background-color .18s var(--ease), border-color .18s var(--ease);
   display: flex; flex-direction: column; gap: 3px;
 }
-.session-tile:hover { background: var(--card-2); }
+.session-tile:hover { background: var(--card-3); }
 .session-tile .name { font-size: 12px; font-weight: 650; color: var(--fg-3); letter-spacing: .01em; }
 .session-tile .when { font-family: var(--font-display); font-size: 14.5px; font-weight: 700; color: var(--white); }
 .session-tile .day { font-size: 11.5px; color: var(--fg-4); }
