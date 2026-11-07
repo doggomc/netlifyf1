@@ -276,7 +276,7 @@ const weeloUp = {
 
   const english = await rowLabels(page);
   check('the non-English feeds are not in the English tab',
-    !['DAZN (EMB)', 'SKYIT (EMB)', 'SKYDE (EMB)', 'GERMAN (EMB)', 'SPANISH (EMB)', 'ITALIAN (EMB)', 'DAZN', 'Viaplay'].some((l) => english.includes(l)),
+    !['DAZN (EMB)', 'SKYIT (EMB)', 'SKYDE (EMB)', 'GERMAN (EMB)', 'SPANISH (EMB)', 'ITALIAN (EMB)', 'DAZN (PPV)', 'Viaplay (PPV)'].some((l) => english.includes(l)),
     english.join(' | '));
   check('and the English feeds are', ['FULLHD1 (EMB)', 'WORLD (EMB)', 'Sky Sports F1 UK'].every((l) => english.includes(l)), english.join(' | '));
   check('the two chips embdlol can never fill are gone', !english.includes('SKY (EMB)') && !english.includes('APPLE (EMB)'), english.join(' | '));
@@ -322,14 +322,28 @@ const weeloUp = {
 {
   /* The relay is mocked: this pass is about the ADDRESS SHAPE, so it must not depend on which round
      the live feed happens to be publishing. Both ids are in the list, so both are offered. */
-  const { page, feeds, errors } = await openPage({ weeloState: weeloUp, taifoodChannels: [
-    { id: '1', name: 'DAZN F1', lang: 'spanish', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31409' },
-    { id: '2', name: 'Viaplay', lang: 'dutch', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31413' },
-  ] });
+  const { page, feeds, errors } = await openPage({ weeloState: weeloUp, ppvStreams: [{
+    category: 'Motorsports',
+    streams: [{
+      id: 31863,
+      name: 'São Paulo Grand Prix - Race',
+      tag: 'Formula 1',
+      source_tag: 'HD | Sky Sports F1',
+      uri_name: 'f1/2026/brazil/race',
+      locale: 'en-gb',
+      iframe: 'https://taifood-blog.asia/embed/f1/2026/brazil/race',
+      substreams: [
+        { id: 1031867, source_tag: 'SD | DAZN F1', locale: 'es', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---race-31867_540p' },
+        { id: 31867, source_tag: 'HD | DAZN F1', locale: 'es', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---race-31867' },
+        { id: 1031871, source_tag: 'SD | Viaplay', locale: 'nl', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---race-31871_540p' },
+        { id: 31871, source_tag: 'HD | Viaplay', locale: 'nl', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---race-31871' },
+      ]
+    }]
+  }] });
   await page.waitForTimeout(1000);
   await tab(page, 'Other');
   await page.waitForTimeout(400);
-  for (const label of ['DAZN', 'Viaplay']) {
+  for (const label of ['DAZN (PPV)', 'Viaplay (PPV)']) {
     await clickChipExact(page, label);
     await page.waitForTimeout(2600);
   }
@@ -508,12 +522,12 @@ if (false) {
 {
   /* What the relay returns while the race is on: practice 3 still listed as online, plus the race. */
   const { page, feeds, errors } = await openPage({ taifoodChannels: [
-    { id: '1', name: 'Apple TV', lang: '', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---practice-3-31385' },
-    { id: '2', name: 'Apple TV (F1TV)', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31407' },
-    { id: '3', name: 'Apple TV (F1TV)', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31407_540p' },
+    { id: '1', name: 'Apple TV', lang: '', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---practice-1-31865' },
+    { id: '2', name: 'Apple TV (F1TV)', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31865' },
+    { id: '3', name: 'Apple TV (F1TV)', lang: 'english', status: 'online', uri: 'https://taifood-blog.asia/embed/mexico-city-grand-prix---race-31865_540p' },
   ] });
   await page.waitForTimeout(1800);
-  await clickChipExact(page, 'AppleTV');
+  await clickChipExact(page, 'AppleTV (PPV)');
   await page.waitForTimeout(3000);
   const asked = feeds.filter((u) => /taifood/.test(u));
   check('Apple TV opens an address, not a black frame', asked.length > 0, 'nothing requested');
@@ -628,7 +642,7 @@ if (false) {
      German or the English one. */
   await tab(page, 'Other');
   await page.waitForTimeout(400);
-  await clickChipExact(page, 'Sky Sport Italia');
+  await clickChipExact(page, 'Sky Sport Italia (PPV)');
   await page.waitForTimeout(2600);
   const italia = (await frameSrc(page)).split('/embed/')[1] || '';
   /* The provider's address that names a language must be the chip's own. The '/f1/2026/…' row names
@@ -640,17 +654,17 @@ if (false) {
   check('Sky Sport Italia is never handed the German row', !/-31410$/.test(italia), italia);
   check('Sky Sport Italia is never handed the English row', !/-31408$/.test(italia), italia);
 
-  await clickChipExact(page, 'Sky Sport F1 DE');
+  await clickChipExact(page, 'Sky Sport F1 DE (PPV)');
   await page.waitForTimeout(2600);
   const de = (await frameSrc(page)).split('/embed/')[1] || '';
   check('Sky Sport F1 DE is never handed the Italian or English row', !/-31411$/.test(de) && !/-31408$/.test(de), de || '(none)');
 
   await tab(page, 'English');
   await page.waitForTimeout(400);
-  await clickChipExact(page, 'AppleTV');
+  await clickChipExact(page, 'AppleTV (PPV)');
   await page.waitForTimeout(2600);
   const apple = (await frameSrc(page)).split('/embed/')[1] || '';
-  check('AppleTV leads with the English row, not the untagged main feed', /-31407$/.test(apple), apple || '(none)');
+  check('AppleTV leads with the English row, not the untagged main feed', /-31865$/.test(apple) || /-31407$/.test(apple), apple || '(none)');
 
   /* The PPV chip must never open a wrong-sport stream. The feed below is what api.ppv.st publishes:
      American Football first (NFL Network), an F1 row after it. */
@@ -668,7 +682,7 @@ if (false) {
   await tab(page, 'Other');
   await page.waitForTimeout(400);
   const other = await chipLabels(page);
-  check('the two new languages are in Other', ['Eleven Sports PL', 'Nova Sport CZ'].every((l) => other.includes(l)), other.join(' | '));
+  check('the two new languages are in Other', ['Eleven Sports PL (PPV)', 'Nova Sport CZ (PPV)'].every((l) => other.includes(l)), other.join(' | '));
   check('no page errors in the source-change pass', errors.length === 0, errors.join(' | '));
   await page.close();
 }

@@ -13,7 +13,7 @@ import { $ } from './services/dom';
 import { schedule, type RaceEvent, type Session } from './data/schedule';
 import { mapPool } from './services/pool';
 import type { Catalogues } from './features/catalogues';
-import { staleSession } from './features/session-guard';
+import { staleSession, canonicalSessionSlug } from './features/session-guard';
 /* ═══════════════════════════════════════════════════════════════════════════
    FreeF1 - Formula 1 Live Companion
    Client Application Logic
@@ -417,10 +417,11 @@ function taifoodPublishesId(url, catalogue: Record<string, TaifoodChannel[]>): b
 }
 
 function taifoodUsable(url: string, source: StreamSource): boolean {
+  if (/540p/i.test(url)) return false;
   if (!/taifood-blog\.asia\/embed\//.test(url)) return true;
   if (!cataloguesReady) return true;     // before the list answers, judge nothing
   const list = catalogues.taifood || {};
-  // The PPV chip's own address comes from the PPV feed, not from the taifood channel list.
+  // The PPV chip's own address comes from the PPV feed, not from the substream channel list.
   if (source.id === 'ppv') return true;
   return taifoodPublishesId(url, list);
 }
@@ -482,7 +483,7 @@ const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
 
 /* ═══ Provider catalogues ═══
    embdlol ids rotate and cdnlivetv publishes status, so both come from the lazy catalogue chunk. */
-let catalogues: Catalogues = { embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {}, taifood: {}, weeloEvents: {}, ppv: '' };
+let catalogues: Catalogues = { embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {}, taifood: {}, weeloEvents: {}, ppv: '', ppvSessions: {} };
 /* Until the catalogue has answered once, an EMB chip has NO pool. Treating "not loaded yet" as
    "nothing upstream" is what made every EMB chip look dead on a cold click. */
 let cataloguesReady = false;
@@ -611,40 +612,44 @@ const sources: StreamSource[] = [
       { provider: 'hakunamatata', url: "https://hakunamatata5.org/hakunamatata5.html" }
   ]},
 
-  /* taifood: the event and session are in the path. 31377 is the only id flagged 720p-safe. */
-  /* Ids are the RACE block of the round taifood published when this was written (31407–31415): the
-     race row first, then the practice/sprint ids as the parachute. They rotate every session, so
-     they are only ever a fallback — the live catalogue leads the pool and decides what exists. */
-  { id: "appletv", label: "AppleTV", taifood: "apple", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31407 },
-      { provider: 'taifood', taid: 31385 }
+  /* PPV streams built from https://api.ppv.st/api/streams (main HD feed + non-540p substreams).
+     Fallback ids rotate per session, so the live PPV catalogue leads the pool and decides what exists;
+     every 540p / SD variant is excluded. */
+  { id: "ppv", label: "Sky Sports (PPV)", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, ppv: true }
   ]},
-  { id: "dazn", tfLang: "spanish", label: "DAZN", taifood: "dazn", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31409 },
-      { provider: 'taifood', taid: 31387 }
+  { id: "appletv", label: "AppleTV (PPV)", taifood: "apple", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31865 },
+      { provider: 'ppv', quality: 1080, taid: 31854 }
   ]},
-  { id: "viaplay", tfLang: "dutch", label: "Viaplay", taifood: "viaplay", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31413 },
-      { provider: 'taifood', taid: 31391 }
+  { id: "dazn", tfLang: "spanish", label: "DAZN (PPV)", taifood: "dazn", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31867 },
+      { provider: 'ppv', quality: 1080, taid: 31856 }
   ]},
-  { id: "sky-italia", tfLang: "italian", label: "Sky Sport Italia", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31411 },
-      { provider: 'taifood', taid: 31389 }
+  { id: "viaplay", tfLang: "dutch", label: "Viaplay (PPV)", taifood: "viaplay", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31871 },
+      { provider: 'ppv', quality: 1080, taid: 31860 }
   ]},
-  { id: "sky-de", tfLang: "german", label: "Sky Sport F1 DE", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31410 },
-      { provider: 'taifood', taid: 31388 }
+  { id: "sky-italia", tfLang: "italian", label: "Sky Sport Italia (PPV)", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31869 },
+      { provider: 'ppv', quality: 1080, taid: 31858 }
   ]},
-  { id: "v-sport", tfLang: "swedish", label: "V Sport Motor SE", taifood: "v", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31412 },
-      { provider: 'taifood', taid: 31390 }
+  { id: "sky-de", tfLang: "german", label: "Sky Sport F1 DE (PPV)", taifood: "sky", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31868 },
+      { provider: 'ppv', quality: 1080, taid: 31857 }
   ]},
-  /* The two languages neither of the reference sites' lists had: Polish (Eleven) and Czech (Nova). */
-  { id: "eleven", tfLang: "polish", label: "Eleven Sports PL", taifood: "eleven", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31415 }
+  { id: "v-sport", tfLang: "swedish", label: "V Sport Motor SE (PPV)", taifood: "v", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31870 },
+      { provider: 'ppv', quality: 1080, taid: 31859 }
   ]},
-  { id: "nova", tfLang: "czech", label: "Nova Sport CZ", taifood: "nova", lang: "other", rp: "unsafe-url", links: [
-      { provider: 'taifood', taid: 31414 }
+  /* Polish (Eleven) and Czech (Nova) PPV substreams. */
+  { id: "eleven", tfLang: "polish", label: "Eleven Sports PL (PPV)", taifood: "eleven", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31873 },
+      { provider: 'ppv', quality: 1080, taid: 31862 }
+  ]},
+  { id: "nova", tfLang: "czech", label: "Nova Sport CZ (PPV)", taifood: "nova", lang: "other", rp: "unsafe-url", links: [
+      { provider: 'ppv', quality: 1080, taid: 31872 },
+      { provider: 'ppv', quality: 1080, taid: 31861 }
   ]},
 
   /* Three entry points, one upstream channel (/hls/stream.m3u8?ch=spn). Failover only. */
@@ -656,11 +661,6 @@ const sources: StreamSource[] = [
 
   { id: "westream", label: "WeStream F1", links: [
       { provider: 'westream', url: "https://westreamf1.com/westreamf1.php" }
-  ]},
-
-  /* Path-scheme taifood: /embed/f1/<season>/<event>/<session> */
-  { id: "ppv", label: "F1 PPV", rp: "unsafe-url", links: [
-      { provider: 'taifood', ppv: true }
   ]}
 ];
 
@@ -929,8 +929,9 @@ function linkPool(index: number): string[] {
         .sort((a, b) => a.rank - b.rank)
         .map((entry) => entry.uri)
     : [];
-  /* The PPV chip's address comes from their own API for the race they are serving right now. */
-  if (source.id === 'ppv' && catalogues.ppv) live.unshift(catalogues.ppv);
+  /* The main Sky Sports (PPV) chip resolves the session-matched HD stream from api.ppv.st/api/streams. */
+  const ppvSessionUri = catalogues.ppvSessions?.[canonicalSessionSlug(currentSession?.slug)] || catalogues.ppv;
+  if (source.id === 'ppv' && ppvSessionUri) live.unshift(ppvSessionUri);
   const pool = links.filter((link) => link.addressing !== 'dynamic')
     .flatMap((link) => (link.taid ? taidCandidates(link.taid) : [resolveLink(link, key)]))
     .filter((url) => Boolean(url) && taifoodUsable(url, source));

@@ -43,11 +43,14 @@ export interface Catalogues {
   weeloEvents: Record<string, { label: string; lang: string; live: boolean }>;
   /* PPV's current F1 address (the taifood path form), or '' when it lists none. */
   ppv: string;
+  /* Session-indexed PPV main F1 addresses ('fp1' | 'fp2' | 'fp3' | 'qualifying' | 'sprint-qualifying' | 'sprint' | 'race' -> uri). */
+  ppvSessions?: Record<string, string>;
   /* Live & upcoming F1 channel links resolved directly from weellz.live's feeds. */
   weellz?: WeellzCatalogue;
 }
 
-export { staleSession } from './session-guard';
+import { canonicalSessionSlug } from './session-guard';
+export { staleSession, canonicalSessionSlug } from './session-guard';
 
 export const EMBDLOL_STRUCT = 'https://api.embdlol.st/struct';
 export const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
@@ -97,7 +100,7 @@ const WEELO_EVENTS = 'https://weelo.live/feed/events.json';
 const PPV_STREAMS = 'https://api.ppv.st/api/streams';
 
 const emptyWeellz = (): WeellzCatalogue => ({ fetchedAt: 0, anyLive: false, slots: {}, onboards: [], byStream: {} });
-const empty = (): Catalogues => ({ embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {}, taifood: {}, weeloEvents: {}, ppv: '', weellz: emptyWeellz() });
+const empty = (): Catalogues => ({ embdlol: {}, cdnlive: {}, mirrors: {}, weelo: {}, taifood: {}, weeloEvents: {}, ppv: '', ppvSessions: {}, weellz: emptyWeellz() });
 
 let cached: Catalogues = empty();
 let loadedAt = 0;
@@ -186,10 +189,72 @@ async function fetchWeelo(deps: CatalogueDeps): Promise<Record<string, string>> 
   return next;
 }
 
-/* 'Apple TV (F1TV) [English]' → key 'apple'. The first plain word of the broadcaster name is the
+const PPV_LOCALE_MAP: Record<string, string> = {
+  en: 'english',
+  'en-gb': 'english',
+  'en-us': 'english',
+  'en-au': 'english',
+  'en-ca': 'english',
+  english: 'english',
+  es: 'spanish',
+  'es-es': 'spanish',
+  'es-mx': 'spanish',
+  spanish: 'spanish',
+  nl: 'dutch',
+  'nl-nl': 'dutch',
+  dutch: 'dutch',
+  de: 'german',
+  'de-de': 'german',
+  'de-at': 'german',
+  german: 'german',
+  it: 'italian',
+  'it-it': 'italian',
+  italian: 'italian',
+  sv: 'swedish',
+  'sv-se': 'swedish',
+  swedish: 'swedish',
+  cs: 'czech',
+  'cs-cz': 'czech',
+  cz: 'czech',
+  czech: 'czech',
+  pl: 'polish',
+  'pl-pl': 'polish',
+  polish: 'polish',
+};
+
+export function normalizePpvLang(raw: unknown): string {
+  const clean = String(raw || '').trim().toLowerCase();
+  if (!clean) return '';
+  if (PPV_LOCALE_MAP[clean]) return PPV_LOCALE_MAP[clean];
+  const base = clean.split(/[-_]/)[0] || '';
+  return PPV_LOCALE_MAP[base] || clean;
+}
+
+export function cleanPpvBroadcasterName(raw: unknown): string {
+  return String(raw || '')
+    .replace(/^\s*(?:HD|FHD|UHD|4K|SD|1080p|720p|540p)\s*\|\s*/i, '')
+    .replace(/^\s*\[embed\]\s*/i, '')
+    .replace(/\s*\[[^\]]*\]\s*$/g, '')
+    .trim();
+}
+
+export function isPpv540p(item: Record<string, unknown> | null | undefined): boolean {
+  if (!item) return true;
+  const uri = String(item.iframe ?? item.uri ?? '');
+  const uriName = String(item.uri_name ?? '');
+  const sourceTag = String(item.source_tag ?? item.title ?? '');
+  const name = String(item.name ?? '');
+  const quality = Number(item.quality);
+  if (Number.isFinite(quality) && quality > 0 && quality < 720) return true;
+  if (/540p/i.test(uri) || /540p/i.test(uriName)) return true;
+  if (/\b540p\b|^\s*SD\s*\|/i.test(sourceTag) || /\b540p\b|^\s*SD\s*\|/i.test(name)) return true;
+  return false;
+}
+
+/* 'HD | Apple TV (F1TV) [English]' → key 'apple'. The first plain word of the broadcaster name is the
    key our chips use, which is how a chip finds its own entry without hard-coding an id. */
 export function taifoodKey(name: unknown): string {
-  const first = String(name || '').replace(/\(.*?\)/g, ' ').trim().toLowerCase().split(/\s+/)[0];
+  const first = cleanPpvBroadcasterName(name).replace(/\(.*?\)/g, ' ').trim().toLowerCase().split(/\s+/)[0] || '';
   return /^[a-z]+$/.test(first) ? first : '';
 }
 
@@ -199,11 +264,14 @@ async function fetchTaifood(deps: CatalogueDeps): Promise<Record<string, Taifood
   const json = await response.json();
   const out: Record<string, TaifoodChannel[]> = {};
   for (const entry of Array.isArray(json?.channels) ? json.channels : []) {
-    const key = taifoodKey(entry?.name);
-    const uri = String(entry?.uri || '');
+    if (!entry || typeof entry !== 'object' || isPpv540p(entry as Record<string, unknown>)) continue;
+    const cleanName = cleanPpvBroadcasterName(entry?.name || entry?.source_tag);
+    const key = taifoodKey(cleanName);
+    const uri = String(entry?.uri || entry?.iframe || '');
     /* Same host and shape as our own candidates, and never the 540p variant (below the floor). */
-    if (!key || !/^https:\/\/taifood-blog\.asia\/embed\//.test(uri) || /540p/.test(uri)) continue;
-    (out[key] ||= []).push({ id: String(entry.id || ''), name: entry.name, lang: String(entry.lang || ''), uri, status: String(entry.status || '') });
+    if (!key || !/^https:\/\/taifood-blog\.asia\/embed\//.test(uri)) continue;
+    const lang = normalizePpvLang(entry?.lang ?? entry?.locale);
+    (out[key] ||= []).push({ id: String(entry.id || ''), name: cleanName, lang, uri, status: String(entry.status || 'online') });
   }
   /* Live addresses first, but an offline one is kept: a source is never dropped for being dead. */
   for (const list of Object.values(out)) list.sort((a, b) => Number(b.status === 'online') - Number(a.status === 'online'));
@@ -487,33 +555,146 @@ async function fetchWeellz(deps: CatalogueDeps): Promise<{
   return { weellz, weeloEvents };
 }
 
-/* PPV's current F1 address, which is the path-form taifood link. One motorsport entry at a time. */
-/* PPV publishes every sport it carries — 36 American football channels, 151 football, NBA, cricket,
-   golf, rugby, wrestling — and they all point at taifood, so "the first taifood embed" was
-   nfl-network. The F1 address is the one whose venue/session is in the path, or whose title mentions
-   F1/Formula 1; nothing else is acceptable for this chip. */
+/* PPV's F1 feed builder from https://api.ppv.st/api/streams.
+   PPV publishes every sport it carries — American football, football, NBA, cricket, golf, rugby,
+   wrestling — and every Formula 1 session carries both a main HD stream (Sky Sports F1) and a
+   substreams[] array across broadcasters (Apple TV, DAZN, Sky DE, Sky Italia, V Sport, Viaplay,
+   Nova Sport, Eleven Sports) in both HD and SD (_540p). We match Formula 1 events strictly and
+   drop every 540p / SD variant so only >=720p PPV streams ever reach a chip. */
 const PPV_F1_PATTERNS = [
   /formula[\s-]?1|\bf1\b|grand\s?prix/i,        // title or tag says F1
   /\/embed\/f1\//i,                             // the path form: /embed/f1/2026/<event>/<session>
   /---(?:race|qualifying|sprint|practice)[-\w]*/i // the session form: <event>---<session>-<id>
 ];
+const PPV_NON_F1_SERIES = /\b(?:moto\s*gp|moto\s*[23]|formula\s*[23e]\b|f[23]\s+championship|indycar|nascar|supercars|wrc|wec)\b/i;
 
-async function fetchPpv(deps: CatalogueDeps): Promise<string> {
+function extractPpvSessionSlug(stream: Record<string, unknown>): string {
+  const uriName = String(stream.uri_name || stream.iframe || '');
+  const pathMatch = uriName.replace(/_\d+p$/i, '').match(/(?:^|\/embed\/)f1\/\d+\/[^/]+\/([^/?#]+)/i);
+  if (pathMatch) return canonicalSessionSlug(pathMatch[1]);
+  const dashMatch = uriName.replace(/_\d+p$/i, '').match(/---(.+)-(\d+)$/);
+  if (dashMatch) return canonicalSessionSlug(dashMatch[1]);
+  const name = String(stream.name || '');
+  const parts = name.split(/\s+-\s+/);
+  if (parts.length > 1) return canonicalSessionSlug(parts[parts.length - 1]);
+  return '';
+}
+
+function scorePpvEventWindow(stream: Record<string, unknown>, nowSec: number): [number, number] {
+  const startsAt = Number(stream.starts_at) || 0;
+  const endsAt = Number(stream.ends_at) || 0;
+  if (!startsAt && !endsAt) return [1, 0];
+  /* Live / imminent window (30 min before start through 30 min after scheduled end) ranks first. */
+  if (startsAt - 1800 <= nowSec && (endsAt ? nowSec <= endsAt + 1800 : nowSec <= startsAt + 10800)) {
+    return [0, startsAt];
+  }
+  if (startsAt > nowSec) return [1, startsAt];
+  return [2, -(endsAt || startsAt)];
+}
+
+export interface ParsedPpvPack {
+  taifood: Record<string, TaifoodChannel[]>;
+  ppv: string;
+  ppvSessions: Record<string, string>;
+}
+
+export function parsePpvStreams(json: unknown, nowMs = Date.now()): ParsedPpvPack {
+  const taifood: Record<string, TaifoodChannel[]> = {};
+  const ppvSessions: Record<string, string> = {};
+  let ppv = '';
+  const seenByBucket: Record<string, Set<string>> = {};
+  const rawGroups = Array.isArray((json as { streams?: unknown })?.streams)
+    ? ((json as { streams: Record<string, unknown>[] }).streams)
+    : [];
+  const f1Events: Record<string, unknown>[] = [];
+
+  for (const group of rawGroups) {
+    const entries = Array.isArray(group?.streams)
+      ? (group.streams as Record<string, unknown>[])
+      : (group && typeof group === 'object' ? [group] : []);
+    for (const stream of entries) {
+      if (!stream || typeof stream !== 'object') continue;
+      const uri = String(stream.iframe || stream.uri || '');
+      const tagAndTitle = `${stream.tag || ''} ${stream.name || ''}`;
+      if (!/formula[\s-]?1|\bf1\b/i.test(String(stream.tag || '')) && PPV_NON_F1_SERIES.test(tagAndTitle)) continue;
+      const haystack = [stream.name, stream.tag, stream.source_tag, stream.category_name, stream.uri_name, uri].join(' ');
+      if (!PPV_F1_PATTERNS.some((pattern) => pattern.test(haystack))) continue;
+      f1Events.push(stream);
+    }
+  }
+
+  const nowSec = Math.floor(nowMs / 1000);
+  f1Events.sort((a, b) => {
+    const [rankA, tieA] = scorePpvEventWindow(a, nowSec);
+    const [rankB, tieB] = scorePpvEventWindow(b, nowSec);
+    return rankA !== rankB ? rankA - rankB : tieA - tieB;
+  });
+
+  const pushChannel = (item: Record<string, unknown>) => {
+    if (isPpv540p(item)) return;
+    const uri = String(item.iframe ?? item.uri ?? '').trim();
+    if (!/^https:\/\/taifood-blog\.asia\/embed\//i.test(uri)) return;
+    /* Path-form embeds (/embed/f1/...) belong to the main Sky Sports (PPV) chip, never substream buckets. */
+    if (/\/embed\/f1\//i.test(uri)) return;
+    const labelSource = item.source_tag || item.title || item.name;
+    const cleanName = cleanPpvBroadcasterName(labelSource);
+    const key = taifoodKey(cleanName);
+    if (!key) return;
+    const seen = (seenByBucket[key] ||= new Set<string>());
+    if (seen.has(uri)) return;
+    seen.add(uri);
+    const lang = normalizePpvLang(item.locale ?? item.lang);
+    (taifood[key] ||= []).push({
+      id: String(item.id || ''),
+      name: cleanName,
+      lang,
+      uri,
+      status: 'online',
+    });
+  };
+
+  for (const event of f1Events) {
+    const mainUri = String(event.iframe ?? event.uri ?? '').trim();
+    const sessionSlug = extractPpvSessionSlug(event);
+    if (!isPpv540p(event) && /^https:\/\/taifood-blog\.asia\/embed\//i.test(mainUri)) {
+      if (!ppv) ppv = mainUri;
+      if (sessionSlug && !ppvSessions[sessionSlug]) ppvSessions[sessionSlug] = mainUri;
+      pushChannel(event);
+    }
+    const substreams = Array.isArray(event.substreams) ? (event.substreams as Record<string, unknown>[]) : [];
+    for (const sub of substreams) {
+      if (!sub || typeof sub !== 'object') continue;
+      pushChannel(sub);
+    }
+  }
+
+  return { taifood, ppv, ppvSessions };
+}
+
+function mergeTaifoodCatalogues(
+  primary: Record<string, TaifoodChannel[]>,
+  fallback: Record<string, TaifoodChannel[]>,
+): Record<string, TaifoodChannel[]> {
+  const out: Record<string, TaifoodChannel[]> = {};
+  const keys = new Set([...Object.keys(primary || {}), ...Object.keys(fallback || {})]);
+  for (const key of keys) {
+    const merged: TaifoodChannel[] = [];
+    const seen = new Set<string>();
+    for (const item of [...(primary[key] || []), ...(fallback[key] || [])]) {
+      if (!item?.uri || /540p/i.test(item.uri) || seen.has(item.uri)) continue;
+      seen.add(item.uri);
+      merged.push(item);
+    }
+    if (merged.length) out[key] = merged;
+  }
+  return out;
+}
+
+async function fetchPpv(deps: CatalogueDeps): Promise<ParsedPpvPack> {
   const response = await deps.fetchWithTimeout(PPV_STREAMS, { cache: 'no-store', headers: { Accept: 'application/json' } }, 5000);
   if (!response.ok) throw new Error(`ppv ${response.status}`);
   const json = await response.json();
-  const candidates: { uri: string; haystack: string }[] = [];
-  for (const group of Array.isArray(json?.streams) ? json.streams : []) {
-    for (const stream of Array.isArray(group?.streams) ? group.streams : []) {
-      const uri = String(stream?.iframe || '');
-      if (!/taifood-blog\.asia\/embed\//.test(uri)) continue;
-      /* Everything a stream says about itself, so a mislabelled category cannot hide an F1 row. */
-      const haystack = [stream?.name, stream?.tag, stream?.source_tag, stream?.category_name, stream?.uri_name, uri].join(' ');
-      candidates.push({ uri, haystack });
-    }
-  }
-  const hit = candidates.find((entry) => PPV_F1_PATTERNS.some((pattern) => pattern.test(entry.haystack)));
-  return hit ? hit.uri : '';
+  return parsePpvStreams(json);
 }
 
 /* Refresh ONLY weellz.live channel links & weelo status map (called every 3 minutes from Cockpit).
@@ -546,15 +727,17 @@ export async function loadCatalogues(deps: CatalogueDeps, force = false): Promis
   if (!force && loadedAt && Date.now() - loadedAt < TTL_MS) return cached;
   if (inFlight) return inFlight;
   inFlight = (async () => {
-    const [embdlol, cdnlive, mirrors, weelo, taifood, weellzPack, ppv] = await Promise.all([
+    const [embdlol, cdnlive, mirrors, weelo, relayTaifood, weellzPack, ppvPack] = await Promise.all([
       fetchEmbdlol(deps).catch(() => cached.embdlol),
       fetchCdnLive(deps).catch(() => cached.cdnlive),
       fetchMirrors(deps).catch(() => cached.mirrors),
       fetchWeelo(deps).catch(() => cached.weelo),
-      fetchTaifood(deps).catch(() => cached.taifood),
+      fetchTaifood(deps).catch(() => ({} as Record<string, TaifoodChannel[]>)),
       fetchWeellz(deps).catch(() => ({ weellz: cached.weellz || emptyWeellz(), weeloEvents: cached.weeloEvents })),
-      fetchPpv(deps).catch(() => cached.ppv),
+      fetchPpv(deps).catch(() => ({ taifood: {}, ppv: cached.ppv, ppvSessions: cached.ppvSessions || {} })),
     ]);
+    const mergedTaifood = mergeTaifoodCatalogues(ppvPack.taifood, relayTaifood);
+    const taifood = Object.keys(mergedTaifood).length ? mergedTaifood : cached.taifood;
     cached = {
       embdlol,
       cdnlive,
@@ -562,7 +745,8 @@ export async function loadCatalogues(deps: CatalogueDeps, force = false): Promis
       weelo,
       taifood,
       weeloEvents: weellzPack.weeloEvents,
-      ppv,
+      ppv: ppvPack.ppv || cached.ppv,
+      ppvSessions: Object.keys(ppvPack.ppvSessions).length ? ppvPack.ppvSessions : (cached.ppvSessions || {}),
       weellz: weellzPack.weellz,
     };
     loadedAt = Date.now();

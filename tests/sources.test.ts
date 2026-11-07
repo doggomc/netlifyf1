@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { parsePpvStreams, isPpv540p, normalizePpvLang } from '../src/features/catalogues';
 
 /* The source list lives in src/app.ts as a typed literal. Rather than duplicate it, these tests
    read the declaration and assert the invariants that matter, so a careless edit fails CI. */
@@ -67,8 +68,101 @@ describe('stream source link pools', () => {
     expect(block).toContain("'Viaplay Sports 2 FHD UK'");
   });
 
-  it('keeps the 540p taifood tier out of the list', () => {
+  it('keeps the 540p PPV tier out of the list and labels PPV sources as (PPV)', () => {
     expect(block).not.toContain('_540p');
+    expect(block).not.toMatch(/provider:\s*'taifood'/);
+    for (const expectedLabel of [
+      'Sky Sports (PPV)',
+      'AppleTV (PPV)',
+      'DAZN (PPV)',
+      'Viaplay (PPV)',
+      'Sky Sport Italia (PPV)',
+      'Sky Sport F1 DE (PPV)',
+      'V Sport Motor SE (PPV)',
+      'Eleven Sports PL (PPV)',
+      'Nova Sport CZ (PPV)',
+    ]) {
+      expect(block).toContain(`label: "${expectedLabel}"`);
+    }
+  });
+
+  it('builds PPV streams from api.ppv.st/api/streams with zero 540p variants', () => {
+    const sample = {
+      success: true,
+      streams: [
+        {
+          id: 1,
+          category: 'American Football',
+          streams: [
+            { id: 10, name: 'NFL Network', tag: 'NFL', source_tag: 'HD | NFL', iframe: 'https://taifood-blog.asia/embed/nfl-network' },
+          ],
+        },
+        {
+          id: 35,
+          category: 'Motorsports',
+          streams: [
+            {
+              id: 20,
+              name: 'Valencia Grand Prix - Race',
+              tag: 'MotoGP',
+              source_tag: 'HD | TNT Sports',
+              iframe: 'https://taifood-blog.asia/embed/valencia-motogp---race-99999',
+            },
+            {
+              id: 31852,
+              name: 'São Paulo Grand Prix - Qualifying',
+              tag: 'Formula 1',
+              source_tag: 'HD | Sky Sports F1',
+              uri_name: 'f1/2026/brazil/qualifying',
+              starts_at: 1794074400,
+              ends_at: 1794081600,
+              locale: 'en-gb',
+              iframe: 'https://taifood-blog.asia/embed/f1/2026/brazil/qualifying',
+              substreams: [
+                { id: 1031852, source_tag: 'SD | Sky Sports F1', locale: 'en-gb', iframe: 'https://taifood-blog.asia/embed/f1/2026/brazil/qualifying_540p' },
+                { id: 31854, source_tag: 'HD | Apple TV (F1TV)', locale: 'en-us', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31854' },
+                { id: 1031854, source_tag: 'SD | Apple TV (F1TV)', locale: 'en-us', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31854_540p' },
+                { id: 31856, source_tag: 'HD | DAZN F1', locale: 'es', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31856' },
+                { id: 1031856, source_tag: 'SD | DAZN F1', locale: 'es', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31856_540p' },
+                { id: 31857, source_tag: 'HD | Sky Sport F1', locale: 'de', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31857' },
+                { id: 31858, source_tag: 'HD | Sky Sport F1', locale: 'it', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31858' },
+                { id: 31859, source_tag: 'HD | V Sport Motor', locale: 'sv', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31859' },
+                { id: 31860, source_tag: 'HD | Viaplay', locale: 'nl', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31860' },
+                { id: 31861, source_tag: 'HD | Nova Sport 5', locale: 'cs', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31861' },
+                { id: 31862, source_tag: 'HD | Eleven Sports 1', locale: 'pl', iframe: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31862' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const parsed = parsePpvStreams(sample, 1794075000 * 1000);
+    expect(parsed.ppv).toBe('https://taifood-blog.asia/embed/f1/2026/brazil/qualifying');
+    expect(parsed.ppvSessions.qualifying).toBe('https://taifood-blog.asia/embed/f1/2026/brazil/qualifying');
+
+    const allUris = Object.values(parsed.taifood).flat().map((entry) => entry.uri);
+    expect(allUris.some((u) => /540p/i.test(u))).toBe(false);
+    expect(allUris.some((u) => /nfl|motogp/i.test(u))).toBe(false);
+    expect(parsed.taifood.apple?.[0]).toMatchObject({
+      lang: 'english',
+      uri: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31854',
+    });
+    expect(parsed.taifood.dazn?.[0]).toMatchObject({
+      lang: 'spanish',
+      uri: 'https://taifood-blog.asia/embed/so-paulo-grand-prix---qualifying-31856',
+    });
+    expect(parsed.taifood.viaplay?.[0]?.lang).toBe('dutch');
+    expect(parsed.taifood.sky?.map((s) => s.lang).sort()).toEqual(['german', 'italian']);
+    expect(parsed.taifood.v?.[0]?.lang).toBe('swedish');
+    expect(parsed.taifood.nova?.[0]?.lang).toBe('czech');
+    expect(parsed.taifood.eleven?.[0]?.lang).toBe('polish');
+
+    expect(isPpv540p({ source_tag: 'SD | Apple TV (F1TV)', iframe: 'https://taifood-blog.asia/embed/foo' })).toBe(true);
+    expect(isPpv540p({ source_tag: 'HD | Apple TV (F1TV)', iframe: 'https://taifood-blog.asia/embed/foo_540p' })).toBe(true);
+    expect(isPpv540p({ source_tag: 'HD | Apple TV (F1TV)', iframe: 'https://taifood-blog.asia/embed/foo-31854' })).toBe(false);
+    expect(normalizePpvLang('en-gb')).toBe('english');
+    expect(normalizePpvLang('cs')).toBe('czech');
   });
 
   it('resolves no embdlol UUIDs into the bundle', () => {

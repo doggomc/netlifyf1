@@ -19,7 +19,7 @@ async function targets() {
   for (const key of Object.keys(chips)) {
     const chip = chips[key];
     const candidate = chip.wouldUse || chip.current || (chip.addresses?.[0]?.url ?? '');
-    if (!candidate || /^taifood id /.test(candidate)) continue;
+    if (!candidate || /^(?:taifood|ppv) id /.test(candidate)) continue;
     if (only && !chip.id.toLowerCase().includes(only)) continue;
     out.push({ id: chip.id, url: candidate, state: chip.state || '', online: chip.online });
   }
