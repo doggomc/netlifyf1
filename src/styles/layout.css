@@ -32,6 +32,9 @@
   --shadow-raised: 0 1px 0 rgba(255,255,255,.04) inset, 0 18px 40px -24px rgba(0,0,0,.9);
   --font-body: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Archivo', 'Inter', ui-sans-serif, sans-serif;
+  /* Zen Dots: the reference's face for a driver's racing number, which is the
+     only thing on the site that uses it. Static 400, so weight is never faked. */
+  --font-number: 'Zen Dots', 'Archivo', 'Inter', ui-sans-serif, sans-serif;
   --nav-h: 64px;
   /* Every full-width band uses this: the header, the page frame, the footer.
      Wide enough that text never touches the screen edge, capped so the reading
@@ -679,9 +682,9 @@ body.is-leaving { animation: pageOut .18s var(--ease) both; pointer-events: none
 }
 .driver-card:hover .driver-portrait img { transform: scale(1.03); }
 .driver-plate {
-  position: absolute; top: 10px; right: 14px; z-index: 1;
-  font-family: var(--font-display); font-size: 2.6rem; line-height: 1;
-  font-weight: 700; letter-spacing: -.04em;
+  position: absolute; top: 14px; right: 16px; z-index: 1;
+  font-family: var(--font-number); font-size: 2.15rem; line-height: 1;
+  font-weight: 400; letter-spacing: 0;
   color: rgba(255,255,255,.13);
   font-variant-numeric: tabular-nums;
 }
@@ -812,9 +815,9 @@ a.who:hover b { text-decoration: underline; text-underline-offset: 2px; }
 .dp-first { display: block; font-size: clamp(1.6rem, 4vw, 2.25rem); font-weight: 600; color: var(--fg-2); }
 .dp-last { display: block; font-size: clamp(2.6rem, 8vw, 4.5rem); font-weight: 650; color: var(--white); letter-spacing: -.025em; }
 .dp-number {
-  margin-top: 10px; font-family: var(--font-display); font-weight: 700;
-  font-size: clamp(2.6rem, 7vw, 4rem); line-height: 1;
-  color: var(--team); letter-spacing: -.04em;
+  margin-top: 12px; font-family: var(--font-number); font-weight: 400;
+  font-size: clamp(2.4rem, 6.4vw, 3.6rem); line-height: 1;
+  color: var(--team); letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
 

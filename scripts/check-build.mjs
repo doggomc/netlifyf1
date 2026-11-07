@@ -83,6 +83,9 @@ for (const driver of grid) {
   assert(html.includes(`drivers/${slugify(`${driver.givenName} ${driver.familyName}`)}/`), `${file} has the wrong canonical`);
 }
 assert(existsSync('dist/assets/flags/it-40.png'), 'flags are self-hosted; assets/flags is missing from dist');
+/* The racing number falls back to Archivo without a word if this file is absent. */
+assert(existsSync('dist/assets/fonts/ZenDots-latin.woff2'), 'the Zen Dots face for racing numbers is missing from dist');
+assert(readFileSync('dist/fonts.css', 'utf8').includes("font-family: 'Zen Dots'"), 'fonts.css no longer declares Zen Dots');
 for (const page of PAGES) {
   const html = readFileSync(`dist/${page}`, 'utf8');
   assert(!html.includes('/src/'), `Unbuilt source reference in ${page}`);
