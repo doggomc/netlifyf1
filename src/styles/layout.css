@@ -950,42 +950,55 @@ a.dp-battle-side:hover .dp-battle-name { color: var(--white); }
 @media (min-width: 900px) { .st-leaders { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .st-leader {
-  position: relative; display: flex; align-items: flex-end; gap: 20px;
-  overflow: hidden; padding: 22px 22px 22px 20px; min-height: 176px;
-  background:
-    radial-gradient(110% 100% at 100% 100%, color-mix(in srgb, var(--team) 26%, transparent), transparent 62%),
-    var(--card);
+  position: relative; display: flex; overflow: hidden;
   transition: transform .2s var(--ease), border-color .2s var(--ease);
 }
 .st-leader:hover { transform: translateY(-2px); border-color: var(--line-2); }
+.st-leader-driver {
+  align-items: flex-end; gap: 20px; padding: 20px 20px 0;
+  background:
+    radial-gradient(110% 100% at 100% 100%, color-mix(in srgb, var(--team) 27%, transparent), transparent 60%),
+    var(--card);
+}
 .st-leader-portrait {
-  position: relative; width: 118px; flex: none; overflow: hidden; align-self: stretch;
-  margin: -20px 0 -20px -20px;
+  position: relative; width: 128px; height: 192px; flex: none; overflow: hidden;
 }
-@media (min-width: 640px) { .st-leader-portrait { width: 150px; margin: -22px 0 -22px -22px; } }
 .st-leader-portrait img { position: absolute; inset-inline: 0; top: 0; width: 100%; height: auto; }
-.st-leader-body { min-width: 0; padding-block: 2px; align-self: center; }
+.st-leader-body { min-width: 0; }
+.st-leader-driver .st-leader-body { padding-bottom: 20px; }
 .st-leader-label {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 12px; font-weight: 650; letter-spacing: .02em; color: var(--fg-3);
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 650; line-height: 16px; letter-spacing: .02em; color: var(--fg-3);
 }
-.st-trophy { font-size: 13px; line-height: 1; }
+.st-trophy {
+  width: 16px; height: 16px; flex: none;
+  color: #fbbf24; color: oklch(82.8% .189 84.429);
+}
 .st-leader-name {
-  margin-top: 4px; font-size: clamp(1.15rem, 2.4vw, 1.4rem); font-weight: 650;
-  color: var(--white); letter-spacing: -.02em; line-height: 1.2;
+  margin-top: 4px; font-size: clamp(1.25rem, 2.4vw, 1.5rem); font-weight: 600;
+  color: var(--white); letter-spacing: -.015em; line-height: 1.3;
   overflow: hidden; text-overflow: ellipsis;
 }
-.st-leader-team { font-size: 13.5px; color: var(--fg-3); margin-top: 2px; }
+.st-leader-team { font-size: 14px; line-height: 20px; color: var(--fg-3); margin-top: 2px; }
 .st-leader-points {
-  display: flex; align-items: baseline; gap: 6px; margin-top: 8px;
-  font-size: clamp(1.45rem, 3vw, 1.85rem); font-weight: 700; color: var(--white); line-height: 1;
+  display: flex; align-items: baseline; gap: 5px; margin-top: 8px;
+  font-size: clamp(1.55rem, 3vw, 1.875rem); font-weight: 700; color: var(--white); line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
-.st-pts { font-size: 13px; font-weight: 600; color: var(--fg-3); }
+.st-pts { font-size: 14px; font-weight: 600; color: var(--fg-3); }
 
-.st-leader-team { flex-direction: column; align-items: stretch; justify-content: space-between; }
-.st-leader-car { width: 74%; max-width: 340px; height: auto; margin-left: auto; margin-top: 6px; }
-@media (min-width: 640px) { .st-leader-car { width: 68%; } }
+.st-leader-constructor {
+  flex-direction: column; align-items: flex-start; justify-content: space-between;
+  padding: 20px;
+  background:
+    radial-gradient(110% 100% at 100% 0%, color-mix(in srgb, var(--team) 25%, transparent), transparent 60%),
+    var(--card);
+}
+.st-leader-constructor .st-leader-body { align-self: flex-start; text-align: left; }
+.st-leader-car {
+  display: block; width: 78%; max-width: 380px; height: auto;
+  margin-top: 12px; margin-left: auto; align-self: flex-end;
+}
 
 .st-toolbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -1051,7 +1064,9 @@ a.st-who:hover .st-name { text-decoration: underline; text-underline-offset: 2px
   .st-who { gap: 9px; }
   .st-pos { width: 30px; padding-right: 0; }
   .st-tbl th, .st-tbl td { padding-inline: 8px; }
-  .st-leader { min-height: 0; padding: 16px; gap: 14px; }
-  .st-leader-portrait { width: 92px; height: 132px; }
+  .st-leader-driver { padding: 16px 16px 0; gap: 14px; }
+  .st-leader-driver .st-leader-body { padding-bottom: 16px; }
+  .st-leader-portrait { width: 104px; height: 156px; }
+  .st-leader-constructor { padding: 16px; }
   .st-points, .st-gap-col { font-size: 13.5px; }
 }
