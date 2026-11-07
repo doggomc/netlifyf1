@@ -1426,6 +1426,9 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
     if (s.special) {
       b.className += ` chip-special chip-${s.special}`;
       if (specialDown(s)) b.className += ' is-down', b.title = `weellz.live: ${specialState(s) || 'standby'}`;
+    } else if (s.embdlol && !s.custom && Object.keys(catalogues.embdlol).length > 0 && !catalogues.embdlol[s.embdlol]) {
+      b.className += ' is-down';
+      b.title = 'Not listed upstream for this session';
     } else if (pill.badge) {
       b.className += ' has-tag';
       const tag = document.createElement('span');
@@ -1926,7 +1929,8 @@ function load() {
 
   const selectedSource = sources[currentSource];
   const directWeeloSelected = Boolean(selectedSource?.special && weeloSourceUrls(selectedSource).length > 0);
-  if (!isStreamAvailable(currentSession) && !catalogues.weellz?.anyLive && !directWeeloSelected) {
+  const directEmbSelected = Boolean(selectedSource?.embdlol && catalogues.embdlol[selectedSource.embdlol]);
+  if (!isStreamAvailable(currentSession) && !catalogues.weellz?.anyLive && !directWeeloSelected && !directEmbSelected) {
     showNoStream({ blocked: false });
     return;
   }
@@ -2956,7 +2960,8 @@ async function refreshWeeloFeeds(): Promise<void> {
 void loadCatalogues().then(() => {
   renderButtons({ quiet: true });
   updateCurrentStreamButton();
-  if (!isStreamPlayingOnStage() && !stageBox?.querySelector('iframe, video') && catalogues.weellz?.anyLive && noStreamEl?.classList.contains('visible') && nsRunning) {
+  const embReady = Boolean(sources[currentSource]?.embdlol && catalogues.embdlol[sources[currentSource].embdlol!]);
+  if (!isStreamPlayingOnStage() && !stageBox?.querySelector('iframe, video') && (catalogues.weellz?.anyLive || embReady) && noStreamEl?.classList.contains('visible') && nsRunning) {
     load();
   }
 });

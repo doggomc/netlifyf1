@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parsePpvStreams, isPpv540p, normalizePpvLang } from '../src/features/catalogues';
+import { parsePpvStreams, isPpv540p, normalizePpvLang, feedKey } from '../src/features/catalogues';
 
 /* The source list lives in src/app.ts as a typed literal. Rather than duplicate it, these tests
    read the declaration and assert the invariants that matter, so a careless edit fails CI. */
@@ -165,10 +165,20 @@ describe('stream source link pools', () => {
     expect(normalizePpvLang('cs')).toBe('czech');
   });
 
-  it('resolves no embdlol UUIDs into the bundle', () => {
+  it('resolves no embdlol UUIDs into the bundle and parses hyphenated F1 feed names without 540p', () => {
     /* Ids rotate; they must come from the catalogue at runtime. */
     expect(app).not.toMatch(/EMBDLOL_FALLBACK/);
     expect(block).not.toMatch(/01a18[0-9a-f]{3}-/);
+    expect(feedKey('F1 - Sao Paulo - Saturday - Sky')).toBe('sky');
+    expect(feedKey('F1 - Sao Paulo - Saturday - ATV')).toBe('apple');
+    expect(feedKey('F1 - Sao Paulo - Saturday - UHD')).toBe('uhd');
+    expect(feedKey('F1 - Sao Paulo - Saturday - DAZN')).toBe('dazn');
+    expect(feedKey('F1 - Sao Paulo - Saturday - SkyIT')).toBe('skyit');
+    expect(feedKey('F1 - Sao Paulo - Saturday - SkyDE')).toBe('skyde');
+    expect(feedKey('F1 - Sao Paulo - Saturday - 540p')).toBe('');
+    expect(feedKey('Moto3/2/GP - Qatar - Saturday - DAZN')).toBe('');
+    expect(feedKey('Sky Sports Tennis')).toBe('');
+    expect(feedKey('f1mexicosatita')).toBe('italian');
   });
 
   it('fails over at link level before source level', () => {

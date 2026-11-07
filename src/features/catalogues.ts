@@ -62,19 +62,40 @@ export const EMBDLOL_EMBED = 'https://embdlol.st/embed/';
    short codes have to be here: without 'esp' the live Spanish feed matched no chip at all. 'sun' is
    the day prefix embdlol puts in front of the feed name, and it is not a feed of its own.
    '360p' is deliberately absent — it is below the 720p floor. */
-const FEED_SUFFIXES = ['fullhd1', 'fullhd3', 'italian', 'spanish', 'german', 'skyit', 'skyde',
-  'apple', 'world', 'dazn', 'sky', 'esp', 'ita', 'deu', 'uhd'];
-export const PUBLIC_EMBDLOL = FEED_SUFFIXES.slice(0, -1);
-const FEED_PATTERN = new RegExp(`^f1[a-z]*?(${FEED_SUFFIXES.join('|')})$`);
-/* embdlol's short codes and the long key a chip uses: Mexico published f1mexicosatita and
-   f1mexicosatdeu, which matched no chip and left the whole EMB block without a channel. */
-const FEED_ALIASES: Record<string, string> = { esp: 'spanish', ita: 'italian', deu: 'german' };
+const FEED_SUFFIXES = [
+  'fullhd1', 'fullhd2', 'fullhd3',
+  'italian', 'spanish', 'german',
+  'skyita', 'skydeu', 'skyit', 'skyde', 'skyuk',
+  'appletv', 'apple', 'f1tv', 'world', 'dazn',
+  'atv', 'sky', 'esp', 'ita', 'deu', 'uhd', '4k',
+];
+export const PUBLIC_EMBDLOL = FEED_SUFFIXES.filter((s) => s !== 'uhd' && s !== '4k');
+const FEED_PATTERN = new RegExp(`^f1[a-z0-9]*?(${FEED_SUFFIXES.join('|')})$`);
+/* embdlol's short codes and aliases normalized to the canonical feed keys our chips read. */
+const FEED_ALIASES: Record<string, string> = {
+  fullhd2: 'fullhd3',
+  skyuk: 'sky',
+  atv: 'apple',
+  appletv: 'apple',
+  f1tv: 'apple',
+  skyita: 'skyit',
+  skydeu: 'skyde',
+  esp: 'spanish',
+  ita: 'italian',
+  deu: 'german',
+  '4k': 'uhd',
+};
 
-/* 'f1mexicosatuhd' → 'uhd', 'f1mexicosatita' → 'italian'. Anything else has no key. */
+/* 'f1mexicosatuhd' → 'uhd', 'f1mexicosatita' → 'italian',
+   'F1 - Sao Paulo - Saturday - ATV' → 'apple', 'F1 - Sao Paulo - Saturday - 540p' → ''. */
 export function feedKey(name: unknown): string {
-  /* Some entries are bare ('german', 'fullhd3'), others carry the race prefix ('f1frigerman'). */
-  const flat = String(name || '').trim().toLowerCase().replace(/[\s_]/g, '');
-  if (FEED_SUFFIXES.includes(flat)) return flat;
+  const raw = String(name || '').trim().toLowerCase();
+  if (!raw || /(?:360|480|540)p\b/.test(raw)) return '';
+  if (/^(?:f[234]\b|formula\s*[234e]\b)/.test(raw)) return '';
+  /* Support both compact ('f1frigerman') and hyphen/space-separated ('F1 - Sao Paulo - Saturday - Sky') names. */
+  const flat = raw.replace(/^formula[\s_-]*1\b/, 'f1').replace(/[\s_-]+/g, '');
+  if (!/^[a-z0-9]+$/.test(flat)) return '';
+  if (FEED_SUFFIXES.includes(flat)) return FEED_ALIASES[flat] || flat;
   const match = flat.match(FEED_PATTERN);
   return match ? FEED_ALIASES[match[1]] || match[1] : '';
 }
@@ -90,6 +111,7 @@ export const WEELO_REFRESH_MS = 3 * 60_000;
 const WEELO_STATE = '/api/stream/weelo'; // joined to deps.backend
 /* taifood publishes its per-race ids on a CDN without CORS headers, so f1admin relays the list. */
 const TAIFOOD_LIST = '/api/stream/taifood';
+const EMBDLOL_RELAY = '/api/stream/embdlol';
 /* weellz.live builds its live channel links from weelo.live/players/events.json (+ fallback
    v.weellz.live/players/events.json), racinglap.net/api/status.json, and weelo.live/feed/events.json. */
 export const WEELLZ_PLAYER_BASE = 'https://weellz.live/beta?stream=';
@@ -113,17 +135,38 @@ function channelsOf(json: unknown): Record<string, unknown>[] {
 }
 
 async function fetchEmbdlol(deps: CatalogueDeps): Promise<Record<string, string>> {
-  const response = await deps.fetchWithTimeout(EMBDLOL_STRUCT, { cache: 'default', headers: { Accept: 'application/json' } }, 4000);
-  if (!response.ok) throw new Error(`embdlol struct ${response.status}`);
-  const json = await response.json();
   const next: Record<string, string> = {};
-  for (const channel of channelsOf(json)) {
-    /* Keyed by feed, not by the published name: the name changes every race weekend and only the
-       feed is stable. Allowlist, not a blocklist — the 4K channel is resolved server-side and must
-       never be named or id'd in a public bundle. */
-    const key = feedKey(channel?.channelname);
-    if (key && key !== 'uhd' && channel?.id) next[key] = String(channel.id);
+  try {
+    const response = await deps.fetchWithTimeout(EMBDLOL_STRUCT, { cache: 'no-store', headers: { Accept: 'application/json' } }, 5000);
+    if (response.ok) {
+      const json = await response.json();
+      for (const channel of channelsOf(json)) {
+        /* Keyed by feed, not by the published name: the name changes every race weekend and only the
+           feed is stable. Allowlist, not a blocklist — the 4K channel is resolved server-side and must
+           never be named or id'd in a public bundle. */
+        const key = feedKey(channel?.channelname);
+        if (key && key !== 'uhd' && channel?.id) next[key] = String(channel.id);
+      }
+      if (next.sky && !next.fullhd1) next.fullhd1 = next.sky;
+      if (next.apple && !next.fullhd3) next.fullhd3 = next.apple;
+    }
+  } catch (_) {
+    /* Fall through to f1admin relay if api.embdlol.st is blocked or slow on the visitor's network. */
   }
+  if (Object.keys(next).length) return next;
+
+  const relay = await deps.fetchWithTimeout(`${deps.backend}${EMBDLOL_RELAY}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  }, 5000);
+  if (!relay.ok) throw new Error(`embdlol relay ${relay.status}`);
+  const relayJson = await relay.json();
+  const relayChannels = relayJson?.channels && typeof relayJson.channels === 'object' ? relayJson.channels : {};
+  for (const [key, id] of Object.entries(relayChannels)) {
+    if (key && key !== 'uhd' && typeof id === 'string' && id) next[key] = id;
+  }
+  if (next.sky && !next.fullhd1) next.fullhd1 = next.sky;
+  if (next.apple && !next.fullhd3) next.fullhd3 = next.apple;
   return next;
 }
 
@@ -258,7 +301,7 @@ export function taifoodKey(name: unknown): string {
   return /^[a-z]+$/.test(first) ? first : '';
 }
 
-async function fetchTaifood(deps: CatalogueDeps): Promise<Record<string, TaifoodChannel[]>> {
+async function fetchTaifood(deps: CatalogueDeps): Promise<{ channels: Record<string, TaifoodChannel[]>; ppv: string }> {
   const response = await deps.fetchWithTimeout(`${deps.backend}${TAIFOOD_LIST}`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 4000);
   if (!response.ok) throw new Error(`taifood list ${response.status}`);
   const json = await response.json();
@@ -275,7 +318,10 @@ async function fetchTaifood(deps: CatalogueDeps): Promise<Record<string, Taifood
   }
   /* Live addresses first, but an offline one is kept: a source is never dropped for being dead. */
   for (const list of Object.values(out)) list.sort((a, b) => Number(b.status === 'online') - Number(a.status === 'online'));
-  return out;
+  const relayPpv = typeof json?.ppv === 'string' && /^https:\/\/taifood-blog\.asia\/embed\//.test(json.ppv) && !/540p/i.test(json.ppv)
+    ? json.ppv
+    : '';
+  return { channels: out, ppv: relayPpv };
 }
 
 function normalizeWeellzUrl(rawUrl: unknown, fallbackStream = ''): { stream: string; url: string } {
@@ -691,7 +737,7 @@ function mergeTaifoodCatalogues(
 }
 
 async function fetchPpv(deps: CatalogueDeps): Promise<ParsedPpvPack> {
-  const response = await deps.fetchWithTimeout(PPV_STREAMS, { cache: 'no-store', headers: { Accept: 'application/json' } }, 5000);
+  const response = await deps.fetchWithTimeout(PPV_STREAMS, { cache: 'no-store', headers: { Accept: 'application/json' } }, 7000);
   if (!response.ok) throw new Error(`ppv ${response.status}`);
   const json = await response.json();
   return parsePpvStreams(json);
@@ -732,11 +778,11 @@ export async function loadCatalogues(deps: CatalogueDeps, force = false): Promis
       fetchCdnLive(deps).catch(() => cached.cdnlive),
       fetchMirrors(deps).catch(() => cached.mirrors),
       fetchWeelo(deps).catch(() => cached.weelo),
-      fetchTaifood(deps).catch(() => ({} as Record<string, TaifoodChannel[]>)),
+      fetchTaifood(deps).catch(() => ({ channels: {} as Record<string, TaifoodChannel[]>, ppv: '' })),
       fetchWeellz(deps).catch(() => ({ weellz: cached.weellz || emptyWeellz(), weeloEvents: cached.weeloEvents })),
       fetchPpv(deps).catch(() => ({ taifood: {}, ppv: cached.ppv, ppvSessions: cached.ppvSessions || {} })),
     ]);
-    const mergedTaifood = mergeTaifoodCatalogues(ppvPack.taifood, relayTaifood);
+    const mergedTaifood = mergeTaifoodCatalogues(ppvPack.taifood, relayTaifood.channels);
     const taifood = Object.keys(mergedTaifood).length ? mergedTaifood : cached.taifood;
     cached = {
       embdlol,
@@ -745,7 +791,7 @@ export async function loadCatalogues(deps: CatalogueDeps, force = false): Promis
       weelo,
       taifood,
       weeloEvents: weellzPack.weeloEvents,
-      ppv: ppvPack.ppv || cached.ppv,
+      ppv: ppvPack.ppv || relayTaifood.ppv || cached.ppv,
       ppvSessions: Object.keys(ppvPack.ppvSessions).length ? ppvPack.ppvSessions : (cached.ppvSessions || {}),
       weellz: weellzPack.weellz,
     };
