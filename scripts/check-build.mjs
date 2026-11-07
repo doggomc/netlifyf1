@@ -39,11 +39,17 @@ const pageGzip = (page) => {
     .filter(file => file.endsWith('.js'));
   return pageJs.reduce((sum, file) => sum + gzip(file), 0);
 };
-/* Standings and Schedule are measured separately below; the rest of these pages are shells. */
-for (const page of ['drivers.html', 'teams.html', 'live-timing.html']) {
+/* Standings, Schedule and Live timing are measured separately below; the rest of these pages are shells. */
+for (const page of ['drivers.html', 'teams.html']) {
   const size = pageGzip(page);
   assert(size < SHELL_BUDGET, `${page} ships ${size} B gzip — over the ${SHELL_BUDGET} B shell budget`);
 }
+/* Live timing speaks F1's SignalR Core WebSocket protocol and OpenF1's REST feed
+   for off-session / blocked-network fallback, plus tower, race control & radio UI. */
+const LIVE_TIMING_BUDGET = 16 * 1024;
+const liveTimingSize = pageGzip('live-timing.html');
+console.log(`live-timing gzip: ${liveTimingSize} B of ${LIVE_TIMING_BUDGET}`);
+assert(liveTimingSize < LIVE_TIMING_BUDGET, `live-timing.html ships ${liveTimingSize} B gzip — over the ${LIVE_TIMING_BUDGET} B budget`);
 /* Schedule embeds the 23-round five-session calendar (~2.5 KiB gzip with weekend
    helpers), fetches live race winners, ticks a live countdown, and opens per-round
    session drawers + calendar feed links (~7 KiB page work + ~2.5 KiB calendar). */
