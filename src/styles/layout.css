@@ -35,7 +35,7 @@
   /* Zen Dots: the reference's face for a driver's racing number, which is the
      only thing on the site that uses it. Static 400, so weight is never faked. */
   --font-number: 'Zen Dots', 'Archivo', 'Inter', ui-sans-serif, sans-serif;
-  --nav-h: 67px;
+  --nav-h: 64px;
   /* Every full-width band uses this: the header, the page frame, the footer.
      Wide enough that text never touches the screen edge, capped so the reading
      column stays where it was on a large display. */
@@ -56,10 +56,6 @@ html {
 }
 
 ::selection { background: rgba(225, 6, 0, .4); color: #fff; }
-
-::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-track { background: #000; }
-::-webkit-scrollbar-thumb { background: linear-gradient(var(--team), #8b0400); border-radius: 99px; }
 
 body {
   font-family: var(--font-body);
@@ -129,32 +125,21 @@ button {
 
 .nav {
   position: sticky; top: 0; z-index: 120;
-  background: #0a0a0b;
+  background: color-mix(in srgb, var(--page) 82%, transparent);
   border-bottom: 1px solid transparent;
   transition: border-color .3s var(--ease), background-color .3s var(--ease);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
-.nav::before {
-  content: '';
-  position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: rgba(10, 10, 11, .88);
-  opacity: 0;
-  transition: opacity .3s var(--ease);
-}
-@media (min-width: 901px) {
-  .nav::before {
-    background: rgba(10, 10, 11, .72);
-    backdrop-filter: blur(18px) saturate(1.35);
-    -webkit-backdrop-filter: blur(18px) saturate(1.35);
-  }
-}
-.nav.stuck { background: transparent; border-bottom-color: rgba(255, 255, 255, .09); }
-.nav.stuck::before { opacity: 1; }
+.nav.stuck { border-bottom-color: var(--line); background: color-mix(in srgb, var(--page) 94%, transparent); }
 
 .nav-inner {
-  position: relative;
-  display: flex; align-items: center; justify-content: space-between; gap: 20px;
-  width: 100%; max-width: none; margin: 0;
-  padding: 14px var(--gutter);
+  display: flex; align-items: center; gap: 18px;
+  height: var(--nav-h);
+  padding-inline: var(--gutter);
+  max-width: calc(var(--wrap) + var(--gutter) * 2);
+  margin-inline: auto;
+  width: 100%;
 }
 
 .brand { display: inline-flex; align-items: center; gap: 10px; flex: none; }
@@ -170,165 +155,86 @@ button {
   letter-spacing: -.01em; color: var(--white);
 }
 
-/* Header brand matches the Cockpit header pixel for pixel; .footer-brand keeps the compact mark above. */
-.nav .brand { gap: 12px; }
-.nav .brand-mark {
-  width: 38px; height: 38px; border-radius: 9px;
-  position: relative; overflow: hidden;
-  background: linear-gradient(135deg, var(--team), #8b0400);
-  box-shadow: 0 6px 22px -6px rgba(225, 6, 0, .45);
-}
-.nav .brand-mark svg { width: 22px; height: 22px; }
-.nav .brand-mark::after {
-  content: ''; position: absolute; inset: -40%;
-  background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,.32) 50%, transparent 60%);
-  transform: translateX(-80%);
-  animation: sheen 4.5s infinite;
-}
-@keyframes sheen {
-  0%, 70% { transform: translateX(-80%); }
-  100% { transform: translateX(80%); }
-}
-.nav .brand-text {
-  font-family: 'Archivo', sans-serif;
-  font-style: italic;
-  font-weight: 900;
-  font-size: 1.15rem;
-  line-height: 1;
-  letter-spacing: -.04em;
-  color: #F5F6F7;
-}
-
-.nav-links { display: flex; align-items: center; gap: 4px; }
-@media (min-width: 901px) {
-  .nav-links {
-    position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    margin: 0; white-space: nowrap;
-  }
-}
+/* Desktop: the menu sits directly left of the counter, which sits left of the
+   far-right control, so the order reads logo … menu · counter. */
+.nav-links { display: flex; align-items: center; gap: 2px; margin-left: auto; margin-right: 14px; order: 1; }
+.nav-right { order: 2; }
 
 .nav-links a {
   position: relative;
-  padding: 8px 14px; border-radius: 10px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: .78rem; font-weight: 600;
-  letter-spacing: .06em; text-transform: uppercase;
-  color: #8A8F98; white-space: nowrap;
-  transition: color .3s var(--ease), background-color .3s var(--ease);
+  padding: 8px 12px; border-radius: 9px;
+  font-size: 13.5px; font-weight: 550; color: var(--fg-2);
+  transition: color .18s var(--ease), background-color .18s var(--ease);
+  white-space: nowrap;
 }
-.nav-links a::after {
-  content: ''; position: absolute;
-  left: 14px; right: 14px; bottom: 4px;
-  height: 2px; background: var(--team);
-  transform: scaleX(0); transform-origin: left;
-  transition: transform .4s var(--ease);
-}
-.nav-links a:hover,
-.nav-links a[aria-current="page"],
-.nav-links a.current { color: #F5F6F7; }
-.nav-links a:hover::after,
-.nav-links a[aria-current="page"]::after,
-.nav-links a.current::after { transform: scaleX(1); }
-
-.nav-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
-
-@media (min-width: 901px) and (max-width: 1200px) {
-  .nav-links { gap: 0; }
-  .nav-links a { font-size: .7rem; padding-inline: 7px; }
-  .nav-links a::after { left: 7px; right: 7px; }
-  .nav-right { gap: 6px; }
+.nav-links a:hover { color: var(--white); background: rgba(255,255,255,.05); }
+.nav-links a[aria-current="page"] { color: var(--white); }
+.nav-links a[aria-current="page"]::after {
+  content: ''; position: absolute; left: 12px; right: 12px; bottom: 2px;
+  height: 2px; border-radius: 2px; background: var(--accent);
 }
 
-.mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+.nav-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.brand { order: 0; }
 
 .pill {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: .72rem; font-weight: 500; line-height: 1.55;
-  padding: 7px 13px; border-radius: 99px;
-  border: 1px solid rgba(255, 255, 255, .09);
-  background: rgba(255, 255, 255, .035);
-  color: #F5F6F7; white-space: nowrap;
-  transition: transform .25s var(--ease), border-color .25s var(--ease), background-color .25s var(--ease), color .25s var(--ease);
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 11px; border-radius: 999px;
+  border: 1px solid var(--line-2); background: rgba(255,255,255,.04);
+  font-size: 12px; font-weight: 600; color: var(--fg-2); white-space: nowrap;
 }
-.pill:hover {
-  border-color: rgba(255, 255, 255, .16);
-  background: rgba(255, 255, 255, .06);
-}
+.pill.live { color: #fff; }
 .pill .dot {
-  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-  background: #5C626B;
-  transition: background-color .25s var(--ease), box-shadow .25s var(--ease);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(225,6,0,.18);
 }
+.pill.live.is-on .dot { animation: livePulse 2s var(--ease) infinite; }
+@keyframes livePulse { 50% { box-shadow: 0 0 0 6px rgba(225,6,0,0); } }
 
-/* Open-page counter: matches Cockpit's #viewerCounter pill state-for-state. */
-.pill.viewer[hidden] { display: none; }
-.pill.viewer { gap: 6px; color: #8A8F98; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
-.pill.viewer:hover { border-color: rgba(255, 255, 255, .16); color: #F5F6F7; }
-.pill.viewer #viewerCount { color: inherit; font-weight: inherit; }
-.pill.viewer .viewer-label { color: inherit; font-weight: inherit; opacity: .78; }
-.pill.viewer[data-state="live"] {
-  color: #00D57E;
-  border-color: rgba(0, 213, 126, .28);
-  background: rgba(0, 213, 126, .08);
-}
-.pill.viewer[data-state="live"] .dot {
-  background: #00D57E;
-  box-shadow: 0 0 8px rgba(0, 213, 126, .65);
-}
-.pill.viewer[data-state="offline"] .dot { background: #FFB020; }
+/* Open-page counter: a quiet, live dot beside a tabular figure. It stays hidden
+   until the socket reports a number, so a failed connection shows nothing. */
+.pill.viewer { gap: 7px; font-variant-numeric: tabular-nums; }
+.pill.viewer .dot { background: #3ddc84; box-shadow: 0 0 0 3px rgba(61,220,132,.16); }
+.pill.viewer[data-state="connecting"] .dot { background: var(--fg-4); box-shadow: 0 0 0 3px rgba(255,255,255,.06); }
+.pill.viewer[data-state="offline"] { opacity: .75; }
+.pill.viewer #viewerCount { color: var(--white); font-weight: 650; }
+.pill.viewer .viewer-label { color: var(--fg-3); font-weight: 550; }
 @media (max-width: 480px) { .pill.viewer .viewer-label { display: none; } }
 
 .nav-toggle {
-  display: none; width: 42px; height: 42px; border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .03);
-  color: #F5F6F7; flex: 0 0 42px;
-  align-items: center; justify-content: center; flex-direction: column; gap: 4px;
-  transition: border-color .2s var(--ease), background-color .2s var(--ease), transform .2s var(--ease);
+  display: none; width: 38px; height: 38px; border-radius: 10px;
+  border: 1px solid var(--line-2); place-items: center; gap: 4px;
+  align-content: center; justify-items: center;
 }
-.nav-toggle:hover { border-color: var(--team); background: rgba(225, 6, 0, .09); }
 .nav-toggle span {
-  display: block; width: 16px; height: 1.5px; border-radius: 99px;
-  background: currentColor; transition: transform .25s var(--ease), opacity .2s var(--ease);
+  display: block; width: 16px; height: 1.5px; border-radius: 2px;
+  background: var(--fg); transition: transform .25s var(--ease), opacity .2s;
 }
 .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
 .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
 .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
 
 @media (max-width: 900px) {
-  .nav-inner { gap: 10px; padding: 12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); }
-  .nav .brand-text { font-size: 1rem; }
-  .pill { padding: 7px 9px; font-size: .66rem; }
-  .nav-toggle { display: inline-flex; }
-  .nav-right { gap: 6px; margin-left: auto; }
+  .nav-toggle { display: grid; }
+  /* Logo left; the counter then the menu hard right. Without this the cluster
+     sat beside the logo because the last inline child was the menu panel. */
+  .nav-right { margin-left: auto; }
   .nav-links {
+    position: fixed; inset: var(--nav-h) 0 auto 0;
+    flex-direction: column; align-items: stretch; gap: 2px;
+    margin: 0; padding: 10px var(--gutter) 20px;
+    background: var(--page);
+    border-bottom: 1px solid var(--line);
+    transform-origin: top center;
     display: none;
-    position: absolute;
-    top: calc(100% + 8px);
-    left: max(12px, env(safe-area-inset-left));
-    right: max(12px, env(safe-area-inset-right));
-    z-index: 95;
-    flex-direction: column; align-items: stretch; gap: 4px;
-    margin: 0; padding: 10px;
-    border-radius: 14px; border: 1px solid rgba(255, 255, 255, .16);
-    background: rgba(10, 10, 11, .98);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, .72);
-    max-height: calc(100dvh - var(--nav-h) - 16px);
+    margin-right: 0;
+    max-height: calc(100dvh - var(--nav-h));
     overflow-y: auto;
   }
   .nav-links.open { display: flex; animation: menuIn .26s var(--ease) both; }
-  .nav-links a { padding: 11px 12px; font-size: .8rem; border-radius: 10px; }
-  .nav-links a:hover,
-  .nav-links a[aria-current="page"],
-  .nav-links a.current { background: rgba(255, 255, 255, .05); }
-  .nav-links a::after { left: 12px; right: 12px; bottom: 5px; }
-}
-@media (max-width: 430px) {
-  .nav .brand-text { display: none; }
-  .nav-right .pill { font-size: .61rem; padding-inline: 8px; }
-  #clock { display: none; }
-  .nav-toggle { width: 40px; height: 40px; flex-basis: 40px; }
+  .nav-links a { padding: 13px 12px; font-size: 15px; border-radius: 12px; }
+  .nav-links a[aria-current="page"] { background: rgba(255,255,255,.06); }
+  .nav-links a[aria-current="page"]::after { display: none; }
 }
 
 @keyframes menuIn {
@@ -930,7 +836,6 @@ body.is-leaving { animation: pageOut .18s var(--ease) both; pointer-events: none
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; transition-duration: .001ms !important; }
-  .nav .brand-mark::after { animation: none !important; }
   .rise { opacity: 1; }
 }
 
