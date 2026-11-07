@@ -38,16 +38,38 @@
   --maxw: 1240px;
 }
 
-* {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
   scroll-behavior: smooth;
   /* Reserve the scrollbar channel so locking scroll for a modal cannot reflow the page. */
   scrollbar-gutter: stable;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  touch-action: manipulation;
+}
+
+button,
+[role="button"],
+[role="tab"],
+summary,
+.btn {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .skip-link {

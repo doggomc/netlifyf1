@@ -38,15 +38,25 @@
       --maxw: 1240px;
     }
 
-    * {
+    *, *::before, *::after {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html, body {
       min-height: 100%;
+      -webkit-tap-highlight-color: transparent;
     }
+
+    a { touch-action: manipulation; }
+    button, [role="button"], summary, .btn {
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    :focus:not(:focus-visible) { outline: none; }
 
     body {
       background: var(--ink);
