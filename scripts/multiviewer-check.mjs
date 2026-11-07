@@ -136,6 +136,21 @@ const state = (page) =>
     small: document.querySelectorAll('.mvx-tile.is-small').length,
   }));
   check('Focus mode shows 1 big hero player and 2 small companion tiles', focus.big === 1 && focus.small === 2, JSON.stringify(focus));
+
+  /* Enlarge a second source via [data-mvx-big] and route audio via [data-mvx-audio]: no stuck loading overlays */
+  await page.locator('.mvx-tile.is-small').first().locator('[data-mvx-big]').click();
+  await page.waitForTimeout(350);
+  const afterBig = await page.evaluate(() => ({
+    loading: document.querySelectorAll('.mvx-tile.is-loading').length,
+    big: document.querySelectorAll('.mvx-tile.is-big').length,
+  }));
+  check('making another source big never reloads streams or sticks loading overlays', afterBig.loading === 0 && afterBig.big === 1, JSON.stringify(afterBig));
+
+  await page.locator('.mvx-tile:not(.has-audio)').first().locator('[data-mvx-audio]').click();
+  await page.waitForTimeout(600);
+  const afterAudio = await page.evaluate(() => document.querySelectorAll('.mvx-tile.is-loading').length);
+  check('switching audio to another source clears loading indicators after load', afterAudio === 0, String(afterAudio));
+
   await page.locator('[data-mvx-mode="grid"]').click();
   await page.waitForTimeout(350);
 

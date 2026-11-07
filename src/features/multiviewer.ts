@@ -379,12 +379,32 @@ export function init(ctx: any) {
 
   const tiles = new Map<string, HTMLElement>();
   const frames = new Map<string, HTMLIFrameElement>();
+  const loadTimers = new Map<HTMLElement, number>();
   let ids: string[] = [];
   let audio: string | null = null;
   let mode: 'grid' | 'focus' = 'grid';
   let query = '';
   let filter: 'all' | FeedCategory = 'all';
   let open = false;
+
+  function clearTileLoading(tile: HTMLElement | undefined) {
+    if (!tile) return;
+    const prev = loadTimers.get(tile);
+    if (prev !== undefined) {
+      window.clearTimeout(prev);
+      loadTimers.delete(tile);
+    }
+    tile.classList.remove('is-loading');
+  }
+
+  function markTileLoading(tile: HTMLElement | undefined, timeoutMs = 4500) {
+    if (!tile) return;
+    const prev = loadTimers.get(tile);
+    if (prev !== undefined) window.clearTimeout(prev);
+    tile.classList.add('is-loading');
+    const timer = window.setTimeout(() => clearTileLoading(tile), timeoutMs);
+    loadTimers.set(tile, timer);
+  }
 
   const streams = (): WeeloStream[] => (ctx.sources || [])
     .filter((s: any) => (s.weelo || s.weellzUrls?.length) && (!s.hidden || s.links?.[0]?.provider === 'custom'))
@@ -477,7 +497,7 @@ export function init(ctx: any) {
         const known = byId(id);
         const next = tileUrl(known?.streamId || id, !on, known?.pasted);
         if (next !== f.src) {
-          tiles.get(id)?.classList.add('is-loading');
+          markTileLoading(tiles.get(id));
           f.src = next;
         }
       }
@@ -512,14 +532,11 @@ export function init(ctx: any) {
 
   function makeBig(id: string) {
     if (!ids.includes(id)) return;
+    /* Promote the tile into the Focus hero slot via pure GPU layout without reloading any iframe
+       stream or interrupting active commentary audio (audio stays on the speaker toggle). */
     ids = [id, ...ids.filter((x) => x !== id)];
     mode = 'focus';
-    if (audio !== id) {
-      audio = id;
-      paintAudio(true);
-    } else {
-      paintChrome();
-    }
+    paintChrome();
     relayout();
     saveState();
   }
@@ -527,7 +544,8 @@ export function init(ctx: any) {
   function createTile(id: string): HTMLElement {
     const stream = byId(id);
     const tile = document.createElement('div');
-    tile.className = 'mvx-tile is-loading';
+    tile.className = 'mvx-tile';
+    markTileLoading(tile, 5500);
     tile.dataset.feed = id;
     if (!stream) return tile;
     if (!stream.live) tile.classList.add('is-off');
@@ -542,14 +560,7 @@ export function init(ctx: any) {
     f.title = stream.title;
     f.dataset.stream = stream.streamId;
 
-    let settled = false;
-    const clearLoad = () => {
-      if (settled) return;
-      settled = true;
-      tile.classList.remove('is-loading');
-    };
-    f.addEventListener('load', clearLoad);
-    window.setTimeout(clearLoad, 6500);
+    f.addEventListener('load', () => clearTileLoading(tile));
 
     const loadRing = document.createElement('span');
     loadRing.className = 'mvx-tile-load';
@@ -587,6 +598,7 @@ export function init(ctx: any) {
   function draw() {
     for (const [id, tile] of tiles) {
       if (!ids.includes(id)) {
+        clearTileLoading(tile);
         const f = frames.get(id);
         if (f) f.src = 'about:blank';
         tile.remove();
@@ -784,6 +796,7 @@ export function init(ctx: any) {
     const isFs = Boolean(document.fullscreenElement);
     fullBtn.innerHTML = icon(isFs ? 'minimize' : 'maximize');
     fullBtn.title = isFs ? 'Exit full screen (F)' : 'Full screen (F)';
+    if (open) requestAnimationFrame(() => relayout());
   }
 
   function toggleFullscreen() {
@@ -825,6 +838,7 @@ export function init(ctx: any) {
       if (document.fullscreenElement) {
         void document.exitFullscreen?.().catch(() => {});
       }
+      for (const [, tile] of tiles) clearTileLoading(tile);
       for (const [, f] of frames) f.src = 'about:blank';
       frames.clear();
       tiles.clear();
