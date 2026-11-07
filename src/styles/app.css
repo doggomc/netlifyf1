@@ -5496,6 +5496,7 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
 /* ── the window ── */
 .wplayer {
   position: relative;
+  width: 100%;
   border-radius: 16px;
   background: #000;
   box-shadow: var(--rr-ring);
@@ -5554,14 +5555,8 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
 
 .wplayer-live.active { background: #f8716824; color: #fd9891; }
 
-/* On a wide screen the window is capped by the viewport height rather than by its column: a 16:9
-   box inside a 1000px column was 688x387 while the page had room for far more. Below that cap the
-   stage keeps its 16:9 ratio and centres itself in the column. */
+/* Full column width right up to the side cards, maintaining a true 16:9 stage. */
 .wplayer-stage { position: relative; aspect-ratio: 16 / 9; background: #000; }
-
-@media (min-width: 1101px) {
-  .wplayer { width: min(100%, calc((100vh - 210px) * 16 / 9)); }
-}
 
 /* The frame fills the stage: it used to be appended to the card instead, which laid it out at the
    browser's default 300x150 in the top-left and left the rest of the box black. */
