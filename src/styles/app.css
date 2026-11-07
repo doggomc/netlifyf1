@@ -1,3 +1,5 @@
+@import './outage.css';
+
 /* The hidden attribute must always win. Class rules that set display (grid, inline-flex, flex)
    otherwise override the UA's [hidden] rule, so an element meant to be invisible still renders.
    That is what painted the replay "no player" notice over every working stream, and would have

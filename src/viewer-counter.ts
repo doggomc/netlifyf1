@@ -1,10 +1,9 @@
-import { $ } from './services/dom';
 (() => {
   'use strict';
 
   const endpointMeta = document.querySelector<HTMLMetaElement>('meta[name="freef1-viewer-counter-ws"]');
-  const counter = $('viewerCounter');
-  const countNode = $('viewerCount');
+  const counter = document.getElementById('viewerCounter');
+  const countNode = document.getElementById('viewerCount');
   if (!endpointMeta || !counter || !countNode || typeof WebSocket !== 'function') return;
 
   let endpoint: URL;

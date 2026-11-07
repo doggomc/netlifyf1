@@ -722,7 +722,10 @@ import { $ } from './services/dom';
   }
 
   if (state.token) {
-    if (isHelpPage) void loadTicket();
+    if (isHelpPage) {
+      void import('./features/page-gate').then((m) => m.initPageGate());
+      void loadTicket();
+    }
     else void refreshTicketStatus();
   }
 

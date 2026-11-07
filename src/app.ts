@@ -2061,6 +2061,9 @@ function applySiteConfig(input: unknown, { fresh = false } = {}) {
   if (config.streamOverride) applyStreamOverride(config.streamOverride);
   if (PUBLIC_NEWS_ENABLED && Array.isArray(config.news)) applyNewsUpdate(config.news, fresh);
   if (fresh) applyMaintenanceMode(config.maintenance, { fresh: true });
+  if (config.pages) {
+    void import('./features/page-gate').then((m) => m.applyPageGate(config, { fresh: false }));
+  }
 }
 
 let siteConfigRefreshPromise = null;

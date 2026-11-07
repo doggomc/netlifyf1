@@ -47,24 +47,18 @@ function bindNav(): void {
   const toggle = document.getElementById('navToggle') as HTMLButtonElement | null;
   const menu = document.getElementById('navLinks');
 
-  const close = () => {
-    menu?.classList.remove('open');
-    toggle?.setAttribute('aria-expanded', 'false');
-    toggle?.setAttribute('aria-label', 'Open navigation');
+  const setOpen = (open: boolean) => {
+    menu?.classList.toggle('open', open);
+    toggle?.setAttribute('aria-expanded', String(open));
+    toggle?.setAttribute('aria-label', `${open ? 'Close' : 'Open'} navigation`);
   };
 
-  toggle?.addEventListener('click', () => {
-    const open = !menu?.classList.contains('open');
-    menu?.classList.toggle('open', open);
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
-  });
-
-  menu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', close));
+  toggle?.addEventListener('click', () => setOpen(!menu?.classList.contains('open')));
+  menu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => setOpen(false)));
 
   addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && menu?.classList.contains('open')) {
-      close();
+      setOpen(false);
       toggle?.focus();
     }
   });
@@ -127,7 +121,10 @@ function bindTransitions(): void {
 export function initShell(options: ShellOptions = {}): void {
   const { nav = true, transitions = true } = options;
   markCurrentLink(document);
-  if (nav) bindNav();
+  if (nav) {
+    bindNav();
+    void import('../features/page-gate').then((m) => m.initPageGate());
+  }
   if (transitions) bindTransitions();
 
   const year = document.getElementById('year');

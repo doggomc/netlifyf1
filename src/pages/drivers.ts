@@ -9,10 +9,9 @@ import { flagHtml } from '../data/flags';
 /* The eleven constructors on the 2026 grid, in the colours they race. Inlined
    because a card needs a colour and nothing else from the roster module. */
 const TEAM_HEX: Record<string, string> = {
-  'McLaren': '#FF8000', 'Ferrari': '#DC0000', 'Red Bull': '#1E41FF', 'Mercedes': '#00D2BE',
-  'Williams': '#005AFF', 'Aston Martin': '#006F62', 'Alpine F1 Team': '#FF0080', 'Alpine': '#FF0080',
-  'Haas F1 Team': '#B6BABD', 'Haas': '#B6BABD', 'Audi': '#E62213', 'RB F1 Team': '#6692FF',
-  'Racing Bulls': '#6692FF', 'Cadillac F1 Team': '#B4A07A', 'Cadillac': '#B4A07A',
+  McLaren: '#FF8000', Ferrari: '#DC0000', 'Red Bull': '#1E41FF', Mercedes: '#00D2BE',
+  Williams: '#005AFF', 'Aston Martin': '#006F62', Alpine: '#FF0080', Haas: '#B6BABD',
+  Audi: '#E62213', 'RB F1 Team': '#6692FF', 'Racing Bulls': '#6692FF', Cadillac: '#B4A07A',
 };
 
 initShell();
@@ -26,7 +25,7 @@ const status = document.getElementById('driversStatus');
 function card(row: StandingRow, index: number): string {
   const driver = row.Driver;
   const team = row.Constructors?.[0]?.name ?? '';
-  const color = TEAM_HEX[team] ?? '#7e8188';
+  const color = TEAM_HEX[team] ?? TEAM_HEX[team.replace(/ F1 Team$/, '')] ?? '#7e8188';
   const flag = NATIONALITY_FLAG[driver.nationality ?? ''] ?? '';
   const number = driver.permanentNumber ?? driver.code ?? '';
   const first = driver.givenName.trim();

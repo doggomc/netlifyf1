@@ -1,3 +1,5 @@
+@import './outage.css';
+
 :root {
   color-scheme: dark;
   --help-bg: #07080a;

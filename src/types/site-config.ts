@@ -1,8 +1,29 @@
+export type ControllablePageId =
+  | 'cockpit'
+  | 'schedule'
+  | 'standings'
+  | 'live-timing'
+  | 'drivers'
+  | 'teams'
+  | 'help';
+
+const VALID_PAGE_IDS = new Set<ControllablePageId>([
+  'cockpit',
+  'schedule',
+  'standings',
+  'live-timing',
+  'drivers',
+  'teams',
+  'help',
+]);
+
 export interface Maintenance { active: boolean; message?: string; eta?: string; startedAt?: number; updatedAt?: number; }
+export interface PageControl { disabled: ControllablePageId[]; updatedAt?: number; }
 export interface StreamOverride { active: boolean; url?: string; type?: string; }
 export interface StreamWindow { active: boolean; reason?: string; startedAt?: number; updatedAt?: number; }
 export interface SiteConfig {
   maintenance?: Maintenance;
+  pages?: PageControl;
   streamOverride?: StreamOverride;
   sources?: { disabled: string[]; overrides?: Record<string, { label?: string; url?: string }> };
   streamWindow?: StreamWindow;
@@ -19,6 +40,16 @@ export function parseSiteConfig(value: unknown): SiteConfig | null {
   if (record(value.maintenance) && typeof value.maintenance.active === 'boolean') {
     const m = value.maintenance;
     result.maintenance = { active: m.active as boolean, message: text(m.message, 500), eta: text(m.eta, 120), startedAt: timestamp(m.startedAt), updatedAt: timestamp(m.updatedAt) };
+  }
+  if (record(value.pages) && Array.isArray(value.pages.disabled)) {
+    const disabled = value.pages.disabled
+      .filter((id): id is string => typeof id === 'string')
+      .map((id) => id.trim().toLowerCase() as ControllablePageId)
+      .filter((id) => VALID_PAGE_IDS.has(id));
+    result.pages = {
+      disabled: [...new Set(disabled)],
+      updatedAt: timestamp(value.pages.updatedAt),
+    };
   }
   const override = value.streamOverride ?? value.override;
   if (record(override) && typeof override.active === 'boolean') {
