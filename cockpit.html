@@ -21,10 +21,8 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"FreeF1 Live","url":"https://freef1.netlify.app/","description":"An independent, ad-free Formula racing weekend companion."}</script>
 <title>Cockpit — FreeF1</title>
 <link rel="dns-prefetch" href="https://api.jolpi.ca">
-<link rel="dns-prefetch" href="https://api.openf1.org">
 <link rel="dns-prefetch" href="https://media.formula1.com">
 <link rel="preconnect" href="https://api.jolpi.ca" crossorigin>
-<link rel="preconnect" href="https://api.openf1.org" crossorigin>
 <link rel="preconnect" href="https://media.formula1.com">
 <link rel="preload" as="font" type="font/woff2" href="/assets/fonts/Inter-latin.woff2" crossorigin>
 <link rel="stylesheet" href="/fonts.css">
@@ -100,71 +98,50 @@
       </div>
 
       <div class="wplayer-actions">
+        <div class="watch-session-info" id="watchSessionState" role="status" aria-live="polite">
+          <div class="watch-session-eyebrow">
+            <span class="watch-session-dot" id="watchSessionDot" aria-hidden="true"></span>
+            <span id="watchSessionBadge">Up next</span>
+            <span class="watch-session-sep" id="watchSessionSep" aria-hidden="true">·</span>
+            <span class="mono" id="watchSessionCountdown">--:--:--</span>
+          </div>
+          <div class="watch-session-line">
+            <strong class="watch-session-title" id="watchSessionTitle">Loading session…</strong>
+            <span class="watch-session-meta" id="watchSessionMeta"></span>
+          </div>
+        </div>
         <div class="wplayer-actions-main" id="stageActions">
           <button class="btn sm" id="mvToggle" type="button" title="Watch several weelo feeds at once" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Multiview</span></button>
           <button class="btn sm" id="theaterBtn" type="button" title="Fill the window with the stream" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg><span>Theater</span></button>
           <button class="btn sm" id="sourcesToggle" type="button" title="Show or hide the stream sources in theater" aria-pressed="true" hidden>Sources</button>
           <span class="btn sm theater-online mono" id="theaterOnline" role="status" aria-live="polite" hidden><i aria-hidden="true"></i><b id="theaterOnlineCount">—</b> online</span>
-          <button class="btn sm" id="sessionsBtn">Session Results</button>
-          <button class="btn sm" id="teamSelectBtn">Team Livery</button>
-          <button class="btn sm" id="raceTimesBtn">Race Times</button>
-          <button class="btn sm" id="radioRcBtn" aria-expanded="false" aria-controls="radioRc">Radio &amp; Race Control</button>
-        </div>
-        <div class="selects watch-selects">
-          <div class="sel"><label for="eventSelect">Grand Prix</label><select id="eventSelect"></select></div>
-          <div class="sel"><label for="sessionSelect">Session</label><select id="sessionSelect"></select></div>
+          <button class="btn sm" id="raceTimesBtn" type="button">Race Times</button>
+          <button class="btn sm" id="teamSelectBtn" type="button">Team Livery</button>
         </div>
       </div>
 
       <section class="wsources" aria-labelledby="wSourcesHead">
         <div class="wsources-head">
-          <h2 id="wSourcesHead">Stream sources</h2>
+          <div class="wsources-title-wrap">
+            <h2 id="wSourcesHead">Stream sources</h2>
+            <span class="wsources-count mono" id="sourcesCount"></span>
+          </div>
           <div class="wtabs" id="feedTabs" role="tablist" aria-label="Feed language"></div>
         </div>
         <div class="wsource-list" id="links"></div>
       </section>
-
-      <div class="radio-rc" id="radioRc" hidden>
-        <div class="card radio-rc-card">
-          <div class="radio-rc-head">
-            <div>
-              <span class="eyebrow">Pit Wall</span>
-              <h3>Team Radio <span class="accent">&amp;</span> Race Control</h3>
-            </div>
-            <div class="radio-rc-status mono" id="radioRcStatus">Loading sessions…</div>
-            <button class="radio-rc-close" id="radioRcClose" type="button" aria-label="Close radio and race control"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-          </div>
-          <div class="selects radio-rc-selects">
-            <div class="sel"><label for="radioRcEvent">Grand Prix</label><select id="radioRcEvent"><option>Loading…</option></select></div>
-            <div class="sel"><label for="radioRcSession">Session</label><select id="radioRcSession"><option>-</option></select></div>
-          </div>
-          <div class="radio-rc-grid">
-            <section class="radio-rc-col" aria-labelledby="radioRcRadioTitle">
-              <div class="radio-rc-col-head"><h4 id="radioRcRadioTitle">Team Radio</h4><span class="mono" id="radioRcRadioCount"></span></div>
-              <div class="radio-rc-player" id="radioRcPlayer" hidden>
-                <span class="radio-rc-player-code" id="radioRcPlayerCode">-</span>
-                <div class="radio-rc-player-meta"><b id="radioRcPlayerName">-</b><span class="mono" id="radioRcPlayerTime">-</span></div>
-                <span class="radio-rc-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-              </div>
-              <audio id="radioRcAudio" preload="none"></audio>
-              <ul class="radio-rc-list" id="radioRcRadioList"><li class="radio-rc-empty">Select a session</li></ul>
-            </section>
-            <section class="radio-rc-col" aria-labelledby="radioRcRcTitle">
-              <div class="radio-rc-col-head"><h4 id="radioRcRcTitle">Race Control</h4><span class="mono" id="radioRcRcCount"></span></div>
-              <ul class="radio-rc-list rc" id="radioRcRcList"><li class="radio-rc-empty">Select a session</li></ul>
-            </section>
-          </div>
-          <div class="radio-rc-foot mono">Timing data via <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a> (unofficial). Radio audio is served by Formula 1's live-timing CDN. Times shown in your local time.</div>
-        </div>
-      </div>
 
     </div>
 
     <aside class="watch-side" aria-label="Session info">
       <div class="side-card">
         <p class="side-h">Now playing</p>
-        <p class="side-now" id="sourceLabel">F1TV</p>
+        <p class="side-now" id="sourceLabel">Sky HD</p>
       </div>
+      <a class="side-card side-link" href="/live-timing.html">
+        <span><b>Live timing</b><small>Tower, sectors, race control &amp; radio</small></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </a>
       <a class="side-card side-link" href="/standings.html">
         <span><b>Championship</b><small>Standings and points</small></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
@@ -301,20 +278,6 @@
 </div><!-- /viewDiscord -->
 
 <!-- ══ MODALS ══ -->
-<div class="modal" id="sessionsOverlay" role="dialog" aria-modal="true" aria-labelledby="sessionsTitle">
-  <div class="sheet">
-    <div class="sheet-head"><h2 id="sessionsTitle">Session Results</h2><button class="x" id="sessionsClose" type="button" aria-label="Close session results">&times;</button></div>
-    <div class="selects" style="margin-bottom:18px">
-      <div class="sel"><label for="sessionRaceSelect">Grand Prix</label><select id="sessionRaceSelect"><option>Loading…</option></select></div>
-      <div class="sel"><label for="sessionTypeSelect">Session</label><select id="sessionTypeSelect">
-        <option value="results">Race</option><option value="qualifying">Qualifying</option><option value="sprint">Sprint</option>
-      </select></div>
-    </div>
-    <div class="state" id="sessionsResultsLoading" style="display:none">Loading results…</div>
-    <div class="rows" id="sessionsResults"></div>
-  </div>
-</div>
-
 <div class="modal" id="raceTimesOverlay" role="dialog" aria-modal="true" aria-labelledby="raceTimesTitle">
   <div class="sheet">
     <div class="sheet-head"><h2 id="raceTimesTitle">Race Times</h2><button class="x" id="raceTimesClose" type="button" aria-label="Close race times">&times;</button></div>
@@ -386,7 +349,6 @@
 
 
 
-<script type="module" src="/src/main.ts"></script>
 </main>
 
 <!-- ══ FOOTER ══ -->

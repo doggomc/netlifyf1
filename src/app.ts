@@ -880,6 +880,136 @@ function linkHealthStatus(link: StreamLink): string {
 /* Kept for the callers that only need one address (the header label, the override path). */
 const buildUrl = (i) => linkPool(i)[0] || '';
 
+const EMB_CLEAN_NAMES: Record<string, string> = {
+  fullhd1: 'F1 HD 1',
+  fullhd3: 'F1 HD 2',
+  world: 'World Feed',
+  dazn: 'DAZN',
+  spanish: 'Spanish',
+  skyit: 'Sky Italia',
+  italian: 'Italian',
+  skyde: 'Sky DE',
+  german: 'German',
+};
+
+const SOURCE_LANG_SHORT: Record<string, string> = {
+  spanish: 'ES', dutch: 'NL', italian: 'IT', german: 'DE', swedish: 'SE', polish: 'PL', czech: 'CZ',
+  es: 'ES', it: 'IT', de: 'DE',
+};
+
+function describeSourcePill(s: StreamSource): { title: string; sub: string; badge: string } {
+  let raw = (s.label || '').trim();
+  const subs: string[] = [];
+
+  raw = raw.replace(/\s*\(([^)]+)\)\s*$/g, (_m, inner: string) => {
+    const clean = inner.trim();
+    subs.push(clean.toLowerCase() === 'weelo' ? 'Weelo' : clean);
+    return '';
+  }).trim();
+
+  if (s.embdlol && raw.toUpperCase() === s.embdlol.toUpperCase() && EMB_CLEAN_NAMES[s.embdlol]) {
+    raw = EMB_CLEAN_NAMES[s.embdlol];
+  }
+
+  let badge = '';
+  if (s.id === 'sky-uhd' || s.gated || /\b(4K|UHD)\b/i.test(raw)) {
+    badge = '4K';
+    raw = raw.replace(/\s*\b4K\b\s*/gi, ' ').trim();
+  }
+
+  const langCode = (s.embdlol && EMB_LANG[s.embdlol] && SOURCE_LANG_SHORT[EMB_LANG[s.embdlol]])
+    || (s.tfLang && SOURCE_LANG_SHORT[s.tfLang]) || '';
+  if (langCode) {
+    const trailing = new RegExp(`\\s+${langCode}$`, 'i');
+    if (trailing.test(raw) && raw.split(/\s+/).length > 2) raw = raw.replace(trailing, '').trim();
+    if (!subs.includes(langCode)) subs.unshift(langCode);
+  } else if (/\s+UK$/i.test(raw)) {
+    raw = raw.replace(/\s+UK$/i, '').trim();
+    subs.unshift('UK');
+  }
+
+  return { title: raw || s.label || '-', sub: subs.join(' · '), badge };
+}
+
+const watchStartFmt = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+});
+
+function setTextIfChanged(el: HTMLElement | null, value: string): void {
+  if (el && el.textContent !== value) el.textContent = value;
+}
+
+function updateWatchSessionState() {
+  const dot = $('watchSessionDot');
+  const badge = $('watchSessionBadge');
+  const sep = $('watchSessionSep');
+  const timer = $('watchSessionCountdown');
+  const title = $('watchSessionTitle');
+  const meta = $('watchSessionMeta');
+  if (!title || !currentEvent || !currentSession) return;
+
+  const live = getCurrentLiveSession();
+  const isLive = Boolean(live) || streamOverride.active;
+  const now = Date.now();
+  const diff = currentSession.ts - now;
+
+  if (isLive) {
+    if (dot) dot.className = 'watch-session-dot is-live';
+    setTextIfChanged(badge, `Live now · R${currentEvent.round}`);
+    if (sep) sep.hidden = false;
+    setTextIfChanged(timer, streamOverride.active ? 'Override' : 'On air');
+    setTextIfChanged(title, `${currentEvent.name} · ${currentSession.name}`);
+    setTextIfChanged(meta, `${currentEvent.locality}, ${currentEvent.country}`);
+    return;
+  }
+
+  if (diff > 0) {
+    const totalSec = Math.floor(diff / 1000);
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = (v: number) => String(v).padStart(2, '0');
+    if (dot) dot.className = 'watch-session-dot is-next';
+    setTextIfChanged(badge, `Up next · R${currentEvent.round}`);
+    if (sep) sep.hidden = false;
+    setTextIfChanged(timer, `in ${d > 0 ? `${d}d ` : ''}${pad(h)}:${pad(m)}:${pad(s)}`);
+    setTextIfChanged(title, `${currentEvent.name} · ${currentSession.name}`);
+    setTextIfChanged(meta, `${currentEvent.locality}, ${currentEvent.country} · ${watchStartFmt.format(currentSession.ts)}`);
+    return;
+  }
+
+  if (!isSessionEnded(currentSession)) {
+    if (dot) dot.className = 'watch-session-dot is-live';
+    setTextIfChanged(badge, `Active · R${currentEvent.round}`);
+    if (sep) sep.hidden = false;
+    setTextIfChanged(timer, 'In progress');
+    setTextIfChanged(title, `${currentEvent.name} · ${currentSession.name}`);
+    setTextIfChanged(meta, `${currentEvent.locality}, ${currentEvent.country}`);
+    return;
+  }
+
+  if (dot) dot.className = 'watch-session-dot';
+  setTextIfChanged(badge, 'Season complete');
+  if (sep) sep.hidden = false;
+  setTextIfChanged(timer, String(SITE_SEASON));
+  setTextIfChanged(title, `${currentEvent.name} · ${currentSession.name}`);
+  setTextIfChanged(meta, `${currentEvent.locality}, ${currentEvent.country}`);
+}
+
+function syncActiveSession() {
+  const target = pickDefault();
+  if (!target?.event || !target?.session) return;
+  if (target.event.slug === currentEvent?.slug && target.session.slug === currentSession?.slug) return;
+  currentEvent = target.event;
+  currentSession = target.session;
+  resetSessionState();
+  normalizeCurrentSource();
+  updateHeader();
+  renderButtons();
+  load();
+}
+
 function updateHeader() {
   const parts = currentEvent.name.split(" ");
   const last = parts.slice(-2).join(" ");
@@ -904,12 +1034,14 @@ function updateHeader() {
   }
 
   normalizeCurrentSource();
-  const src = sources[currentSource] || { id: "none", label: "-" };
+  const src = sources[currentSource] || { id: "none", label: "-", links: [] };
   if (stageLabel) stageLabel.textContent = "freef1://live/" + currentEvent.slug + "/" + currentSession.slug + "/" + src.id;
-  /* The session line under the player: the same facts the hero carries, where the video is. */
-  if (sourceLabel) sourceLabel.textContent = src.label;
-  /* The watch head reads off the same values the hero already uses. */
+  if (sourceLabel) {
+    const pill = describeSourcePill(src);
+    sourceLabel.textContent = pill.sub ? `${pill.title} · ${pill.sub}` : pill.title;
+  }
   if (badgeEl) badgeEl.style.display = isStreamAvailable(currentSession) ? "inline-flex" : "none";
+  updateWatchSessionState();
 }
 
 /* ═══ 4K join nudge ═══
@@ -1107,20 +1239,43 @@ function renderButtons() {
   renderTabBar();
 
   const visible = sources.map((_s, i) => i).filter((i) => sourceEnabled(sources[i]) && inTab(sources[i]));
+  const countEl = $('sourcesCount');
+  if (countEl) countEl.textContent = `${visible.length} ${visible.length === 1 ? 'feed' : 'feeds'}`;
 
   const chipFor = (s: StreamSource, i: number) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "chip" + (i === currentSource ? " active" : "");
+    const active = i === currentSource;
+    const pill = describeSourcePill(s);
+    b.className = "chip src-pill" + (active ? " active" : "");
+    b.setAttribute("aria-pressed", String(active));
     if (s.gated && !canPlayHevc()) b.title = HEVC_WARNING;
     /* Specials carry weelo's own state, so a chip that cannot play never looks clickable. */
     if (s.special) {
       b.className += ` chip-special chip-${s.special}`;
       if (specialDown(s)) b.className += ' is-down', b.title = `weelo: ${specialState(s)}`;
+    } else if (pill.badge) {
+      b.className += ' has-tag';
+      const tag = document.createElement('span');
+      tag.className = 'src-pill-tag is-4k';
+      tag.textContent = pill.badge;
+      b.appendChild(tag);
     }
-    b.textContent = s.label;
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'src-pill-title';
+    titleSpan.textContent = pill.title;
+    b.appendChild(titleSpan);
+
+    if (pill.sub) {
+      const subSpan = document.createElement('span');
+      subSpan.className = 'src-pill-sub';
+      subSpan.textContent = pill.sub;
+      b.appendChild(subSpan);
+    }
+
     b.onclick = async () => {
-      if (!isPasted(s) && specialDown(s)) return showNoStream({ title: 'Not on air', text: `${s.label} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
+      if (!isPasted(s) && specialDown(s)) return showNoStream({ title: 'Not on air', text: `${pill.title} is ${specialState(s)} at weelo, so there is nothing to play yet. It comes up around each session; reload to re-check.` });
       /* The 4K chip asks once whether they want session alerts before playing. */
       if (s.gated && !isPasted(s) && !isCustom(i)) return chooseFourK();
       currentSource = i;
@@ -1142,7 +1297,7 @@ function renderButtons() {
   if (specials.length) {
     const block = document.createElement('div');
     block.className = 'special-row';
-    block.innerHTML = '<span class="special-head">Onboards &amp; data</span>';
+    block.innerHTML = '<span class="special-head">Onboards &amp; pit wall</span>';
     specials.forEach((i) => block.appendChild(chipFor(sources[i], i)));
     linksEl.appendChild(block);
   }
@@ -1651,6 +1806,7 @@ function applyStreamOverride(override) {
   const changed = next.active !== streamOverride.active || next.url !== streamOverride.url || next.type !== streamOverride.type;
   streamOverride = next;
   updateOverridePill(streamOverride);
+  updateWatchSessionState();
   if (!changed) return;
 
   const toastKey = streamOverride.active ? `${streamOverride.type}:${streamOverride.url}` : 'inactive';
@@ -1841,22 +1997,13 @@ function updateClocks() {
   if (document.hidden) return;
   if (clockEl) clockEl.textContent = clockFormat.format(Date.now());
   updateCountdown();
+  updateWatchSessionState();
 }
 
 /* ═══════════════ 10. CUSTOM ACCESSIBLE SELECT COMPONENTS ═══════════════ */
 function populate() {
-  if (!eventSelect) return;
-  eventSelect.innerHTML = "";
-  schedule.forEach((ev) => {
-    const o = document.createElement("option");
-    o.value = ev.slug;
-    const done = ev.sessions.every(isSessionEnded);
-    o.disabled = done;
-    o.textContent = `R${ev.round} · ${ev.name}` + (done ? " (finished)" : "");
-    if (ev.slug === currentEvent.slug) o.selected = true;
-    eventSelect.appendChild(o);
-  });
-  updateSessions();
+  syncActiveSession();
+  updateWatchSessionState();
   updateCurrentStreamButton();
 }
 
@@ -2606,11 +2753,15 @@ window.setInterval(() => {
 }, 1000);
 
 window.setInterval(() => {
-  if (!document.hidden) updateCurrentStreamButton();
-}, 60000);
+  if (!document.hidden) {
+    syncActiveSession();
+    updateCurrentStreamButton();
+  }
+}, 30000);
 
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
+    syncActiveSession();
     updateClocks();
     updateCurrentStreamButton();
   }
@@ -2692,7 +2843,6 @@ const loadRadio = (() => {
   return () => task ??= import('./features/radio').then(m => m.init(featureContext)).catch(error => { task = undefined; throw error; });
 })();
 lazyButton('radioRcBtn', loadRadio);
-try { if (JSON.parse(store.get(RADIO_RC_STORE_KEY) || '{}').open) onIdle(() => loadRadio()); } catch { /* invalid preferences */ }
 lazyButton('copyDiagnosticsBtn', () => import('./features/diagnostics').then(m => m.init(featureContext)));
 if (!liteMotion) onIdle(() => import('./features/canvas').then(m => m.init(featureContext)));
 

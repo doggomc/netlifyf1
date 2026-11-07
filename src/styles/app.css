@@ -5590,14 +5590,91 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
 .wplayer-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 14px 20px;
   flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--rr-ink-850);
+  box-shadow: var(--rr-ring);
 }
 
-.wplayer-actions-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
+.watch-session-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
 
-.watch-selects { display: flex; gap: 8px; flex: 0 1 420px; min-width: 260px; }
-.watch-selects .sel { flex: 1; min-width: 0; }
+.watch-session-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--rr-fg-3);
+}
+
+.watch-session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ffffff40;
+  flex: none;
+}
+.watch-session-dot.is-live {
+  background: var(--team, #e10600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--team, #e10600) 26%, transparent);
+}
+.watch-session-dot.is-next {
+  background: #facc15;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, .2);
+}
+
+#watchSessionBadge { color: #fff; }
+.watch-session-sep { opacity: .5; }
+#watchSessionCountdown {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--rr-fg-2, #b6b8be);
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-session-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.watch-session-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: #fff;
+}
+
+.watch-session-meta {
+  font-size: 12.5px;
+  color: var(--rr-fg-3);
+}
+
+.wplayer-actions-main {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+}
+@media (max-width: 720px) {
+  .wplayer-actions-main { justify-content: flex-start; width: 100%; }
+}
 
 #mvToggle svg, #theaterBtn svg { width: 15px; height: 15px; flex: none; }
 
@@ -5667,6 +5744,7 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
 .wtabs .chip.active { color: #fff; background: transparent; border-color: transparent; box-shadow: none; }
 
 /* ── sources: the same pill language as the action row, one per line ── */
+/* ── sources: compact horizontal wrapping pills ── */
 .wsources {
   padding: 18px;
   border-radius: 20px;
@@ -5674,39 +5752,47 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
   box-shadow: var(--rr-ring);
 }
 
-.wsources-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-.wsources-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+.wsources-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.wsources-title-wrap { display: inline-flex; align-items: baseline; gap: 10px; }
+.wsources-head h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+.wsources-count { font-size: 11.5px; color: var(--rr-fg-3); }
 
-.wsource-list { display: grid; gap: 2px; }
-
-/* Every source row enters on its own beat, so a tab switch reads as the list rebuilding rather than
-   three rows swapping labels. */
-.wsource-list > button.chip,
-.wsource-list .special-row button.chip {
-  animation: fadeUp .34s var(--ease) backwards;
+.wsource-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.wsource-list > *:nth-child(2), .wsource-list .special-row button.chip:nth-child(2) { animation-delay: .02s; }
-.wsource-list > *:nth-child(n+4), .wsource-list .special-row button.chip:nth-child(n+4) { animation-delay: .04s; }
-.wsource-list > *:nth-child(n+7), .wsource-list .special-row button.chip:nth-child(n+7) { animation-delay: .06s; }
+/* Every source pill enters smoothly on tab switch. */
+.wsource-list > button.chip,
+.wsource-list .special-row button.chip {
+  animation: fadeUp .28s var(--ease) backwards;
+}
+
+.wsource-list > *:nth-child(2), .wsource-list .special-row button.chip:nth-child(2) { animation-delay: .015s; }
+.wsource-list > *:nth-child(n+4), .wsource-list .special-row button.chip:nth-child(n+4) { animation-delay: .03s; }
+.wsource-list > *:nth-child(n+7), .wsource-list .special-row button.chip:nth-child(n+7) { animation-delay: .045s; }
 
 .wsource-list > button.chip,
 .wsource-list .special-row button.chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 46px;
+  gap: 7px;
+  width: auto;
+  min-height: 36px;
   height: auto;
-  padding: 7px 10px;
+  padding: 6px 13px;
   border: 0;
-  border-radius: 8px;
-  background: transparent;
+  border-radius: 999px;
+  background: #ffffff0b;
+  box-shadow: inset 0 0 0 1px #ffffff16;
   color: var(--rr-fg);
-  font: 600 13.5px 'Inter', system-ui, sans-serif;
+  font: 600 13px/1.15 'Inter', system-ui, sans-serif;
   letter-spacing: 0;
   text-transform: none;
   text-align: left;
+  white-space: nowrap;
   transition: background-color .18s var(--ease), color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
 }
 
@@ -5715,7 +5801,8 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
 
 .wsource-list > button.chip:hover,
 .wsource-list .special-row button.chip:hover {
-  background: #ffffff12;
+  background: #ffffff14;
+  box-shadow: inset 0 0 0 1px #ffffff2b;
   color: #fff;
   border-color: transparent;
   transform: translateY(-1px);
@@ -5723,75 +5810,110 @@ body[data-page="cockpit"] footer.footer { margin-top: 0; }
 
 .wsource-list > button.chip.active,
 .wsource-list .special-row button.chip.active {
-  background: #ffffff14;
+  background: color-mix(in srgb, var(--team, #e10600) 17%, #1a1c22);
   color: #fff;
-  box-shadow: inset 2px 0 0 #e10600;
+  box-shadow: inset 0 0 0 1.5px var(--team, #e10600);
 }
 
-.wsource-list > button.chip:active { transform: translateY(0) scale(.995); }
+.wsource-list > button.chip:active,
+.wsource-list .special-row button.chip:active { transform: translateY(0) scale(.985); }
 
-/* A quiet lead dot, the same weight as the old chip's tag, so every source row reads as one thing. */
-.wsource-list button.chip:not(.chip-special)::before {
+.src-pill-title { color: inherit; }
+.src-pill-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff75;
+  letter-spacing: .01em;
+}
+.wsource-list button.chip.active .src-pill-sub { color: #ffffffba; }
+
+.src-pill-tag {
+  display: inline-grid;
+  place-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+.src-pill-tag.is-4k {
+  background: rgba(250, 204, 21, .16);
+  color: #fde047;
+}
+.wsource-list button.chip.active .src-pill-tag.is-4k {
+  background: rgba(250, 204, 21, .24);
+  color: #fef08a;
+}
+
+/* A quiet lead dot on standard broadcaster pills, lit in the active team accent when playing. */
+.wsource-list button.chip:not(.chip-special):not(.has-tag)::before {
   content: '';
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  background: #ffffff26;
+  background: #ffffff38;
   transition: background-color .2s var(--ease), box-shadow .2s var(--ease);
 }
 
-.wsource-list button.chip.active:not(.chip-special)::before {
-  background: #669df1;
-  box-shadow: 0 0 0 3px #669df126;
+.wsource-list button.chip.active:not(.chip-special):not(.has-tag)::before {
+  background: var(--team, #e10600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--team, #e10600) 28%, transparent);
 }
 
-/* The specials keep their order and their tag, in their own group under the broadcasters. */
+/* The specials keep their order and their tag, in their own wrapping row under the broadcasters. */
 .wsource-list .special-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
-  margin-top: 4px;
-  padding-top: 10px;
-  border-top: 1px solid #ffffff0f;
+  flex: 1 0 100%;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #ffffff12;
 }
 
 .wsource-list .special-head {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0 0 2px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--rr-fg-3);
   text-transform: none;
 }
 
-/* ONBD / DATA / FEED, kept: it sits where the broadcasters' dot sits. */
+/* ONBD / DATA / FEED micro-badge inside special pills. */
 .wsource-list .special-row button.chip::before {
   content: 'ONBD';
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: 30px;
-  height: 20px;
+  height: 18px;
+  padding: 0 5px;
   margin: 0;
   border: 0;
   border-radius: 5px;
-  font-size: .5rem;
-  letter-spacing: .06em;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .05em;
   line-height: 1;
   color: var(--team);
-  background: #ffffff0f;
+  background: #ffffff12;
   transition: background-color .2s var(--ease), color .2s var(--ease);
 }
 
-.wsource-list .special-row button.chip.chip-data::before { content: 'DATA'; color: #669df1; background: #669df11f; }
-.wsource-list .special-row button.chip.chip-feed::before { content: 'FEED'; }
+.wsource-list .special-row button.chip.chip-data::before { content: 'DATA'; color: #669df1; background: #669df124; }
+.wsource-list .special-row button.chip.chip-feed::before { content: 'FEED'; color: #cbd5e1; background: #ffffff14; }
 
-.wsource-list .special-row button.chip.is-down { opacity: .5; }
-.wsource-list .special-row button.chip.is-down:hover { opacity: .75; }
+.wsource-list .special-row button.chip.is-down { opacity: .48; }
+.wsource-list .special-row button.chip.is-down:hover { opacity: .78; }
 
 /* ── the rail ── */
 .watch-side {
@@ -5908,32 +6030,28 @@ body.theater .wplayer {
 
 body.theater .wplayer-bar { background: #0b0c0e; }
 
-/* Two centred rows: every control on one line, the pickers on the next. */
+/* Single bar in theater: active/next session on the left, controls on the right. */
 body.theater .wplayer-actions {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  width: min(100%, calc((100vh - 200px) * 16 / 9));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  width: min(100%, calc((100vh - 150px) * 16 / 9));
   max-width: 100%;
-  justify-self: center;
+  padding: 10px 16px;
   animation: fadeUp .4s var(--ease) .06s backwards;
 }
 
-/* One line on a wide screen; a phone wraps its controls rather than pushing them off the edge. */
 @media (min-width: 1101px) {
   body.theater .wplayer-actions-main { flex-wrap: nowrap; flex: none; }
 }
 
-body.theater .watch-selects { flex: none; width: 420px; max-width: 100%; }
-
-body.theater .wplayer-actions-main { max-width: 100%; width: 100%; justify-content: center; }
-
-/* Theater is for watching: Championship, results, livery, race times and radio stay on the page. */
+/* Theater is for watching: livery and race times stay on the main cockpit view. */
 /* Sources hidden: the rail leaves and the window and controls take the full width back. */
 body.theater.theater-no-sources .wsources { display: none; }
 body.theater.theater-no-sources .watch-main { padding-right: 0; }
-body.theater.theater-no-sources .wplayer { width: min(100%, calc((100vh - 200px) * 16 / 9)); }
-body.theater.theater-no-sources .wplayer-actions { width: min(100%, calc((100vh - 200px) * 16 / 9)); }
+body.theater.theater-no-sources .wplayer { width: min(100%, calc((100vh - 150px) * 16 / 9)); }
+body.theater.theater-no-sources .wplayer-actions { width: min(100%, calc((100vh - 150px) * 16 / 9)); }
 
 body.theater #sessionsBtn,
 body.theater #teamSelectBtn,

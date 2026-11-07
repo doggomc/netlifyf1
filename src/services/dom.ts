@@ -20,6 +20,14 @@ export interface ElementIdMap {
   'currentStreamBtn': HTMLButtonElement;
   'tickerTrack': HTMLElement;
   'watch': HTMLElement;
+  'watchSessionState': HTMLElement;
+  'watchSessionDot': HTMLElement;
+  'watchSessionBadge': HTMLElement;
+  'watchSessionSep': HTMLElement;
+  'watchSessionCountdown': HTMLElement;
+  'watchSessionTitle': HTMLElement;
+  'watchSessionMeta': HTMLElement;
+  'sourcesCount': HTMLElement;
   'sourceLabel': HTMLElement;
   'eventSelect': HTMLSelectElement;
   'sessionSelect': HTMLSelectElement;
