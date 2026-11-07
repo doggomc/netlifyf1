@@ -575,7 +575,6 @@ main { flex: 1 0 auto; }
 }
 .sc-tz-note { margin: 0; font-size: 14px; color: var(--fg-3); }
 .sc-tz-note b { color: var(--fg-2); font-weight: 600; }
-.sc-legend { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fg-3); }
 .sc-lozenge {
   display: inline-flex; align-items: center; flex: none;
   height: 20px; padding: 0 6px; border-radius: 6px;
