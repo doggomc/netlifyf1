@@ -226,4 +226,42 @@ describe('stream source link pools', () => {
     expect(app).toContain('/api/stream/embdlol-embed?id=');
     expect(app).toContain("url.includes('/api/stream/embdlol-embed')");
   });
+
+  it('adds 9 stripped PPV counterparts alongside existing PPV feeds and proxies streams through STREAM_API', () => {
+    const ppvPairs = [
+      ['ppv', 'ppv-stripped', 'Sky Sports (PPV)'],
+      ['appletv', 'appletv-stripped', 'AppleTV (PPV)'],
+      ['dazn', 'dazn-stripped', 'DAZN (PPV)'],
+      ['viaplay', 'viaplay-stripped', 'Viaplay (PPV)'],
+      ['sky-italia', 'sky-italia-stripped', 'Sky Sport Italia (PPV)'],
+      ['sky-de', 'sky-de-stripped', 'Sky Sport F1 DE (PPV)'],
+      ['v-sport', 'v-sport-stripped', 'V Sport Motor SE (PPV)'],
+      ['eleven', 'eleven-stripped', 'Eleven Sports PL (PPV)'],
+      ['nova', 'nova-stripped', 'Nova Sport CZ (PPV)'],
+    ] as const;
+
+    for (const [origId, strippedId, expectedLabel] of ppvPairs) {
+      expect(block).toContain(`{ id: "${origId}"`);
+      expect(block).toContain(`{ id: "${strippedId}"`);
+      expect(block.indexOf(`{ id: "${origId}"`)).toBeLessThan(block.indexOf(`{ id: "${strippedId}"`));
+      const start = block.indexOf(`{ id: "${strippedId}"`);
+      const slice = block.slice(start, start + 260);
+      expect(slice).toContain(`label: "${expectedLabel}"`);
+      expect(slice).toContain('stripped: true');
+      expect(slice).toContain("provider: 'ppv-stripped'");
+      expect(slice).not.toContain('540p');
+    }
+
+    expect(app).toContain('/api/stream/ppv-embed?slug=');
+    expect(app).toContain("url.includes('/api/stream/ppv-embed')");
+    expect(app).toContain('const STREAM_API =');
+
+    const redirects = readFileSync(new URL('../site-assets/_redirects', import.meta.url), 'utf8');
+    expect(redirects).toContain('/api/stream/*     https://f1admin.onrender.com/api/stream/:splat   200');
+    expect(redirects).toContain('/api/site/config  https://f1admin.onrender.com/api/site/config     200');
+
+    const headers = readFileSync(new URL('../site-assets/_headers', import.meta.url), 'utf8');
+    expect(headers).toContain('/api/stream/*');
+    expect(headers).toContain('Referrer-Policy: no-referrer');
+  });
 });

@@ -93,8 +93,11 @@ function connectUpdates() {
 }
 
 async function refreshConfigOnce() {
+  const configBase = typeof location !== 'undefined' && location.protocol === 'https:' && !/\.e2b\.app$/i.test(location.hostname)
+    ? location.origin
+    : BACKEND_API;
   try {
-    const response = await fetch(`${BACKEND_API}/api/site/config`, {
+    const response = await fetch(`${configBase}/api/site/config`, {
       cache: 'no-cache',
       credentials: 'omit',
       headers: { Accept: 'application/json' }

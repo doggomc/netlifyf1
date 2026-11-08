@@ -142,6 +142,7 @@ function serveStaticFolders(): Plugin {
             names.forEach((name, index) => { target = target.replace(`:${name}`, values[index] ?? ''); });
           }
           if (rule.status === 200) {
+            if (/^https?:\/\//i.test(target)) return next();
             if (/^\/drivers\/[^/]+(?:\/|\/index\.html)?$/.test(target)) {
               req.url = '/driver.html' + (req.url || '').slice(pathname.length);
               return next();
@@ -297,7 +298,11 @@ export default defineConfig({
   server: {
     host: '0.0.0.0', port: 4173,
     allowedHosts: ['.e2b.app', 'localhost'],
-    proxy: { '/control-api': { target: 'http://127.0.0.1:3000', changeOrigin: true, rewrite: path => path.replace(/^\/control-api/, '') } },
+    proxy: {
+      '/control-api': { target: 'http://127.0.0.1:3000', changeOrigin: true, rewrite: path => path.replace(/^\/control-api/, '') },
+      '/api/stream': { target: 'http://127.0.0.1:3000', changeOrigin: true },
+      '/api/site/config': { target: 'http://127.0.0.1:3000', changeOrigin: true },
+    },
   },
   preview: { host: '0.0.0.0', port: 4173, allowedHosts: ['.e2b.app', 'localhost'] },
   build: {

@@ -20,6 +20,12 @@ import { staleSession, canonicalSessionSlug } from './features/session-guard';
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ═══════════════ 1. CONFIGURATION & CONSTANTS ═══════════════ */
+/* Route cacheable stream embeds, playlists, catalogues, and public site config through same-origin
+   Netlify _redirects (200) on HTTPS hosts so Netlify's Edge CDN deduplicates requests and protects
+   Render's 5 GB/month bandwidth cap. Keep SSE (/api/site/updates) direct to BACKEND_API. */
+const STREAM_API = typeof location !== 'undefined' && location.protocol === 'https:' && !/\.e2b\.app$/i.test(location.hostname)
+  ? location.origin
+  : BACKEND_API;
 const SITE_CONFIG_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const SITE_CONFIG_TIMEOUT_MS = 2500;
 const SITE_CONFIG_FOCUS_COOLDOWN_MS = 5000;
@@ -422,7 +428,7 @@ function taifoodUsable(url: string, source: StreamSource): boolean {
   if (!cataloguesReady) return true;     // before the list answers, judge nothing
   const list = catalogues.taifood || {};
   // The PPV chip's own address comes from the PPV feed, not from the substream channel list.
-  if (source.id === 'ppv') return true;
+  if (source.id === 'ppv' || source.id === 'ppv-stripped') return true;
   return taifoodPublishesId(url, list);
 }
 
@@ -494,7 +500,7 @@ let lastWeeloRefreshAt = 0;
 
 async function loadCatalogues(): Promise<void> {
   const { loadCatalogues: load } = await import('./features/catalogues');
-  catalogues = await load({ fetchWithTimeout, backend: BACKEND_API });
+  catalogues = await load({ fetchWithTimeout, backend: STREAM_API });
   cataloguesReady = true;
   lastWeeloRefreshAt = Date.now();
   syncWeeloSourcesFromFeed();
@@ -580,10 +586,32 @@ const STRIPPED_SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, sp
 function strmfreeStrippedEmbedUrl(
   variant: 'skyf11080p' | 'skyf1',
   host: 'strmfree.st' | 'streamfree.top' = 'strmfree.st',
-  apiBase = BACKEND_API,
+  apiBase = STREAM_API,
 ): string {
   const base = String(apiBase || '').replace(/\/+$/, '');
   return `${base}/api/stream/strmfree-embed?variant=${encodeURIComponent(variant)}&host=${encodeURIComponent(host)}`;
+}
+
+function ppvStrippedEmbedUrl(slug: string, host = 'taifood-blog.asia', apiBase = STREAM_API): string {
+  const cleanSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!cleanSlug || /540p/i.test(cleanSlug) || !/^[A-Za-z0-9/_-]{3,160}$/.test(cleanSlug)) return '';
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  const cleanHost = String(host || '').trim().toLowerCase().replace(/^www\./, '');
+  const hostQuery = cleanHost && cleanHost !== 'taifood-blog.asia' ? `&host=${encodeURIComponent(cleanHost)}` : '';
+  return `${base}/api/stream/ppv-embed?slug=${encodeURIComponent(cleanSlug)}${hostQuery}`;
+}
+
+function toStrippedPpvEmbedUrl(rawUrl: string, apiBase = STREAM_API): string {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    if (parsed.protocol !== 'https:') return '';
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const match = parsed.pathname.match(/^\/embed\/([A-Za-z0-9/_-]{3,160})\/?$/);
+    if (!match || /540p/i.test(match[1])) return '';
+    return ppvStrippedEmbedUrl(match[1], host, apiBase);
+  } catch {
+    return '';
+  }
 }
 
 function toStrippedStrmfreeLinkUrl(rawUrl: string): string {
@@ -685,6 +713,44 @@ const sources: StreamSource[] = [
       { provider: 'ppv', quality: 1080, taid: 31861 }
   ]},
 
+  /* Stripped (ad-free) counterparts of every PPV feed, relayed via /api/stream/ppv-embed with
+     client-side 1080p segment fetching direct from tiktokcdn.com and edge-cached playlists. */
+  { id: "ppv-stripped", label: "Sky Sports (PPV)", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, ppv: true }
+  ]},
+  { id: "appletv-stripped", label: "AppleTV (PPV)", taifood: "apple", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31865 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31854 }
+  ]},
+  { id: "dazn-stripped", tfLang: "spanish", label: "DAZN (PPV)", taifood: "dazn", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31867 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31856 }
+  ]},
+  { id: "viaplay-stripped", tfLang: "dutch", label: "Viaplay (PPV)", taifood: "viaplay", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31871 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31860 }
+  ]},
+  { id: "sky-italia-stripped", tfLang: "italian", label: "Sky Sport Italia (PPV)", taifood: "sky", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31869 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31858 }
+  ]},
+  { id: "sky-de-stripped", tfLang: "german", label: "Sky Sport F1 DE (PPV)", taifood: "sky", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31868 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31857 }
+  ]},
+  { id: "v-sport-stripped", tfLang: "swedish", label: "V Sport Motor SE (PPV)", taifood: "v", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31870 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31859 }
+  ]},
+  { id: "eleven-stripped", tfLang: "polish", label: "Eleven Sports PL (PPV)", taifood: "eleven", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31873 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31862 }
+  ]},
+  { id: "nova-stripped", tfLang: "czech", label: "Nova Sport CZ (PPV)", taifood: "nova", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31872 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31861 }
+  ]},
+
   /* Three entry points, one upstream channel (/hls/stream.m3u8?ch=spn). Failover only. */
   { id: "wikisport", label: "WikiSport", links: [
       { provider: 'wikisport', url: "https://wikisport.info/strm/f1.php" },
@@ -778,12 +844,12 @@ function customLink(raw: string): string {
 /* A pasted link plays as given: no 4K prompt, no waiting on a catalogue. */
 const isCustom = (i = currentSource) => sources[i]?.links[0]?.provider === 'custom';
 
-function weeloStrippedEmbedUrl(streamId: string, apiBase = BACKEND_API): string {
+function weeloStrippedEmbedUrl(streamId: string, apiBase = STREAM_API): string {
   const base = String(apiBase || '').replace(/\/+$/, '');
   return `${base}/api/stream/weellz-embed?stream=${encodeURIComponent(streamId)}`;
 }
 
-function embdlolStrippedEmbedUrl(rawUrlOrId: string, apiBase = BACKEND_API): string {
+function embdlolStrippedEmbedUrl(rawUrlOrId: string, apiBase = STREAM_API): string {
   const clean = String(rawUrlOrId || '').trim();
   if (!clean) return '';
   const match = clean.match(/\/embed\/([A-Za-z0-9_-]{4,80})(?:[/?#]|$)/i);
@@ -1032,11 +1098,15 @@ function linkPool(index: number): string[] {
     : [];
   /* The main Sky Sports (PPV) chip resolves the session-matched HD stream from api.ppv.st/api/streams. */
   const ppvSessionUri = catalogues.ppvSessions?.[canonicalSessionSlug(currentSession?.slug)] || catalogues.ppv;
-  if (source.id === 'ppv' && ppvSessionUri) live.unshift(ppvSessionUri);
-  const pool = links.filter((link) => link.addressing !== 'dynamic')
+  if ((source.id === 'ppv' || source.id === 'ppv-stripped') && ppvSessionUri) live.unshift(ppvSessionUri);
+  const rawPool = links.filter((link) => link.addressing !== 'dynamic')
     .flatMap((link) => (link.taid ? taidCandidates(link.taid) : [resolveLink(link, key)]))
     .filter((url) => Boolean(url) && taifoodUsable(url, source));
-  if (live.length) pool.unshift(...live);
+  if (live.length) rawPool.unshift(...live);
+  const isStrippedPpv = Boolean(source.stripped && (source.id === 'ppv-stripped' || source.taifood));
+  const pool = isStrippedPpv
+    ? rawPool.map((url) => stampSession(toStrippedPpvEmbedUrl(url), key)).filter(Boolean)
+    : rawPool;
   /* A dynamic link is only usable once its token is in hand. These tokens lapse and the provider
      then shows a "Link expired" page, so a stale one is refreshed before its address is offered. */
   for (const link of dynamic) {
@@ -1082,7 +1152,7 @@ function rememberGoodLink(sourceId: string, url: string) {
 const healthState: ProviderHealthState = { providers: {}, dynamic: {} };
 
 function healthDeps(): HealthDeps {
-  return { backend: BACKEND_API, state: healthState, onChange: () => renderButtons(), fetchWithTimeout };
+  return { backend: STREAM_API, state: healthState, onChange: () => renderButtons(), fetchWithTimeout };
 }
 
 async function loadProviderHealth() {
@@ -1308,7 +1378,7 @@ async function fetchFourKUrl(): Promise<string> {
   if (fourKUrl) return fourKUrl;
   const seq = ++fourKRequest;
   try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/stream/uhd`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 9000);
+    const response = await fetchWithTimeout(`${STREAM_API}/api/stream/uhd`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 9000);
     const json = await response.json().catch(() => ({}));
     if (seq !== fourKRequest) return fourKUrl;
     if (!response.ok || !json?.url) {
@@ -1847,7 +1917,8 @@ function isStrippedEmbed(url: string): boolean {
   return typeof url === 'string' && (
     url.includes('/api/stream/weellz-embed') ||
     url.includes('/api/stream/embdlol-embed') ||
-    url.includes('/api/stream/strmfree-embed')
+    url.includes('/api/stream/strmfree-embed') ||
+    url.includes('/api/stream/ppv-embed')
   );
 }
 
@@ -2219,7 +2290,7 @@ async function refreshSiteConfig({ force = false } = {}) {
 
   const pending = (async () => {
     try {
-      const response = await fetchWithTimeout(`${BACKEND_API}/api/site/config`, {
+      const response = await fetchWithTimeout(`${STREAM_API}/api/site/config`, {
         cache: 'no-cache',
         credentials: 'omit',
         headers: { Accept: 'application/json' }
@@ -3063,7 +3134,7 @@ applyTeamTheme(store.get('freef1_team') || 'default');
 async function refreshWeeloFeeds(): Promise<void> {
   try {
     const { refreshWeeloCatalogues } = await import('./features/catalogues');
-    catalogues = await refreshWeeloCatalogues({ fetchWithTimeout, backend: BACKEND_API });
+    catalogues = await refreshWeeloCatalogues({ fetchWithTimeout, backend: STREAM_API });
     cataloguesReady = true;
     lastWeeloRefreshAt = Date.now();
     const pillsChanged = syncWeeloSourcesFromFeed();

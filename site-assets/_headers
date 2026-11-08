@@ -33,3 +33,9 @@
 
 /assets/*
   Cache-Control: public, max-age=86400, must-revalidate
+
+/api/stream/*
+  Referrer-Policy: no-referrer
+  Cross-Origin-Resource-Policy: cross-origin
+  Content-Security-Policy: default-src 'self' https: blob: data:; base-uri 'self' https://weellz.live https://strmfree.st https://streamfree.top; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.jwplayer.com https://ssl.p.jwpcdn.com https://*.jwpcdn.com https://*.connatix.com https://weellz.live https://embdlol.st https://strmfree.st https://streamfree.top https://*.strmfree.st blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: wss:; media-src 'self' blob: https: data:; frame-ancestors 'self' https://freef1.netlify.app https://*.netlify.app; form-action 'none'; upgrade-insecure-requests
+
