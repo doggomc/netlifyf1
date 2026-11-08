@@ -43,8 +43,11 @@ const STATE_KEY = 'freef1_mvx_state_v1';
 export const PLAYER = 'https://weellz.live/beta?stream=';
 const ALLOW = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
 const STRIPPED_SANDBOX = 'allow-scripts allow-same-origin allow-presentation';
+const STREAM_API = typeof location !== 'undefined' && location.protocol === 'https:' && !/\.e2b\.app$/i.test(location.hostname)
+  ? location.origin
+  : BACKEND_API;
 
-export function strippedPlayerUrl(streamId: string, apiBase = BACKEND_API): string {
+export function strippedPlayerUrl(streamId: string, apiBase = STREAM_API): string {
   const base = String(apiBase || '').replace(/\/+$/, '');
   return `${base}/api/stream/weellz-embed?stream=${encodeURIComponent(streamId)}`;
 }

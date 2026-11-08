@@ -1,3 +1,7 @@
+# Edge-cached stream & public config relay to protect Render's 5 GB/month bandwidth budget.
+/api/stream/*     https://f1admin.onrender.com/api/stream/:splat   200
+/api/site/config  https://f1admin.onrender.com/api/site/config     200
+
 # Public News view is temporarily hidden; its data and admin controls remain intact.
 /news    /    302
 /news/   /    302

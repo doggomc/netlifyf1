@@ -20,6 +20,12 @@ import { staleSession, canonicalSessionSlug } from './features/session-guard';
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ═══════════════ 1. CONFIGURATION & CONSTANTS ═══════════════ */
+/* Route cacheable stream embeds, playlists, catalogues, and public site config through same-origin
+   Netlify _redirects (200) on HTTPS hosts so Netlify's Edge CDN deduplicates requests and protects
+   Render's 5 GB/month bandwidth cap. Keep SSE (/api/site/updates) direct to BACKEND_API. */
+const STREAM_API = typeof location !== 'undefined' && location.protocol === 'https:' && !/\.e2b\.app$/i.test(location.hostname)
+  ? location.origin
+  : BACKEND_API;
 const SITE_CONFIG_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const SITE_CONFIG_TIMEOUT_MS = 2500;
 const SITE_CONFIG_FOCUS_COOLDOWN_MS = 5000;
@@ -422,7 +428,7 @@ function taifoodUsable(url: string, source: StreamSource): boolean {
   if (!cataloguesReady) return true;     // before the list answers, judge nothing
   const list = catalogues.taifood || {};
   // The PPV chip's own address comes from the PPV feed, not from the substream channel list.
-  if (source.id === 'ppv') return true;
+  if (source.id === 'ppv' || source.id === 'ppv-stripped') return true;
   return taifoodPublishesId(url, list);
 }
 
@@ -494,7 +500,7 @@ let lastWeeloRefreshAt = 0;
 
 async function loadCatalogues(): Promise<void> {
   const { loadCatalogues: load } = await import('./features/catalogues');
-  catalogues = await load({ fetchWithTimeout, backend: BACKEND_API });
+  catalogues = await load({ fetchWithTimeout, backend: STREAM_API });
   cataloguesReady = true;
   lastWeeloRefreshAt = Date.now();
   syncWeeloSourcesFromFeed();
@@ -577,29 +583,72 @@ const STRIPPED_SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, sp
   links: [],
 }));
 
+function strmfreeStrippedEmbedUrl(
+  variant: 'skyf11080p' | 'skyf1',
+  host: 'strmfree.st' | 'streamfree.top' = 'strmfree.st',
+  apiBase = STREAM_API,
+): string {
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  return `${base}/api/stream/strmfree-embed?variant=${encodeURIComponent(variant)}&host=${encodeURIComponent(host)}`;
+}
+
+function ppvStrippedEmbedUrl(slug: string, host = 'taifood-blog.asia', apiBase = STREAM_API): string {
+  const cleanSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+  if (!cleanSlug || /540p/i.test(cleanSlug) || !/^[A-Za-z0-9/_-]{3,160}$/.test(cleanSlug)) return '';
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  const cleanHost = String(host || '').trim().toLowerCase().replace(/^www\./, '');
+  const hostQuery = cleanHost && cleanHost !== 'taifood-blog.asia' ? `&host=${encodeURIComponent(cleanHost)}` : '';
+  return `${base}/api/stream/ppv-embed?slug=${encodeURIComponent(cleanSlug)}${hostQuery}`;
+}
+
+function toStrippedPpvEmbedUrl(rawUrl: string, apiBase = STREAM_API): string {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    if (parsed.protocol !== 'https:') return '';
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const match = parsed.pathname.match(/^\/embed\/([A-Za-z0-9/_-]{3,160})\/?$/);
+    if (!match || /540p/i.test(match[1])) return '';
+    return ppvStrippedEmbedUrl(match[1], host, apiBase);
+  } catch {
+    return '';
+  }
+}
+
+function toStrippedStrmfreeLinkUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    if (host !== 'strmfree.st' && host !== 'streamfree.top') return '';
+    const slug = (parsed.pathname.split('/').filter(Boolean).pop() || '').toLowerCase();
+    if (/2160p|540p/.test(slug)) return '';
+    const variant: 'skyf11080p' | 'skyf1' = slug === 'skyf1' ? 'skyf1' : 'skyf11080p';
+    return strmfreeStrippedEmbedUrl(variant, host);
+  } catch {
+    return '';
+  }
+}
+
 /* ═══ The source list ═══
    Every link here was verified by probe: strmfree/streamfree pages answer 200 with a live player
    shell, cdnlivetv reports channel status, taifood ids come from the live manifests. Anything
    below 720p (taifood's _540p tier, embdlol's 720p German channel) is deliberately absent. */
 const sources: StreamSource[] = [
-  /* Main channel: strmfree at 1080p. Both domains of the mirror pair are listed, and the
-     provider's own resolver is polled at play time for any extra live mirror it publishes. */
-  { id: "sky-uk", label: "Sky HD", links: [
-      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf11080p" },
-      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf11080p" },
-      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf1" },
-      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf1?server=origin&quality=1080p&category=racing" }
-  ]},
-  /* The 2160p variant of the same channel, on both domains. */
-  { id: "sky-uhd", label: "Sky UHD", links: [
-      { provider: 'strmfree', quality: 2160, url: "https://strmfree.st/embed/racing/skyf12160p" },
-      { provider: 'strmfree', quality: 2160, url: "https://streamfree.top/embed/racing/skyf12160p" }
+  /* Main channel: stripped 1080p strmfree across both mirror domains, with automatic server-side
+     ad/popunder removal and lightweight playlist token relay. */
+  { id: "sky-uk", label: "Sky HD", stripped: true, links: [
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf11080p', 'strmfree.st') },
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf11080p', 'streamfree.top') },
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf1', 'strmfree.st') },
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf1', 'streamfree.top') }
   ]},
   /* embdlol channels. Their ids rotate, so the address is resolved from the catalogue at play
      time and the pool is replaced with every F1 channel it lists (see linkPool). */
   /* embdlol feeds: a chip names the FEED; the catalogue says which channel carries it today. */
   ...EMB_FEEDS.map((embdlol) => ({ id: `emb-${embdlol}`, label: `${EMB_LABELS[embdlol] || embdlol.toUpperCase()} (EMB)`, embdlol, lang: (EMB_LANG[embdlol] ? 'other' : 'en') as StreamSource['lang'], links: [] })),
   { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
+  /* Stripped (ad-free) counterparts of every EMB feed, relayed via /api/stream/embdlol-embed. */
+  ...EMB_FEEDS.map((embdlol) => ({ id: `emb-stripped-${embdlol}`, label: `${EMB_LABELS[embdlol] || embdlol.toUpperCase()} (EMB)`, embdlol, stripped: true, lang: (EMB_LANG[embdlol] ? 'other' : 'en') as StreamSource['lang'], links: [] })),
+  { id: "emb-stripped-uhd", label: "F1 UHD 4K", gated: true, stripped: true, links: [] },
 
   /* Works, but serves heavy advertising, so it sits below the EMB feeds. */
   { id: "sky-f1-uk", label: "Sky Sports F1 UK", rp: "unsafe-url", links: [
@@ -662,6 +711,44 @@ const sources: StreamSource[] = [
   { id: "nova", tfLang: "czech", label: "Nova Sport CZ (PPV)", taifood: "nova", lang: "other", rp: "unsafe-url", links: [
       { provider: 'ppv', quality: 1080, taid: 31872 },
       { provider: 'ppv', quality: 1080, taid: 31861 }
+  ]},
+
+  /* Stripped (ad-free) counterparts of every PPV feed, relayed via /api/stream/ppv-embed with
+     client-side 1080p segment fetching direct from tiktokcdn.com and edge-cached playlists. */
+  { id: "ppv-stripped", label: "Sky Sports (PPV)", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, ppv: true }
+  ]},
+  { id: "appletv-stripped", label: "AppleTV (PPV)", taifood: "apple", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31865 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31854 }
+  ]},
+  { id: "dazn-stripped", tfLang: "spanish", label: "DAZN (PPV)", taifood: "dazn", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31867 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31856 }
+  ]},
+  { id: "viaplay-stripped", tfLang: "dutch", label: "Viaplay (PPV)", taifood: "viaplay", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31871 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31860 }
+  ]},
+  { id: "sky-italia-stripped", tfLang: "italian", label: "Sky Sport Italia (PPV)", taifood: "sky", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31869 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31858 }
+  ]},
+  { id: "sky-de-stripped", tfLang: "german", label: "Sky Sport F1 DE (PPV)", taifood: "sky", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31868 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31857 }
+  ]},
+  { id: "v-sport-stripped", tfLang: "swedish", label: "V Sport Motor SE (PPV)", taifood: "v", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31870 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31859 }
+  ]},
+  { id: "eleven-stripped", tfLang: "polish", label: "Eleven Sports PL (PPV)", taifood: "eleven", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31873 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31862 }
+  ]},
+  { id: "nova-stripped", tfLang: "czech", label: "Nova Sport CZ (PPV)", taifood: "nova", lang: "other", stripped: true, links: [
+      { provider: 'ppv-stripped', quality: 1080, taid: 31872 },
+      { provider: 'ppv-stripped', quality: 1080, taid: 31861 }
   ]},
 
   /* Three entry points, one upstream channel (/hls/stream.m3u8?ch=spn). Failover only. */
@@ -757,9 +844,19 @@ function customLink(raw: string): string {
 /* A pasted link plays as given: no 4K prompt, no waiting on a catalogue. */
 const isCustom = (i = currentSource) => sources[i]?.links[0]?.provider === 'custom';
 
-function weeloStrippedEmbedUrl(streamId: string, apiBase = BACKEND_API): string {
+function weeloStrippedEmbedUrl(streamId: string, apiBase = STREAM_API): string {
   const base = String(apiBase || '').replace(/\/+$/, '');
   return `${base}/api/stream/weellz-embed?stream=${encodeURIComponent(streamId)}`;
+}
+
+function embdlolStrippedEmbedUrl(rawUrlOrId: string, apiBase = STREAM_API): string {
+  const clean = String(rawUrlOrId || '').trim();
+  if (!clean) return '';
+  const match = clean.match(/\/embed\/([A-Za-z0-9_-]{4,80})(?:[/?#]|$)/i);
+  const id = match ? match[1] : clean;
+  if (!/^[A-Za-z0-9_-]{4,80}$/.test(id)) return '';
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  return `${base}/api/stream/embdlol-embed?id=${encodeURIComponent(id)}`;
 }
 
 function toStrippedWeeloUrls(urls: string[], fallbackStream?: string): string[] {
@@ -886,7 +983,7 @@ function syncWeeloSourcesFromFeed(): boolean {
         weellzPending: Boolean(extra.pending && !extra.urls.length),
         links: [],
       };
-      const firstStrippedIdx = sources.findIndex((s) => s.stripped);
+      const firstStrippedIdx = sources.findIndex((s) => s.special && s.stripped);
       if (firstStrippedIdx >= 0) sources.splice(firstStrippedIdx, 0, target);
       else sources.push(target);
     } else {
@@ -909,7 +1006,7 @@ function syncWeeloSourcesFromFeed(): boolean {
       };
       let lastStrippedIdx = -1;
       for (let i = 0; i < sources.length; i++) {
-        if (sources[i].stripped) lastStrippedIdx = i;
+        if (sources[i].special && sources[i].stripped) lastStrippedIdx = i;
       }
       if (lastStrippedIdx >= 0) sources.splice(lastStrippedIdx + 1, 0, strippedTarget);
       else sources.push(strippedTarget);
@@ -933,17 +1030,24 @@ function linkPool(index: number): string[] {
     return url ? [url] : [];
   }
   if (source.gated) {
-    const url = resolveLink({ provider: 'embdlol', quality: 0, url: fourKUrl });
+    const rawUrl = resolveLink({ provider: 'embdlol', quality: 0, url: fourKUrl });
+    const url = source.stripped ? embdlolStrippedEmbedUrl(rawUrl) : rawUrl;
     return url ? [url] : [];
   }
   const key = sessionKey();
   let links = source.links.slice();
 
-  /* Published mirrors first (they are the addresses the provider itself calls live), then the
-     static list, then the provider's plain channel name as a last resort. */
-  if (source.id === 'sky-uk' || source.id === 'sky-uhd') {
-    const wanted = source.id === 'sky-uhd' ? 2160 : 1080;
-    links = [...mirrorLinks('skyf1', wanted), ...links.filter((link) => link.quality === wanted || !link.url?.includes('embed/racing/'))];
+  /* Published mirrors first (they are the addresses the provider itself calls live), mapped through
+     the stripped strmfree relay, then the static stripped list. */
+  if (source.id === 'sky-uk') {
+    const strippedMirrors: StreamLink[] = [];
+    for (const m of mirrorLinks('skyf1', 1080)) {
+      const strippedUrl = m.url ? toStrippedStrmfreeLinkUrl(m.url) : '';
+      if (strippedUrl && !strippedMirrors.some((x) => x.url === strippedUrl)) {
+        strippedMirrors.push({ provider: 'strmfree', quality: 1080, url: strippedUrl });
+      }
+    }
+    links = [...strippedMirrors, ...links.filter((link) => link.quality === 1080 && !strippedMirrors.some((m) => m.url === link.url))];
   }
 
   /* Weelo links are synced from weellz.live every 3 minutes (primary beta?stream=... plus any
@@ -962,7 +1066,11 @@ function linkPool(index: number): string[] {
     /* Not loaded yet: leave the pool empty and say "waiting", never "unavailable". */
     if (!cataloguesReady) return [];
     const id = catalogues.embdlol[source.embdlol];
-    links = id ? [{ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }] : [];
+    links = id
+      ? [source.stripped
+          ? { provider: 'embdlol-stripped', quality: 0, url: embdlolStrippedEmbedUrl(id) }
+          : { provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }]
+      : [];
   }
 
   /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
@@ -990,11 +1098,15 @@ function linkPool(index: number): string[] {
     : [];
   /* The main Sky Sports (PPV) chip resolves the session-matched HD stream from api.ppv.st/api/streams. */
   const ppvSessionUri = catalogues.ppvSessions?.[canonicalSessionSlug(currentSession?.slug)] || catalogues.ppv;
-  if (source.id === 'ppv' && ppvSessionUri) live.unshift(ppvSessionUri);
-  const pool = links.filter((link) => link.addressing !== 'dynamic')
+  if ((source.id === 'ppv' || source.id === 'ppv-stripped') && ppvSessionUri) live.unshift(ppvSessionUri);
+  const rawPool = links.filter((link) => link.addressing !== 'dynamic')
     .flatMap((link) => (link.taid ? taidCandidates(link.taid) : [resolveLink(link, key)]))
     .filter((url) => Boolean(url) && taifoodUsable(url, source));
-  if (live.length) pool.unshift(...live);
+  if (live.length) rawPool.unshift(...live);
+  const isStrippedPpv = Boolean(source.stripped && (source.id === 'ppv-stripped' || source.taifood));
+  const pool = isStrippedPpv
+    ? rawPool.map((url) => stampSession(toStrippedPpvEmbedUrl(url), key)).filter(Boolean)
+    : rawPool;
   /* A dynamic link is only usable once its token is in hand. These tokens lapse and the provider
      then shows a "Link expired" page, so a stale one is refreshed before its address is offered. */
   for (const link of dynamic) {
@@ -1040,7 +1152,7 @@ function rememberGoodLink(sourceId: string, url: string) {
 const healthState: ProviderHealthState = { providers: {}, dynamic: {} };
 
 function healthDeps(): HealthDeps {
-  return { backend: BACKEND_API, state: healthState, onChange: () => renderButtons(), fetchWithTimeout };
+  return { backend: STREAM_API, state: healthState, onChange: () => renderButtons(), fetchWithTimeout };
 }
 
 async function loadProviderHealth() {
@@ -1097,7 +1209,7 @@ function describeSourcePill(s: StreamSource): { title: string; sub: string; badg
   }
 
   let badge = '';
-  if (s.id === 'sky-uhd' || s.gated || /\b(4K|UHD)\b/i.test(raw)) {
+  if (s.gated || /\b(4K|UHD)\b/i.test(raw)) {
     badge = '4K';
     raw = raw.replace(/\s*\b4K\b\s*/gi, ' ').trim();
   }
@@ -1266,7 +1378,7 @@ async function fetchFourKUrl(): Promise<string> {
   if (fourKUrl) return fourKUrl;
   const seq = ++fourKRequest;
   try {
-    const response = await fetchWithTimeout(`${BACKEND_API}/api/stream/uhd`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 9000);
+    const response = await fetchWithTimeout(`${STREAM_API}/api/stream/uhd`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 9000);
     const json = await response.json().catch(() => ({}));
     if (seq !== fourKRequest) return fourKUrl;
     if (!response.ok || !json?.url) {
@@ -1332,8 +1444,10 @@ function openJoinNudge(onContinue: () => void) {
 }
 
 /* Clicking the 4K chip: nudge (once a click, unless silenced) → play. */
-async function playFourK() {
-  const index = sources.findIndex((source) => source.gated);
+async function playFourK(targetIndex?: number) {
+  const index = typeof targetIndex === 'number' && targetIndex >= 0
+    ? targetIndex
+    : sources.findIndex((source) => source.gated && !source.stripped);
   if (index < 0) return;
   const url = await fetchFourKUrl();
   if (!url) return;
@@ -1356,9 +1470,9 @@ function cachedDynamicUrl(path: string): string {
   return cached && Date.now() - cached.at < 8_000 ? cached.url : '';
 }
 
-function chooseFourK() {
-  if (nudgeMuted()) { void playFourK(); return; }
-  openJoinNudge(() => { void playFourK(); });
+function chooseFourK(targetIndex?: number) {
+  if (nudgeMuted()) { void playFourK(targetIndex); return; }
+  openJoinNudge(() => { void playFourK(targetIndex); });
 }
 
 function closeMvNudge() {
@@ -1442,6 +1556,13 @@ const specialState = (s: StreamSource) => {
   return (s.weelo && catalogues.weelo[s.weelo]) || '';
 };
 const specialDown = (s: StreamSource) => /^(offline|dark)$/.test(specialState(s));
+const isWeeloSourceLive = (s: StreamSource | undefined): boolean => {
+  if (!s?.special) return false;
+  if (isPasted(s)) return true;
+  if (!weeloSourceUrls(s).length) return false;
+  const st = specialState(s);
+  return Boolean(st) && !specialDown(s);
+};
 
 function renderTabBar() {
   /* Language tabs only: the multi-viewer is a button beside the player, in its own lazy chunk.
@@ -1481,13 +1602,12 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
     b.type = "button";
     const active = i === currentSource;
     const pill = describeSourcePill(s);
-    b.className = "chip src-pill" + (active ? " active" : "");
+    b.className = "chip src-pill" + (active ? " active" : "") + (s.stripped ? " chip-stripped" : "");
     b.setAttribute("aria-pressed", String(active));
     if (s.gated && !canPlayHevc()) b.title = HEVC_WARNING;
     /* Specials carry weelo's own state, so a chip that is standing by gets a subtle dim cue. */
     if (s.special) {
       b.className += ` chip-special chip-${s.special}`;
-      if (s.stripped) b.className += ' chip-stripped';
       if (specialDown(s)) b.className += ' is-down', b.title = `weellz.live: ${specialState(s) || 'standby'}`;
     } else if (s.embdlol && !s.custom && Object.keys(catalogues.embdlol).length > 0 && !catalogues.embdlol[s.embdlol]) {
       b.className += ' is-down';
@@ -1524,13 +1644,16 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
         currentSource = i;
         renderButtons();
         updateHeader();
+        if (!isStreamAvailable(currentSession)) {
+          return showNoStream({ blocked: false });
+        }
         return showNoStream({
           title: 'Link pending on weellz.live',
           text: `${pill.title} has not published its live stream link yet. Links refresh automatically every 3 minutes.`,
         });
       }
       /* The 4K chip asks once whether they want session alerts before playing. */
-      if (s.gated && !isPasted(s) && !isCustom(i)) return chooseFourK();
+      if (s.gated && !isPasted(s) && !isCustom(i)) return chooseFourK(i);
       currentSource = i;
       renderButtons();
       updateHeader();
@@ -1639,6 +1762,14 @@ function startNS() {
   const x = $("noStreamText");
   const msgs = NO_STREAM_MESSAGES;
   let i = 0;
+  if (t && x && msgs.length) {
+    t.textContent = msgs[0].t;
+    x.textContent = msgs[0].x;
+    [t, x].forEach((e) => {
+      e.style.opacity = "1";
+      e.style.transform = "none";
+    });
+  }
   (function next() {
     if (!nsRunning) return;
     if (nsPaused) {
@@ -1800,23 +1931,28 @@ function iframeCommitted(f) {
   }
 }
 
-function isStrippedWeellzEmbed(url: string): boolean {
-  return typeof url === 'string' && url.includes('/api/stream/weellz-embed');
+function isStrippedEmbed(url: string): boolean {
+  return typeof url === 'string' && (
+    url.includes('/api/stream/weellz-embed') ||
+    url.includes('/api/stream/embdlol-embed') ||
+    url.includes('/api/stream/strmfree-embed') ||
+    url.includes('/api/stream/ppv-embed')
+  );
 }
 
 /* A provider's anti-embed check can read an EMPTY referrer as "sandboxed": ehgembxe answers
    no-referrer with "Remove sandbox attributes on the iframe tag" and mounts no player, while the
    same token plays with an origin referrer (verified in a real browser, not headless). 'origin'
    sends only our domain — enough to look embedded, and no path or query ever leaves the site.
-   Stripped weellz embeds run inside an explicit sandbox with no-referrer so popup/navigation
-   attempts are browser-blocked and direct weelo.live HLS segment requests send no Referer. */
+   Stripped weellz/embdlol embeds run inside an explicit sandbox with no-referrer so popup/navigation
+   attempts are browser-blocked and direct HLS segment requests send no Referer. */
 function makeStreamIframe(url, rp) {
   const f = document.createElement("iframe");
   f.src = url;
   f.allow = IFRAME_ALLOW;
   f.setAttribute('allow', IFRAME_ALLOW);
   f.allowFullscreen = true;
-  if (isStrippedWeellzEmbed(url)) {
+  if (isStrippedEmbed(url)) {
     f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
     f.referrerPolicy = 'no-referrer';
   } else {
@@ -2009,11 +2145,21 @@ function load() {
   }
 
   const selectedSource = sources[currentSource];
-  const directWeeloSelected = Boolean(selectedSource?.special && weeloSourceUrls(selectedSource).length > 0);
+  if (!isStreamAvailable(currentSession) && !cataloguesReady && (selectedSource?.special || selectedSource?.embdlol) && !isCustom()) {
+    setLoaderText('Checking live feeds…');
+    return void loadCatalogues().then(() => token === playerLoadToken && load());
+  }
+  const directWeeloSelected = isWeeloSourceLive(selectedSource);
   const directEmbSelected = Boolean(selectedSource?.embdlol && catalogues.embdlol[selectedSource.embdlol]);
-  if (!isStreamAvailable(currentSession) && !catalogues.weellz?.anyLive && !directWeeloSelected && !directEmbSelected) {
-    showNoStream({ blocked: false });
-    return;
+  if (!isStreamAvailable(currentSession)) {
+    if (selectedSource?.special && !directWeeloSelected) {
+      showNoStream({ blocked: false });
+      return;
+    }
+    if (!catalogues.weellz?.anyLive && !directWeeloSelected && !directEmbSelected) {
+      showNoStream({ blocked: false });
+      return;
+    }
   }
 
   normalizeCurrentSource();
@@ -2172,7 +2318,7 @@ async function refreshSiteConfig({ force = false } = {}) {
 
   const pending = (async () => {
     try {
-      const response = await fetchWithTimeout(`${BACKEND_API}/api/site/config`, {
+      const response = await fetchWithTimeout(`${STREAM_API}/api/site/config`, {
         cache: 'no-cache',
         credentials: 'omit',
         headers: { Accept: 'application/json' }
@@ -3016,7 +3162,7 @@ applyTeamTheme(store.get('freef1_team') || 'default');
 async function refreshWeeloFeeds(): Promise<void> {
   try {
     const { refreshWeeloCatalogues } = await import('./features/catalogues');
-    catalogues = await refreshWeeloCatalogues({ fetchWithTimeout, backend: BACKEND_API });
+    catalogues = await refreshWeeloCatalogues({ fetchWithTimeout, backend: STREAM_API });
     cataloguesReady = true;
     lastWeeloRefreshAt = Date.now();
     const pillsChanged = syncWeeloSourcesFromFeed();
@@ -3028,8 +3174,9 @@ async function refreshWeeloFeeds(): Promise<void> {
     if (isStreamPlayingOnStage() || stageBox?.querySelector('iframe, video')) return;
 
     const selected = sources[currentSource];
-    const weeloReady = Boolean(selected?.special && !specialDown(selected) && weeloSourceUrls(selected).length > 0);
-    if ((isStreamAvailable(currentSession) || catalogues.weellz?.anyLive || weeloReady) && noStreamEl?.classList.contains('visible') && nsRunning) {
+    const weeloReady = isWeeloSourceLive(selected);
+    const anyReady = selected?.special ? weeloReady : Boolean(catalogues.weellz?.anyLive);
+    if ((isStreamAvailable(currentSession) || anyReady) && noStreamEl?.classList.contains('visible') && nsRunning) {
       load();
     }
   } catch {
