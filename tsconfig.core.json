@@ -1,6 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": { "strict": true, "useUnknownInCatchVariables": true },
-  "include": ["src/services", "src/data", "src/types/site-config.ts", "src/config.ts"],
-  "exclude": []
-}

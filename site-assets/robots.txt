@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://freef1.netlify.app/sitemap.xml
