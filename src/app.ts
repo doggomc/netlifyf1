@@ -2145,21 +2145,19 @@ function load() {
   }
 
   const selectedSource = sources[currentSource];
-  if (!isStreamAvailable(currentSession) && !cataloguesReady && (selectedSource?.special || selectedSource?.embdlol) && !isCustom()) {
+  if (!cataloguesReady && (selectedSource?.special || selectedSource?.embdlol) && !isCustom()) {
     setLoaderText('Checking live feeds…');
     return void loadCatalogues().then(() => token === playerLoadToken && load());
   }
   const directWeeloSelected = isWeeloSourceLive(selectedSource);
   const directEmbSelected = Boolean(selectedSource?.embdlol && catalogues.embdlol[selectedSource.embdlol]);
-  if (!isStreamAvailable(currentSession)) {
-    if (selectedSource?.special && !directWeeloSelected) {
-      showNoStream({ blocked: false });
-      return;
-    }
-    if (!catalogues.weellz?.anyLive && !directWeeloSelected && !directEmbSelected) {
-      showNoStream({ blocked: false });
-      return;
-    }
+  if (selectedSource?.special && !isCustom() && (specialDown(selectedSource) || (!isStreamAvailable(currentSession) && !directWeeloSelected))) {
+    showNoStream({ blocked: false });
+    return;
+  }
+  if (!isStreamAvailable(currentSession) && !catalogues.weellz?.anyLive && !directWeeloSelected && !directEmbSelected) {
+    showNoStream({ blocked: false });
+    return;
   }
 
   normalizeCurrentSource();
@@ -3175,8 +3173,8 @@ async function refreshWeeloFeeds(): Promise<void> {
 
     const selected = sources[currentSource];
     const weeloReady = isWeeloSourceLive(selected);
-    const anyReady = selected?.special ? weeloReady : Boolean(catalogues.weellz?.anyLive);
-    if ((isStreamAvailable(currentSession) || anyReady) && noStreamEl?.classList.contains('visible') && nsRunning) {
+    const canAutoStart = selected?.special ? weeloReady : (isStreamAvailable(currentSession) || Boolean(catalogues.weellz?.anyLive));
+    if (canAutoStart && noStreamEl?.classList.contains('visible') && nsRunning) {
       load();
     }
   } catch {

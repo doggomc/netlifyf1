@@ -268,6 +268,6 @@ describe('stream source link pools', () => {
   it('keeps offline Weelo chips on the FreeF1 standby screen before a session starts', () => {
     expect(app).toContain('const isWeeloSourceLive =');
     expect(app).toContain('const directWeeloSelected = isWeeloSourceLive(selectedSource);');
-    expect(app).toContain('if (selectedSource?.special && !directWeeloSelected)');
+    expect(app).toContain('specialDown(selectedSource) || (!isStreamAvailable(currentSession) && !directWeeloSelected)');
   });
 });
