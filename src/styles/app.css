@@ -4915,12 +4915,23 @@ nav.nav .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: transla
   justify-content: space-between; align-items: flex-start;
 }
 .footer-brand { display: flex; align-items: center; gap: 10px; }
-.footer-nav { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.footer-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .footer-nav a {
   padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--fg-2);
-  transition: color .18s, background-color .18s;
+  transition: color .18s, background-color .18s, border-color .18s;
 }
 .footer-nav a:hover { color: var(--white); background: rgba(255,255,255,.05); }
+.footer-nav a.footer-discord {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0; margin-left: 2px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+  color: var(--fg-2);
+}
+.footer-nav a.footer-discord:hover {
+  color: var(--white);
+  background: rgba(88,101,242,.22);
+  border-color: rgba(88,101,242,.48);
+}
 .footer-bottom {
   margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line);
   display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between;

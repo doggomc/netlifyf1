@@ -509,6 +509,26 @@ button,
   color: var(--white);
 }
 
+.footer-nav a.footer-discord {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg-2);
+  transition: color 150ms var(--ease), background-color 150ms var(--ease), border-color 150ms var(--ease);
+}
+
+.footer-nav a.footer-discord:hover {
+  color: var(--white);
+  background: rgba(88, 101, 242, 0.22);
+  border-color: rgba(88, 101, 242, 0.48);
+}
+
 .footer-bottom {
   padding-top: 18px;
   display: flex;

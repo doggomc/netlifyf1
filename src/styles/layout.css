@@ -557,6 +557,15 @@ main { flex: 1 0 auto; }
   transition: background-color .15s var(--ease), border-color .15s var(--ease);
 }
 .sc-cal-btn:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.26); }
+.sc-cal-btn.sc-cal-icon {
+  width: 40px; padding: 0; justify-content: center; flex: none;
+  text-decoration: none;
+}
+.sc-cal-btn.sc-cal-icon:hover {
+  color: var(--white);
+  background: rgba(88,101,242,.22);
+  border-color: rgba(88,101,242,.5);
+}
 .sc-cal-pop {
   position: absolute; left: 0; top: calc(100% + 8px); z-index: 40;
   min-width: 220px; padding: 6px; border-radius: 12px;
@@ -795,12 +804,23 @@ main { flex: 1 0 auto; }
   justify-content: space-between; align-items: flex-start;
 }
 .footer-brand { display: flex; align-items: center; gap: 10px; }
-.footer-nav { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.footer-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .footer-nav a {
   padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--fg-2);
-  transition: color .18s, background-color .18s;
+  transition: color .18s, background-color .18s, border-color .18s;
 }
 .footer-nav a:hover { color: var(--white); background: rgba(255,255,255,.05); }
+.footer-nav a.footer-discord {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0; margin-left: 2px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+  color: var(--fg-2);
+}
+.footer-nav a.footer-discord:hover {
+  color: var(--white);
+  background: rgba(88,101,242,.22);
+  border-color: rgba(88,101,242,.48);
+}
 .footer-bottom {
   margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line);
   display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-between;
@@ -1499,6 +1519,14 @@ a.tp-mini-who:hover .tp-mini-name { text-decoration: underline; text-underline-o
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); color: var(--white);
 }
 .lt-btn-glass:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.25); }
+.lt-btn.lt-btn-icon {
+  width: 40px; padding: 0; justify-content: center; flex: none;
+}
+.lt-btn.lt-btn-icon:hover {
+  color: var(--white);
+  background: rgba(88,101,242,.22);
+  border-color: rgba(88,101,242,.5);
+}
 
 .lt-bar {
   margin-top: 20px; display: grid; gap: 12px;
