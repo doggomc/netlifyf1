@@ -107,11 +107,14 @@ export function initPageGate(): void {
     try { localStorage.setItem(SITE_CONFIG_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), config: raw })); } catch { /* ignore */ }
     applyPageGate(snap, { fresh: true });
   };
+  const configApi = typeof location !== 'undefined' && location.protocol === 'https:' && !/\.e2b\.app$/i.test(location.hostname)
+    ? location.origin
+    : BACKEND_API;
   const fetchOnce = async () => {
     if (fallbackDone) return;
     fallbackDone = true;
     try {
-      const r = await fetch(`${BACKEND_API}/api/site/config`, { credentials: 'omit' });
+      const r = await fetch(`${configApi}/api/site/config`, { credentials: 'omit' });
       if (r.ok) saveAndApply(await r.json());
     } catch { /* fail open */ }
   };
