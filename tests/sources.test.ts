@@ -265,9 +265,10 @@ describe('stream source link pools', () => {
     expect(headers).toContain('Referrer-Policy: no-referrer');
   });
 
-  it('keeps offline Weelo chips on the FreeF1 standby screen before a session starts', () => {
+  it('keeps offline Weelo chips on standby before a session unless Force Live is active, without reloading active streams', () => {
     expect(app).toContain('const isWeeloSourceLive =');
     expect(app).toContain('const directWeeloSelected = isWeeloSourceLive(selectedSource);');
-    expect(app).toContain('specialDown(selectedSource) || (!isStreamAvailable(currentSession) && !directWeeloSelected)');
+    expect(app).toContain('!streamWindowState.active && (specialDown(selectedSource) || (!isStreamAvailable(currentSession) && !directWeeloSelected))');
+    expect(app).toContain("const hasActiveMedia = Boolean(playerEl?.querySelector('iframe, video')) && !noStreamEl?.classList.contains('visible');");
   });
 });

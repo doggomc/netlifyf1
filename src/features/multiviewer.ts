@@ -579,7 +579,7 @@ export function init(ctx: any) {
     f.allowFullscreen = true;
     if (stream.stripped || nextUrl.includes('/api/stream/weellz-embed')) {
       f.setAttribute('sandbox', STRIPPED_SANDBOX);
-      f.referrerPolicy = 'no-referrer';
+      f.referrerPolicy = 'origin';
     } else {
       f.referrerPolicy = 'strict-origin-when-cross-origin';
     }

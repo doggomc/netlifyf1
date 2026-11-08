@@ -219,7 +219,10 @@ async function fetchMirrors(deps: CatalogueDeps): Promise<Record<string, { url: 
 
 /* Every state.json value is a plain string; '_fallback'/'_p2p' are objects and are skipped. */
 async function fetchWeelo(deps: CatalogueDeps): Promise<Record<string, string>> {
-  const response = await deps.fetchWithTimeout(`${deps.backend}${WEELO_STATE}`, { cache: 'no-store', headers: { Accept: 'application/json' } }, 4000);
+  const response = await deps.fetchWithTimeout(`${deps.backend}${WEELO_STATE}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json', 'X-FreeF1-Client': 'cockpit' },
+  }, 4000);
   if (!response.ok) throw new Error(`weelo state ${response.status}`);
   const json = await response.json();
   /* The relay answers { state: { id: status } }; a raw state.json would answer the map itself. */

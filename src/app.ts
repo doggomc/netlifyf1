@@ -1954,7 +1954,7 @@ function makeStreamIframe(url, rp) {
   f.allowFullscreen = true;
   if (isStrippedEmbed(url)) {
     f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
-    f.referrerPolicy = 'no-referrer';
+    f.referrerPolicy = 'origin';
   } else {
     f.referrerPolicy = rp || "origin";
   }
@@ -2151,7 +2151,7 @@ function load() {
   }
   const directWeeloSelected = isWeeloSourceLive(selectedSource);
   const directEmbSelected = Boolean(selectedSource?.embdlol && catalogues.embdlol[selectedSource.embdlol]);
-  if (selectedSource?.special && !isCustom() && (specialDown(selectedSource) || (!isStreamAvailable(currentSession) && !directWeeloSelected))) {
+  if (selectedSource?.special && !isCustom() && !streamWindowState.active && (specialDown(selectedSource) || (!isStreamAvailable(currentSession) && !directWeeloSelected))) {
     showNoStream({ blocked: false });
     return;
   }
@@ -2260,7 +2260,19 @@ function applyStreamWindow(payload) {
   streamWindowState = next;
   updateHeader();
   updateCurrentStreamButton();
-  if (activeChanged && !streamOverride.active) load();
+  if (!activeChanged || streamOverride.active) return;
+  const hasActiveMedia = Boolean(playerEl?.querySelector('iframe, video')) && !noStreamEl?.classList.contains('visible');
+  if (next.active) {
+    if (!hasActiveMedia) load();
+    return;
+  }
+  const selectedSource = sources[currentSource];
+  const directWeeloSelected = isWeeloSourceLive(selectedSource);
+  const directEmbSelected = Boolean(selectedSource?.embdlol && catalogues.embdlol[selectedSource.embdlol]);
+  const stillAllowed = selectedSource?.special && !isCustom()
+    ? (!specialDown(selectedSource) && (isStreamAvailable(currentSession) || directWeeloSelected))
+    : (isStreamAvailable(currentSession) || Boolean(catalogues.weellz?.anyLive) || directWeeloSelected || directEmbSelected);
+  if (!hasActiveMedia || !stillAllowed) load();
 }
 
 function applyMaintenanceMode(state, { fresh = false } = {}) {
@@ -3173,7 +3185,7 @@ async function refreshWeeloFeeds(): Promise<void> {
 
     const selected = sources[currentSource];
     const weeloReady = isWeeloSourceLive(selected);
-    const canAutoStart = selected?.special ? weeloReady : (isStreamAvailable(currentSession) || Boolean(catalogues.weellz?.anyLive));
+    const canAutoStart = selected?.special ? (streamWindowState.active || weeloReady) : (isStreamAvailable(currentSession) || Boolean(catalogues.weellz?.anyLive));
     if (canAutoStart && noStreamEl?.classList.contains('visible') && nsRunning) {
       load();
     }
