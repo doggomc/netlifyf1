@@ -11,13 +11,19 @@ const linkCount = (block.match(/provider:/g) || []).length;
 const qualityValues = [...block.matchAll(/quality:\s*(\d+)/g)].map((m) => Number(m[1]));
 /* EMB chips are generated from a feed list, so they are counted from that list rather than literals. */
 const embFeeds = (app.match(/const EMB_FEEDS = '([^']+)'/) || [, ''])[1].split(',').filter(Boolean);
-const ids = [...[...block.matchAll(/\{ id: "([a-z0-9-]+)"/g)].map((m) => m[1]), ...embFeeds.map((f) => `emb-${f}`)];
+const ids = [
+  ...[...block.matchAll(/\{ id: "([a-z0-9-]+)"/g)].map((m) => m[1]),
+  ...embFeeds.map((f) => `emb-${f}`),
+  ...embFeeds.map((f) => `emb-stripped-${f}`),
+];
 
 describe('stream source link pools', () => {
   it('declares a pool for every source', () => {
     expect(ids.length).toBeGreaterThanOrEqual(17);
     /* Every id is either a literal in the list or a generated EMB chip. */
-    for (const id of ids.filter((id) => !id.startsWith('emb-'))) expect(app).toContain(`{ id: "${id}"`);
+    for (const id of ids.filter((id) => !id.startsWith('emb-') || id.endsWith('-uhd'))) {
+      expect(app).toContain(`{ id: "${id}"`);
+    }
     expect(embFeeds).toContain('fullhd1');
   });
 
@@ -46,19 +52,21 @@ describe('stream source link pools', () => {
     }
   });
 
-  it('puts Sky HD first and Sky UHD second', () => {
+  it('puts stripped Sky HD first and removes strmfree Sky UHD', () => {
     const order = [...block.matchAll(/\{ id: "(sky-[a-z0-9-]+)"/g)].map((m) => m[1]);
-    expect(order.slice(0, 2)).toEqual(['sky-uk', 'sky-uhd']);
+    expect(order[0]).toBe('sky-uk');
+    expect(order).not.toContain('sky-uhd');
     expect(block).toContain('label: "Sky HD"');
-    expect(block).toContain('label: "Sky UHD"');
+    expect(block).not.toContain('label: "Sky UHD"');
   });
 
-  it('backs Sky HD with 1080p strmfree and Sky UHD with 2160p strmfree', () => {
-    const skyHd = block.slice(block.indexOf('{ id: "sky-uk"'), block.indexOf('{ id: "sky-uhd"'));
+  it('backs Sky HD with stripped 1080p strmfree and never 2160p strmfree', () => {
+    const skyHd = block.slice(block.indexOf('{ id: "sky-uk"'), block.indexOf('{ id: "emb-uhd"'));
     expect(skyHd).toContain('skyf11080p');
+    expect(skyHd).toContain('stripped: true');
     expect(skyHd).not.toContain('skyf12160p');
-    const skyUhd = block.slice(block.indexOf('{ id: "sky-uhd"'), block.indexOf('{ id: "sky-f1-uk"'));
-    expect(skyUhd).toContain('skyf12160p');
+    expect(app).toContain('/api/stream/strmfree-embed?variant=');
+    expect(app).toContain("url.includes('/api/stream/strmfree-embed')");
   });
 
   it('keeps every cdnlivetv F1 channel in the pool', () => {
@@ -209,5 +217,13 @@ describe('stream source link pools', () => {
     expect(app).toContain('/api/stream/weellz-embed?stream=');
     expect(app).toContain("f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation')");
     expect(app).toContain("strippedTag.textContent = 'Stripped'");
+  });
+
+  it('adds stripped EMB counterparts alongside existing EMB feeds and 4K UHD', () => {
+    expect(block).toContain('id: `emb-stripped-${embdlol}`');
+    expect(block).toContain('{ id: "emb-stripped-uhd", label: "F1 UHD 4K", gated: true, stripped: true, links: [] }');
+    expect(block.indexOf('{ id: "emb-uhd"')).toBeLessThan(block.indexOf('{ id: "emb-stripped-uhd"'));
+    expect(app).toContain('/api/stream/embdlol-embed?id=');
+    expect(app).toContain("url.includes('/api/stream/embdlol-embed')");
   });
 });

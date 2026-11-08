@@ -59,10 +59,10 @@ export function parseSiteConfig(value: unknown): SiteConfig | null {
     result.streamOverride = { active: override.active && Boolean(safeUrl), url: safeUrl, type: text(override.type, 12) };
   }
   if (record(value.sources) && Array.isArray(value.sources.disabled)) {
-    result.sources = { disabled: value.sources.disabled.filter((id): id is string => typeof id === 'string').slice(0, 50) };
+    result.sources = { disabled: value.sources.disabled.filter((id): id is string => typeof id === 'string').slice(0, 120) };
     /* Race Control's per-chip name and link. HTTPS only, the rule the backend enforces. */
     const overrides: Record<string, { label?: string; url?: string }> = {};
-    for (const [id, entry] of Object.entries(record(value.sources.overrides) ? value.sources.overrides : {}).slice(0, 60)) {
+    for (const [id, entry] of Object.entries(record(value.sources.overrides) ? value.sources.overrides : {}).slice(0, 120)) {
       if (!record(entry)) continue;
       const label = text(entry.label, 40)?.trim();
       const url = text(entry.url, 500) || '';

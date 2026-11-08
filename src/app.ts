@@ -577,29 +577,50 @@ const STRIPPED_SPECIAL_SOURCES: StreamSource[] = SPECIALS.map(([label, weelo, sp
   links: [],
 }));
 
+function strmfreeStrippedEmbedUrl(
+  variant: 'skyf11080p' | 'skyf1',
+  host: 'strmfree.st' | 'streamfree.top' = 'strmfree.st',
+  apiBase = BACKEND_API,
+): string {
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  return `${base}/api/stream/strmfree-embed?variant=${encodeURIComponent(variant)}&host=${encodeURIComponent(host)}`;
+}
+
+function toStrippedStrmfreeLinkUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    if (host !== 'strmfree.st' && host !== 'streamfree.top') return '';
+    const slug = (parsed.pathname.split('/').filter(Boolean).pop() || '').toLowerCase();
+    if (/2160p|540p/.test(slug)) return '';
+    const variant: 'skyf11080p' | 'skyf1' = slug === 'skyf1' ? 'skyf1' : 'skyf11080p';
+    return strmfreeStrippedEmbedUrl(variant, host);
+  } catch {
+    return '';
+  }
+}
+
 /* ═══ The source list ═══
    Every link here was verified by probe: strmfree/streamfree pages answer 200 with a live player
    shell, cdnlivetv reports channel status, taifood ids come from the live manifests. Anything
    below 720p (taifood's _540p tier, embdlol's 720p German channel) is deliberately absent. */
 const sources: StreamSource[] = [
-  /* Main channel: strmfree at 1080p. Both domains of the mirror pair are listed, and the
-     provider's own resolver is polled at play time for any extra live mirror it publishes. */
-  { id: "sky-uk", label: "Sky HD", links: [
-      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf11080p" },
-      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf11080p" },
-      { provider: 'strmfree', quality: 1080, url: "https://strmfree.st/embed/racing/skyf1" },
-      { provider: 'strmfree', quality: 1080, url: "https://streamfree.top/embed/racing/skyf1?server=origin&quality=1080p&category=racing" }
-  ]},
-  /* The 2160p variant of the same channel, on both domains. */
-  { id: "sky-uhd", label: "Sky UHD", links: [
-      { provider: 'strmfree', quality: 2160, url: "https://strmfree.st/embed/racing/skyf12160p" },
-      { provider: 'strmfree', quality: 2160, url: "https://streamfree.top/embed/racing/skyf12160p" }
+  /* Main channel: stripped 1080p strmfree across both mirror domains, with automatic server-side
+     ad/popunder removal and lightweight playlist token relay. */
+  { id: "sky-uk", label: "Sky HD", stripped: true, links: [
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf11080p', 'strmfree.st') },
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf11080p', 'streamfree.top') },
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf1', 'strmfree.st') },
+      { provider: 'strmfree', quality: 1080, url: strmfreeStrippedEmbedUrl('skyf1', 'streamfree.top') }
   ]},
   /* embdlol channels. Their ids rotate, so the address is resolved from the catalogue at play
      time and the pool is replaced with every F1 channel it lists (see linkPool). */
   /* embdlol feeds: a chip names the FEED; the catalogue says which channel carries it today. */
   ...EMB_FEEDS.map((embdlol) => ({ id: `emb-${embdlol}`, label: `${EMB_LABELS[embdlol] || embdlol.toUpperCase()} (EMB)`, embdlol, lang: (EMB_LANG[embdlol] ? 'other' : 'en') as StreamSource['lang'], links: [] })),
   { id: "emb-uhd", label: "F1 UHD 4K", gated: true, links: [] },
+  /* Stripped (ad-free) counterparts of every EMB feed, relayed via /api/stream/embdlol-embed. */
+  ...EMB_FEEDS.map((embdlol) => ({ id: `emb-stripped-${embdlol}`, label: `${EMB_LABELS[embdlol] || embdlol.toUpperCase()} (EMB)`, embdlol, stripped: true, lang: (EMB_LANG[embdlol] ? 'other' : 'en') as StreamSource['lang'], links: [] })),
+  { id: "emb-stripped-uhd", label: "F1 UHD 4K", gated: true, stripped: true, links: [] },
 
   /* Works, but serves heavy advertising, so it sits below the EMB feeds. */
   { id: "sky-f1-uk", label: "Sky Sports F1 UK", rp: "unsafe-url", links: [
@@ -762,6 +783,16 @@ function weeloStrippedEmbedUrl(streamId: string, apiBase = BACKEND_API): string 
   return `${base}/api/stream/weellz-embed?stream=${encodeURIComponent(streamId)}`;
 }
 
+function embdlolStrippedEmbedUrl(rawUrlOrId: string, apiBase = BACKEND_API): string {
+  const clean = String(rawUrlOrId || '').trim();
+  if (!clean) return '';
+  const match = clean.match(/\/embed\/([A-Za-z0-9_-]{4,80})(?:[/?#]|$)/i);
+  const id = match ? match[1] : clean;
+  if (!/^[A-Za-z0-9_-]{4,80}$/.test(id)) return '';
+  const base = String(apiBase || '').replace(/\/+$/, '');
+  return `${base}/api/stream/embdlol-embed?id=${encodeURIComponent(id)}`;
+}
+
 function toStrippedWeeloUrls(urls: string[], fallbackStream?: string): string[] {
   const out: string[] = [];
   const pushStream = (sid: string) => {
@@ -886,7 +917,7 @@ function syncWeeloSourcesFromFeed(): boolean {
         weellzPending: Boolean(extra.pending && !extra.urls.length),
         links: [],
       };
-      const firstStrippedIdx = sources.findIndex((s) => s.stripped);
+      const firstStrippedIdx = sources.findIndex((s) => s.special && s.stripped);
       if (firstStrippedIdx >= 0) sources.splice(firstStrippedIdx, 0, target);
       else sources.push(target);
     } else {
@@ -909,7 +940,7 @@ function syncWeeloSourcesFromFeed(): boolean {
       };
       let lastStrippedIdx = -1;
       for (let i = 0; i < sources.length; i++) {
-        if (sources[i].stripped) lastStrippedIdx = i;
+        if (sources[i].special && sources[i].stripped) lastStrippedIdx = i;
       }
       if (lastStrippedIdx >= 0) sources.splice(lastStrippedIdx + 1, 0, strippedTarget);
       else sources.push(strippedTarget);
@@ -933,17 +964,24 @@ function linkPool(index: number): string[] {
     return url ? [url] : [];
   }
   if (source.gated) {
-    const url = resolveLink({ provider: 'embdlol', quality: 0, url: fourKUrl });
+    const rawUrl = resolveLink({ provider: 'embdlol', quality: 0, url: fourKUrl });
+    const url = source.stripped ? embdlolStrippedEmbedUrl(rawUrl) : rawUrl;
     return url ? [url] : [];
   }
   const key = sessionKey();
   let links = source.links.slice();
 
-  /* Published mirrors first (they are the addresses the provider itself calls live), then the
-     static list, then the provider's plain channel name as a last resort. */
-  if (source.id === 'sky-uk' || source.id === 'sky-uhd') {
-    const wanted = source.id === 'sky-uhd' ? 2160 : 1080;
-    links = [...mirrorLinks('skyf1', wanted), ...links.filter((link) => link.quality === wanted || !link.url?.includes('embed/racing/'))];
+  /* Published mirrors first (they are the addresses the provider itself calls live), mapped through
+     the stripped strmfree relay, then the static stripped list. */
+  if (source.id === 'sky-uk') {
+    const strippedMirrors: StreamLink[] = [];
+    for (const m of mirrorLinks('skyf1', 1080)) {
+      const strippedUrl = m.url ? toStrippedStrmfreeLinkUrl(m.url) : '';
+      if (strippedUrl && !strippedMirrors.some((x) => x.url === strippedUrl)) {
+        strippedMirrors.push({ provider: 'strmfree', quality: 1080, url: strippedUrl });
+      }
+    }
+    links = [...strippedMirrors, ...links.filter((link) => link.quality === 1080 && !strippedMirrors.some((m) => m.url === link.url))];
   }
 
   /* Weelo links are synced from weellz.live every 3 minutes (primary beta?stream=... plus any
@@ -962,7 +1000,11 @@ function linkPool(index: number): string[] {
     /* Not loaded yet: leave the pool empty and say "waiting", never "unavailable". */
     if (!cataloguesReady) return [];
     const id = catalogues.embdlol[source.embdlol];
-    links = id ? [{ provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }] : [];
+    links = id
+      ? [source.stripped
+          ? { provider: 'embdlol-stripped', quality: 0, url: embdlolStrippedEmbedUrl(id) }
+          : { provider: 'embdlol', quality: 0, url: EMBDLOL_EMBED + id }]
+      : [];
   }
 
   /* Best-known link first: a catalogue saying "online" beats a probe saying "live", and anything
@@ -1097,7 +1139,7 @@ function describeSourcePill(s: StreamSource): { title: string; sub: string; badg
   }
 
   let badge = '';
-  if (s.id === 'sky-uhd' || s.gated || /\b(4K|UHD)\b/i.test(raw)) {
+  if (s.gated || /\b(4K|UHD)\b/i.test(raw)) {
     badge = '4K';
     raw = raw.replace(/\s*\b4K\b\s*/gi, ' ').trim();
   }
@@ -1332,8 +1374,10 @@ function openJoinNudge(onContinue: () => void) {
 }
 
 /* Clicking the 4K chip: nudge (once a click, unless silenced) → play. */
-async function playFourK() {
-  const index = sources.findIndex((source) => source.gated);
+async function playFourK(targetIndex?: number) {
+  const index = typeof targetIndex === 'number' && targetIndex >= 0
+    ? targetIndex
+    : sources.findIndex((source) => source.gated && !source.stripped);
   if (index < 0) return;
   const url = await fetchFourKUrl();
   if (!url) return;
@@ -1356,9 +1400,9 @@ function cachedDynamicUrl(path: string): string {
   return cached && Date.now() - cached.at < 8_000 ? cached.url : '';
 }
 
-function chooseFourK() {
-  if (nudgeMuted()) { void playFourK(); return; }
-  openJoinNudge(() => { void playFourK(); });
+function chooseFourK(targetIndex?: number) {
+  if (nudgeMuted()) { void playFourK(targetIndex); return; }
+  openJoinNudge(() => { void playFourK(targetIndex); });
 }
 
 function closeMvNudge() {
@@ -1481,13 +1525,12 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
     b.type = "button";
     const active = i === currentSource;
     const pill = describeSourcePill(s);
-    b.className = "chip src-pill" + (active ? " active" : "");
+    b.className = "chip src-pill" + (active ? " active" : "") + (s.stripped ? " chip-stripped" : "");
     b.setAttribute("aria-pressed", String(active));
     if (s.gated && !canPlayHevc()) b.title = HEVC_WARNING;
     /* Specials carry weelo's own state, so a chip that is standing by gets a subtle dim cue. */
     if (s.special) {
       b.className += ` chip-special chip-${s.special}`;
-      if (s.stripped) b.className += ' chip-stripped';
       if (specialDown(s)) b.className += ' is-down', b.title = `weellz.live: ${specialState(s) || 'standby'}`;
     } else if (s.embdlol && !s.custom && Object.keys(catalogues.embdlol).length > 0 && !catalogues.embdlol[s.embdlol]) {
       b.className += ' is-down';
@@ -1530,7 +1573,7 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
         });
       }
       /* The 4K chip asks once whether they want session alerts before playing. */
-      if (s.gated && !isPasted(s) && !isCustom(i)) return chooseFourK();
+      if (s.gated && !isPasted(s) && !isCustom(i)) return chooseFourK(i);
       currentSource = i;
       renderButtons();
       updateHeader();
@@ -1800,23 +1843,27 @@ function iframeCommitted(f) {
   }
 }
 
-function isStrippedWeellzEmbed(url: string): boolean {
-  return typeof url === 'string' && url.includes('/api/stream/weellz-embed');
+function isStrippedEmbed(url: string): boolean {
+  return typeof url === 'string' && (
+    url.includes('/api/stream/weellz-embed') ||
+    url.includes('/api/stream/embdlol-embed') ||
+    url.includes('/api/stream/strmfree-embed')
+  );
 }
 
 /* A provider's anti-embed check can read an EMPTY referrer as "sandboxed": ehgembxe answers
    no-referrer with "Remove sandbox attributes on the iframe tag" and mounts no player, while the
    same token plays with an origin referrer (verified in a real browser, not headless). 'origin'
    sends only our domain — enough to look embedded, and no path or query ever leaves the site.
-   Stripped weellz embeds run inside an explicit sandbox with no-referrer so popup/navigation
-   attempts are browser-blocked and direct weelo.live HLS segment requests send no Referer. */
+   Stripped weellz/embdlol embeds run inside an explicit sandbox with no-referrer so popup/navigation
+   attempts are browser-blocked and direct HLS segment requests send no Referer. */
 function makeStreamIframe(url, rp) {
   const f = document.createElement("iframe");
   f.src = url;
   f.allow = IFRAME_ALLOW;
   f.setAttribute('allow', IFRAME_ALLOW);
   f.allowFullscreen = true;
-  if (isStrippedWeellzEmbed(url)) {
+  if (isStrippedEmbed(url)) {
     f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation');
     f.referrerPolicy = 'no-referrer';
   } else {
