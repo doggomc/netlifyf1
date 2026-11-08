@@ -264,4 +264,10 @@ describe('stream source link pools', () => {
     expect(headers).toContain('/api/stream/*');
     expect(headers).toContain('Referrer-Policy: no-referrer');
   });
+
+  it('keeps offline Weelo chips on the FreeF1 standby screen before a session starts', () => {
+    expect(app).toContain('const isWeeloSourceLive =');
+    expect(app).toContain('const directWeeloSelected = isWeeloSourceLive(selectedSource);');
+    expect(app).toContain('if (selectedSource?.special && !directWeeloSelected)');
+  });
 });

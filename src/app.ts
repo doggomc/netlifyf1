@@ -1556,6 +1556,13 @@ const specialState = (s: StreamSource) => {
   return (s.weelo && catalogues.weelo[s.weelo]) || '';
 };
 const specialDown = (s: StreamSource) => /^(offline|dark)$/.test(specialState(s));
+const isWeeloSourceLive = (s: StreamSource | undefined): boolean => {
+  if (!s?.special) return false;
+  if (isPasted(s)) return true;
+  if (!weeloSourceUrls(s).length) return false;
+  const st = specialState(s);
+  return Boolean(st) && !specialDown(s);
+};
 
 function renderTabBar() {
   /* Language tabs only: the multi-viewer is a button beside the player, in its own lazy chunk.
@@ -1637,6 +1644,9 @@ function renderButtons({ quiet = false }: { quiet?: boolean } = {}) {
         currentSource = i;
         renderButtons();
         updateHeader();
+        if (!isStreamAvailable(currentSession)) {
+          return showNoStream({ blocked: false });
+        }
         return showNoStream({
           title: 'Link pending on weellz.live',
           text: `${pill.title} has not published its live stream link yet. Links refresh automatically every 3 minutes.`,
@@ -1752,6 +1762,14 @@ function startNS() {
   const x = $("noStreamText");
   const msgs = NO_STREAM_MESSAGES;
   let i = 0;
+  if (t && x && msgs.length) {
+    t.textContent = msgs[0].t;
+    x.textContent = msgs[0].x;
+    [t, x].forEach((e) => {
+      e.style.opacity = "1";
+      e.style.transform = "none";
+    });
+  }
   (function next() {
     if (!nsRunning) return;
     if (nsPaused) {
@@ -2127,11 +2145,21 @@ function load() {
   }
 
   const selectedSource = sources[currentSource];
-  const directWeeloSelected = Boolean(selectedSource?.special && weeloSourceUrls(selectedSource).length > 0);
+  if (!isStreamAvailable(currentSession) && !cataloguesReady && (selectedSource?.special || selectedSource?.embdlol) && !isCustom()) {
+    setLoaderText('Checking live feeds…');
+    return void loadCatalogues().then(() => token === playerLoadToken && load());
+  }
+  const directWeeloSelected = isWeeloSourceLive(selectedSource);
   const directEmbSelected = Boolean(selectedSource?.embdlol && catalogues.embdlol[selectedSource.embdlol]);
-  if (!isStreamAvailable(currentSession) && !catalogues.weellz?.anyLive && !directWeeloSelected && !directEmbSelected) {
-    showNoStream({ blocked: false });
-    return;
+  if (!isStreamAvailable(currentSession)) {
+    if (selectedSource?.special && !directWeeloSelected) {
+      showNoStream({ blocked: false });
+      return;
+    }
+    if (!catalogues.weellz?.anyLive && !directWeeloSelected && !directEmbSelected) {
+      showNoStream({ blocked: false });
+      return;
+    }
   }
 
   normalizeCurrentSource();
@@ -3146,8 +3174,9 @@ async function refreshWeeloFeeds(): Promise<void> {
     if (isStreamPlayingOnStage() || stageBox?.querySelector('iframe, video')) return;
 
     const selected = sources[currentSource];
-    const weeloReady = Boolean(selected?.special && !specialDown(selected) && weeloSourceUrls(selected).length > 0);
-    if ((isStreamAvailable(currentSession) || catalogues.weellz?.anyLive || weeloReady) && noStreamEl?.classList.contains('visible') && nsRunning) {
+    const weeloReady = isWeeloSourceLive(selected);
+    const anyReady = selected?.special ? weeloReady : Boolean(catalogues.weellz?.anyLive);
+    if ((isStreamAvailable(currentSession) || anyReady) && noStreamEl?.classList.contains('visible') && nsRunning) {
       load();
     }
   } catch {
